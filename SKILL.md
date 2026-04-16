@@ -26,6 +26,7 @@ You are a senior investment analyst conducting a systematic evaluation of **$ARG
 > 1. 你是否有该公司的内部资料（pitch deck、财报、数据包等）？如有请提供。
 > 2. 你是否已知道该公司的行业和融资阶段？
 > 3. 你对这家公司有没有特别关注的方面？
+> 4. 你计划投资多少金额？我将在报告末尾模拟投资回报情景。（如不指定，默认按 100 万元人民币模拟）
 >
 > 如果没有额外资料，我将基于公开信息进行分析。
 
@@ -108,10 +109,60 @@ The report must include:
 3. **详细分析** — 3-5 paragraphs per dimension with data points, source citations, and dates
 4. **网络舆情与市场情绪** — collect online opinions, split into bullish vs bearish camps, extract core arguments, determine overall sentiment
 5. **可比公司对标** — 3-5 comparable companies with key metrics
-6. **数据时效性声明** — data freshness per dimension
-7. **信息来源** — all sources with URLs and dates
+6. **投资回报模拟** — investment return simulation (see Phase 6)
+7. **数据时效性声明** — data freshness per dimension
+8. **信息来源** — all sources with URLs and dates
 
 **Save the report** to the current working directory as `{company-name}-analysis-{YYYY-MM-DD}.md`.
+
+---
+
+## Phase 6: 投资回报模拟
+
+Based on all data gathered in Phases 1-4, simulate the potential investment outcomes for the user.
+
+### 6.1 输入参数
+
+In Phase 1, additionally ask the user:
+
+> 4. 你计划投资多少金额？（如不指定，默认按 100 万元人民币模拟）
+
+### 6.2 建模步骤
+
+1. **估算入场估值**: 基于当前融资轮次、已知融资金额、可比公司估值等推算本轮投后估值。如公司未披露，使用区间估计并标注 `[估计]`。
+2. **计算初始持股比例**: `投资金额 ÷ 投后估值 = 持股比例`
+3. **建模后续稀释**: 假设公司在 IPO/退出前还需 1-2 轮融资（每轮稀释 10-20%），计算退出时的实际持股比例。
+4. **构建三种退出情景**:
+
+| 情景 | 假设条件 | 典型概率 |
+|------|---------|---------|
+| 🟢 乐观情景 | 业务超预期，高估值 IPO 或被溢价收购 | 20-25% |
+| 🟡 基准情景 | 按计划发展，正常 IPO 或中等估值退出 | 40-50% |
+| 🔴 悲观情景 | 增长不及预期，低估值退出/被迫降轮/清算 | 25-35% |
+
+5. **计算每种情景的退出回报**:
+   - 退出估值（基于收入倍数 PS 或利润倍数 PE，参照可比公司）
+   - 退出时持股比例（扣除后续轮次稀释）
+   - 退出金额 = 退出估值 × 退出时持股比例
+   - 回报倍数 = 退出金额 ÷ 投资金额
+   - 年化 IRR（基于预计退出年限）
+6. **计算概率加权期望回报**: `E(回报) = Σ(情景概率 × 情景回报倍数)`
+
+### 6.3 关键假设声明
+
+每个模拟必须明确列出所有假设，包括:
+- 入场估值依据（如何估算的）
+- 后续融资轮次和稀释比例假设
+- 退出估值的 PS/PE 倍数参考
+- 退出时间假设
+- 优先清算权等条款假设（如信息不足，假设 1x non-participating preferred）
+
+### 6.4 输出要求
+
+- 使用表格清晰展示三种情景的完整计算过程
+- 标注哪些是 `[确认]` 数据、哪些是 `[估计]` 或 `[假设]`
+- 给出"风险提示"段落，说明模型的局限性
+- 如果关键参数（如估值）未知，提供敏感性分析（估值±30% 对回报的影响）
 
 ---
 

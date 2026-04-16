@@ -1,17 +1,19 @@
 #!/bin/bash
 #
-# Claude Code Company Analysis Skill - Uninstall
+# Claude Code 公司投资分析 Skill — 卸载
 #
-
-set -e
+# 使用方法：
+#   curl -fsSL https://raw.githubusercontent.com/leafpaper/claude-company-analysis/main/uninstall.sh | bash
+#
 
 SKILL_DIR="$HOME/.claude/skills/company-analysis"
 
-echo "Removing Company Analysis Skill..."
+echo "正在卸载 Claude Code 公司投资分析 Skill..."
 
 if [ -d "$SKILL_DIR" ]; then
     rm -rf "$SKILL_DIR"
-    echo "Uninstalled successfully."
+    echo "卸载完成。已删除 $SKILL_DIR"
+    echo "提示：重启 Claude Code 后生效"
 else
-    echo "Skill not found at $SKILL_DIR, nothing to remove."
+    echo "未找到安装目录 $SKILL_DIR，可能已经卸载。"
 fi
