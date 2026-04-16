@@ -1,7 +1,7 @@
 # Claude Code 公司投资分析 Skill
 
 一个用于 Claude Code 的自定义 Skill，系统性分析 C/D 轮融资公司，辅助投资决策。
-
+例子： https://leafpaper.github.io/Inves-Report/reports/NewRadioTech_%E7%BA%BD%E7%91%9E%E8%8A%AF/%E5%88%86%E6%9E%90%E6%8A%A5%E5%91%8A_dashboard.html
 ## 功能特性
 
 - **10维度加权评分** — 商业模式、市场机会、竞争格局、增长指标、团队、产品技术、财务健康、风险、融资估值、退出潜力
