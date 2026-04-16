@@ -12,7 +12,9 @@ You are a senior investment analyst conducting a systematic evaluation of **$ARG
 
 - **时效性第一**: 所有数据必须是最新的。每条数据标注来源和日期。超过 12 个月的数据标记为 `[历史数据]`。
 - **诚实透明**: 信息不足时明确标注，绝不编造数据。区分 `[确认]`、`[估计]`、`[传闻]`。
-- **证据驱动**: 每个评分必须有具体依据，不得凭感觉打分。
+- **零假设原则**: **绝不使用假设数据填充报告**。如果某项数据（如毛利率、估值、条款）无法通过公开搜索或用户资料获得，必须写"未知/未披露"并放入信息缺口章节，而不是用"[假设]"值填充。只有投资回报模拟（Phase 6）中的情景参数允许合理假设，且必须明确标注。
+- **证据驱动**: 每个评分必须有具体依据，不得凭感觉打分。无法找到充分证据的维度必须降低置信度或标记 N/A。
+- **完整性强制**: 报告的每个章节和每个维度都必须完整输出，不得省略或合并。详细分析必须覆盖全部10个维度，每个维度独立成段（3-5段）。网络舆情必须有来源表格和URL。HTML版本必须与MD版本内容完全一致。
 - **输出语言**: 使用中文撰写报告。
 
 ---
@@ -66,6 +68,12 @@ After all rounds, compile a structured evidence base organized by the 10 analysi
 3. Identify dimensions where data is insufficient — flag these.
 4. If critical data is outdated (>12 months), run supplementary searches.
 5. Discard clearly outdated data that has been superseded by newer information.
+6. **数据真实性审核**: 对每个关键数据点进行来源验证——
+   - 公司BP自述的数据标注 `[公司自述]`，需注意可能存在美化
+   - 多个独立来源交叉确认的标注 `[确认]`
+   - 仅单一来源的标注 `[待验证]`
+   - 无法找到来源支撑的数据**不得使用**，放入信息缺口章节
+7. **完整性检查清单**: 在进入评分阶段前，逐项确认每个维度是否有至少1个可用数据点。完全空白的维度标记 N/A。
 
 ---
 
@@ -139,7 +147,7 @@ Using frameworks from `references/term-sheet-guide.md`:
 2. **逐项分析**: 优先清算权类型、反稀释条款、期权池影响、对赌条款、董事会构成。
 3. **退出瀑布建模**: 在投资回报模拟的三种退出情景下，分别计算含条款 vs 不含条款的回报差异。
 4. **条款友好度评分**: ★ 到 ★★★★★。
-5. **如信息不足**: 使用行业标准假设（1x non-participating preferred, broad-based WA anti-dilution），并标注为假设。
+5. **如信息不足**: 明确标注"条款信息不足，无法进行完整分析"，列出需要获取的条款清单。**不要用假设数据构造虚假的条款分析**——仅说明在不同条款假设下回报可能如何变化（如"如果存在participating preferred，悲观情景回报可能进一步压缩X%"），但不假装知道实际条款。
 
 ---
 
@@ -147,19 +155,29 @@ Using frameworks from `references/term-sheet-guide.md`:
 
 Generate the final report following the exact template in `references/report-template.md`.
 
-The report must include:
+The report **must include ALL 12 sections below — no section may be skipped or merged**:
+
 1. **Executive Summary** — overall score (quantitative + qualitative adjusted), data confidence, key strengths/risks, due diligence questions
 2. **评分总览表** — all 10 dimensions with scores, weights, weighted scores, justifications + qualitative modifier
-3. **详细分析** — 3-5 paragraphs per dimension with data points, source citations, and dates
-4. **网络舆情与市场情绪** — bullish vs bearish camps, core arguments, overall sentiment
-5. **可比公司对标** — 3-5 comparable companies with key metrics
+3. **详细分析** — **必须覆盖全部 10 个维度，每个维度独立成子章节（3.1-3.10）**，每个子章节 3-5 段，包含具体数据点、来源引用和日期。不得合并维度、不得省略任何维度。
+4. **网络舆情与市场情绪** — **必须包含看好派和看衰派两个表格**，每个表格至少3行，每行包含来源类型、核心论据、代表性声音/引用、来源URL和日期。必须有情绪分析总结段（2-3段）。
+5. **可比公司对标** — 3-5 comparable companies with key metrics table
 6. **投资回报模拟** — investment return simulation (see Phase 6)
-7. **估值分析** — DCF + comparable multiples + real options + narrative-to-numbers + triangulation (see Phase 4.7)
-8. **条款分析** — term sheet assessment + waterfall impact + friendliness rating (see Phase 4.8)
-9. **定性判断** — Zhang Lei qualitative frameworks + VC qualitative analysis + modifier calculation (see Phase 4.5)
+7. **估值分析** — DCF + comparable multiples + real options + narrative-to-numbers + triangulation (see Phase 4.7). **只使用已确认或可推算的数据**，无法获得的参数写"未知"而非假设值。
+8. **条款分析** — 如有条款信息则详细分析；**如无条款信息，明确写"条款信息不足，无法进行分析"**，并列出需要获取的条款清单，不要用假设数据填充整个章节。
+9. **定性判断** — qualitative frameworks + modifier calculation
 10. **信息缺口与尽调优先级** — prioritized unknowns with impact assessment
-11. **数据时效性声明** — data freshness per dimension
+11. **数据时效性声明** — data freshness per dimension with confidence badges
 12. **信息来源** — all sources with URLs and dates
+
+### 报告完整性自检清单（生成报告前必须逐项确认）
+
+- [ ] 详细分析是否覆盖了全部10个维度（3.1商业模式 → 3.10退出潜力）？
+- [ ] 网络舆情是否有看好/看衰两个表格且每个表格≥3行且带来源URL？
+- [ ] 每个评分是否引用了具体数据/事实（而非"看起来不错"）？
+- [ ] 报告中是否有任何未标注来源的关键数据？如有，移入信息缺口。
+- [ ] 是否存在假设数据（除投资回报模拟外）？如有，改为"未知/未披露"。
+- [ ] 信息来源列表是否包含所有引用的URL？
 
 **Save the report** to the current working directory as `{company-name}-analysis-{YYYY-MM-DD}.md`.
 
@@ -218,9 +236,12 @@ In Phase 1, additionally ask the user:
 
 After saving the `.md` report, generate an HTML dashboard version following `references/html-template-guide.md`:
 
+**关键规则: HTML 版本必须与 MD 版本内容完全一致，不得省略任何章节或维度。**
+
 1. Create `{company-name}-analysis-{YYYY-MM-DD}.html` in the same directory.
 2. Use the established design system (see html-template-guide.md for CSS variables and component specs).
-3. Include all report sections with visual enhancements:
+3. **HTML 必须包含 MD 报告的全部 12 个章节**，详细分析必须包含全部 10 个维度的独立子章节。
+4. Include all report sections with visual enhancements:
    - SVG score ring chart (quantitative + adjusted score)
    - Dimension score bars with tier-based colors
    - Team cards grid, tech comparison bars, risk severity dots
