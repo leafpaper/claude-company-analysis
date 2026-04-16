@@ -27,12 +27,16 @@ curl -fsSL "$REPO_URL/SKILL.md" -o "$SKILL_DIR/SKILL.md"
 curl -fsSL "$REPO_URL/references/scoring-rubric.md" -o "$SKILL_DIR/references/scoring-rubric.md"
 curl -fsSL "$REPO_URL/references/search-strategy.md" -o "$SKILL_DIR/references/search-strategy.md"
 curl -fsSL "$REPO_URL/references/report-template.md" -o "$SKILL_DIR/references/report-template.md"
+curl -fsSL "$REPO_URL/references/qualitative-frameworks.md" -o "$SKILL_DIR/references/qualitative-frameworks.md"
+curl -fsSL "$REPO_URL/references/valuation-frameworks.md" -o "$SKILL_DIR/references/valuation-frameworks.md"
+curl -fsSL "$REPO_URL/references/term-sheet-guide.md" -o "$SKILL_DIR/references/term-sheet-guide.md"
+curl -fsSL "$REPO_URL/references/html-template-guide.md" -o "$SKILL_DIR/references/html-template-guide.md"
 
 # 验证安装
 echo "[3/3] 验证安装..."
 
 FILE_COUNT=$(find "$SKILL_DIR" -name "*.md" | wc -l | tr -d ' ')
-if [ "$FILE_COUNT" -eq "4" ]; then
+if [ "$FILE_COUNT" -eq "8" ]; then
     echo ""
     echo "============================================"
     echo "  安装成功！"
@@ -56,6 +60,6 @@ if [ "$FILE_COUNT" -eq "4" ]; then
     echo "提示：重启 Claude Code 后生效"
     echo ""
 else
-    echo "错误：安装可能不完整，预期 4 个文件，实际找到 $FILE_COUNT 个。"
+    echo "错误：安装可能不完整，预期 8 个文件，实际找到 $FILE_COUNT 个。"
     exit 1
 fi

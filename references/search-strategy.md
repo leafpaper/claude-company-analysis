@@ -101,6 +101,22 @@
 - 判断整体市场情绪倾向：强烈看好 / 偏向看好 / 中性分歧 / 偏向看衰 / 强烈看衰
 - 特别关注"聪明钱"（知名投资人、行业专家）的态度
 
+### Round 5.5: 条款与交易信息 (Term Sheet & Deal Intelligence)
+**目标**: 搜索本轮融资条款、cap table 结构、投资人动态
+
+```
+搜索查询:
+1. "{company} funding terms valuation cap table {YEAR}"
+2. "{company} 融资条款 对赌 优先清算权 回购"
+3. "{company} investor rights board composition {YEAR}"
+4. "{company} convertible note SAFE outstanding debt"
+5. "{company} 股权结构 持股比例 天眼查 企查查"
+```
+
+**期望获得**: 融资条款细节、cap table 结构、对赌条款、优先清算权类型、董事会构成、可转债/SAFE 信息
+
+*注: 条款信息通常高度保密，公开搜索可能收获有限。如信息不足，在报告中标注并使用行业标准假设。*
+
 ### Round 6: 深度阅读 (WebFetch)
 **目标**: 深入阅读关键页面，获取结构化详细信息
 
@@ -138,16 +154,27 @@
 - 去掉年份限定词，搜索全时间范围
 - 使用公司别名、英文/中文名交替搜索
 - 搜索母公司或子品牌
+- 具体查询: `"{company}" OR "{company别名}" site:36kr.com OR site:crunchbase.com`
 
 **策略 2: 间接推断**
-- 通过招聘信息推断团队规模和方向（搜索 "{company} jobs careers"）
-- 通过竞品数据推断市场规模
-- 通过 LinkedIn 员工数变化推断公司健康度
+- 招聘信息 → 团队规模和方向: `"{company} jobs careers hiring {YEAR}"`、`"{company} 招聘 BOSS直聘 猎聘"`
+- 竞品数据 → 市场规模: `"{competitor1} OR {competitor2} market size revenue"`
+- LinkedIn 员工数变化 → 公司健康度: `site:linkedin.com "{company}" employees`
+- 专利申请 → 技术方向: `"{company} patent application {YEAR}"`、`"{company} 专利 发明"`
+- 政府补贴/项目 → 政策支持: `"{company} 政府补贴 专精特新 高新技术"`
 
-**策略 3: 标记信息缺口**
-- 如果经过降级搜索仍无法获取某维度数据，在报告中明确标注
+**策略 3: 专家与内部信号挖掘**
+- 创始人演讲/访谈: `"{founder name}" interview speech keynote {YEAR}`
+- 投资人评论: `"{lead investor}" portfolio "{company}" opinion`
+- 行业会议: `"{company}" demo day pitch conference {YEAR}`
+- 学术论文（技术公司）: `"{company}" OR "{founder}" paper publication`
+- 供应商/合作伙伴公告: `"{company}" partnership announcement supplier`
+
+**策略 4: 标记信息缺口**
+- 如果经过以上策略仍无法获取某维度数据，在报告的"信息缺口"章节中明确标注
 - 将该维度的数据置信度标记为"低"
-- 在"关键尽调问题"中列出需要进一步调查的问题
+- 参照 `scoring-rubric.md` 的证据质量门控规则处理低置信维度
+- 在"关键尽调问题"中列出需要进一步调查的问题及建议获取途径
 
 ---
 
@@ -161,6 +188,60 @@
 3. "{company} 裁员 问题 {YEAR}"
 4. "{company} 行业报告 市场规模"
 5. "{company} 创始人 背景 履历"
+```
+
+---
+
+## 行业特定搜索补充
+
+根据目标公司所在行业，增加以下专项搜索（选择适用的 1-2 个行业模板）：
+
+### 半导体/芯片
+```
+1. "{company} tape-out wafer foundry process node {YEAR}"
+2. "{company} design win customer qualification"
+3. "{company} AEC-Q certification FiRa CCC {YEAR}"
+4. "{industry} chip 国产替代 自主可控 {YEAR}"
+```
+
+### SaaS/企业软件
+```
+1. "{company} NDR churn rate ARR NRR {YEAR}"
+2. "{company} customer case study ROI implementation"
+3. "{company} vs {competitor} G2 review comparison"
+4. "{company} enterprise contract ACV deal size"
+```
+
+### 消费品/电商
+```
+1. "{company} GMV repeat purchase rate {YEAR}"
+2. "{company} 抖音 天猫 旗舰店 销量 评价"
+3. "{company} customer acquisition cost unit economics"
+4. "{company} brand awareness NPS consumer survey"
+```
+
+### 生物医药
+```
+1. "{company} clinical trial phase FDA NMPA CDE {YEAR}"
+2. "{company} pipeline drug candidate IND NDA"
+3. "{company} patent expiry freedom to operate"
+4. "{company} KOL opinion scientific advisory board"
+```
+
+### 金融科技
+```
+1. "{company} license regulatory approval 牌照 {YEAR}"
+2. "{company} take rate NPL default rate risk"
+3. "{company} AUM transaction volume {YEAR}"
+4. "{company} compliance fintech regulation {YEAR}"
+```
+
+### AI/大模型
+```
+1. "{company} model benchmark performance {YEAR}"
+2. "{company} compute cost GPU training inference"
+3. "{company} API usage developer adoption {YEAR}"
+4. "{company} data moat proprietary dataset"
 ```
 
 ---
