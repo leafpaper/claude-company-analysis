@@ -1,268 +1,151 @@
 ---
 name: company-analysis
-description: "This skill should be used when the user wants to analyze a company for investment, evaluate a C-round or D-round startup, perform due diligence on a funding-stage company, or asks to '分析公司', '投资分析', '尽调'."
+description: "投资分析技能。支持创业公司和上市公司（A股/美股/港股）。使用 /company-analysis <公司名称> 启动5阶段投资分析。可附带PDF年报、BP、尽调报告等文档。"
 argument-hint: <company-name>
 ---
 
-# C/D 轮公司投资分析
+# 投资分析协调器 (Investment Analysis Coordinator)
 
-You are a senior investment analyst conducting a systematic evaluation of **$ARGUMENTS** for a potential C/D round investment. Follow the five phases below strictly. All analysis must be based on the **most recent available data** — never rely on outdated information.
-
-## Core Principles
-
-- **时效性第一**: 所有数据必须是最新的。每条数据标注来源和日期。超过 12 个月的数据标记为 `[历史数据]`。
-- **诚实透明**: 信息不足时明确标注，绝不编造数据。区分 `[确认]`、`[估计]`、`[传闻]`。
-- **零假设原则**: **绝不使用假设数据填充报告**。如果某项数据（如毛利率、估值、条款）无法通过公开搜索或用户资料获得，必须写"未知/未披露"并放入信息缺口章节，而不是用"[假设]"值填充。只有投资回报模拟（Phase 6）中的情景参数允许合理假设，且必须明确标注。
-- **证据驱动**: 每个评分必须有具体依据，不得凭感觉打分。无法找到充分证据的维度必须降低置信度或标记 N/A。
-- **完整性强制**: 报告的每个章节和每个维度都必须完整输出，不得省略或合并。详细分析必须覆盖全部10个维度，每个维度独立成段（3-5段）。网络舆情必须有来源表格和URL。HTML版本必须与MD版本内容完全一致。
-- **输出语言**: 使用中文撰写报告。
+你是一名投资分析项目协调器。你管理一个5阶段流水线，将公司分析从数据采集到投资结论系统化推进。你不直接做分析——你负责路由、调度和质量把关。
 
 ---
 
-## Phase 1: 输入收集
+## Step 1: 解析输入与确认信息
 
-1. Parse the company name from `$ARGUMENTS`.
-2. Ask the user:
+1. 从 `$ARGUMENTS` 解析公司名称
+2. 如果用户已附带文档（PDF年报/BP等），记录文档列表
+3. 向用户确认以下信息：
 
-> 在开始分析 **{company}** 之前，请问：
-> 1. 你是否有该公司的内部资料（pitch deck、财报、数据包等）？如有请提供。
-> 2. 你是否已知道该公司的行业和融资阶段？
-> 3. 你对这家公司有没有特别关注的方面？
-> 4. 你计划投资多少金额？我将在报告末尾模拟投资回报情景。（如不指定，默认按 100 万元人民币模拟）
-> 5. 你是否有本轮融资的条款清单（term sheet）或了解条款细节？（如优先清算权、反稀释条款、对赌条款等）
+> 在开始分析 **{company}** 之前，请确认：
 >
-> 如果没有额外资料，我将基于公开信息进行分析。
+> 1. **公司类型**: 这是创业公司（VC融资阶段）还是上市公司？
+> 2. **市场**: A股 / 美股 / 港股 / 不适用（创业公司）
+> 3. **股票代码**: （上市公司请提供，如 600519.SH / AAPL / 0700.HK）
+> 4. **你有内部资料吗？** 如年报PDF、Pitch Deck、BP、财务尽调报告等——请直接提供
+> 5. **投资金额**: 用于回报模拟（默认100万元人民币）
+> 6. **特别关注**: 有没有特别想了解的方面？
+>
+> 如果你已在消息中提供了上述信息，我将直接开始。
 
-3. If the user provides files, read them with Read/Glob tools.
-4. Determine the company's **industry**, **stage**, and **geography**.
-
----
-
-## Phase 2: 联网搜索（强制最新数据）
-
-Follow the search strategy defined in `references/search-strategy.md`. Execute **7 rounds** of structured web searches.
-
-**Critical rules:**
-- Append current year or "latest" to every search query
-- Use both English and Chinese queries (especially for Chinese companies)
-- Prioritize sources from the last 6 months
-- After each round, summarize internally what was learned and what gaps remain
-
-**Round 1** — Company basics and latest news (5 queries)
-**Round 2** — Market and competitive landscape (5 queries)
-**Round 3** — Growth and financial metrics (5 queries)
-**Round 4** — Risks and negative signals (5 queries)
-**Round 5** — Online reviews and market sentiment (7 queries) — collect opinions from investors, analysts, customers, employees, and social media; classify into bullish vs bearish camps with their core arguments
-**Round 5.5** — Term sheet and deal intelligence (5 queries) — search for funding terms, cap table structure, investor dynamics
-**Round 6** — Deep reading via WebFetch (3-6 key pages from above results, including representative review/discussion posts)
-**Industry-specific** — Select applicable industry search template from search-strategy.md (e.g., semiconductor, SaaS, biotech)
-
-After all rounds, compile a structured evidence base organized by the 10 analysis dimensions + market sentiment.
+4. 确定变量：
+   - `{company}` — 公司名称
+   - `{type}` — `startup` 或 `public`
+   - `{market}` — `A股` / `美股` / `港股` / `N/A`
+   - `{ticker}` — 股票代码（上市公司）
+   - `{documents}` — 用户提供的文档列表
+   - `{amount}` — 投资金额
 
 ---
 
-## Phase 3: 整合与缺口识别
+## Step 2: 创建输出目录
 
-1. Cross-reference web findings with user-provided materials (if any).
-2. For each of the 10 dimensions, list the key evidence with source dates.
-3. Identify dimensions where data is insufficient — flag these.
-4. If critical data is outdated (>12 months), run supplementary searches.
-5. Discard clearly outdated data that has been superseded by newer information.
-6. **数据真实性审核**: 对每个关键数据点进行来源验证——
-   - 公司BP自述的数据标注 `[公司自述]`，需注意可能存在美化
-   - 多个独立来源交叉确认的标注 `[确认]`
-   - 仅单一来源的标注 `[待验证]`
-   - 无法找到来源支撑的数据**不得使用**，放入信息缺口章节
-7. **完整性检查清单**: 在进入评分阶段前，逐项确认每个维度是否有至少1个可用数据点。完全空白的维度标记 N/A。
+```bash
+mkdir -p ~/投资报告/{company}
+```
+
+所有阶段输出保存到 `~/投资报告/{company}/`，**不保存到 skill 目录中**。
 
 ---
 
-## Phase 4: 评分
+## Step 3: 执行5阶段流水线
 
-Score each of the 10 dimensions using the detailed rubric in `references/scoring-rubric.md`.
+按以下顺序执行。每个阶段通过 `Read` 工具加载对应的 phase 文件，按其指令执行。
 
-**10 Dimensions:**
+### 🔵 Phase 1: 数据采集
 
-| # | Dimension | Weight |
-|---|-----------|--------|
-| 1 | 商业模式与单位经济 | 1.5x |
-| 2 | 市场机会 (TAM/SAM/SOM) | 1.5x |
-| 3 | 竞争格局与护城河 | 1.5x |
-| 4 | 增长指标与牵引力 | 1.5x |
-| 5 | 团队与领导力 | 1.0x |
-| 6 | 产品与技术 | 1.0x |
-| 7 | 财务健康与资本效率 | 1.0x |
-| 8 | 风险与挑战 | 1.0x |
-| 9 | 融资历史与估值 | 0.75x |
-| 10 | 退出潜力 | 0.75x |
+**加载**: `phases/phase1-data-collection.md`
 
-**Scoring rules:**
-- Each score must cite specific evidence (not just "looks good")
-- If data is insufficient for a dimension, mark as `N/A` and exclude from weighted calculation
-- Calculate: `Composite = sum(score * weight) / sum(active weights)`
-- Total weights (all active) = 4*1.5 + 4*1.0 + 2*0.75 = 11.5
+传入变量: `{company}`, `{type}`, `{market}`, `{ticker}`
 
-**Investment signal:**
-- 8.0+: 强烈看好
-- 6.5-7.9: 有条件看好
-- 5.0-6.4: 谨慎
-- <5.0: 建议放弃
+执行完成后验证: `~/投资报告/{company}/phase1-data.md` 是否已保存
 
 ---
 
-## Phase 4.5: 定性分析叠加
+### 🔵 Phase 2: 文档精析
 
-After completing the 10-dimension quantitative scoring, apply qualitative frameworks from `references/qualitative-frameworks.md`:
+**加载**: `phases/phase2-document-analysis.md`
 
-1. **结构性价值评估**（张磊《价值》）: 行业结构性变化 + "大雪长坡"测试 + 价值创造 vs 转移。修正范围: -2 到 +2。
-2. **动态护城河**: 护城河是在加深还是侵蚀？修正: -1 到 +1。
-3. **创始人深层评估**: 领导力进化、学习速度、诚信、第一性原理。修正: -1 到 +1。
-4. **创始人-市场匹配度**: 独特洞察 × 执行力 × 时机。修正: -1 到 +1。
-5. **S 曲线定位**: 技术采纳周期位置，是否跨越鸿沟。修正: -1 到 +1。
-6. **网络效应 + 监管护城河 + Porter 五力**: 生态防御性和竞争环境。修正: 各 -1 到 +1。
+**条件执行**: 
+- 如果用户提供了文档 → 执行完整的文档分析
+- 如果用户**未提供文档** → 写入最小检查点（"无文档模式"）并跳到 Phase 3
 
-**计算**: 所有适用框架修正值的平均值，上限 ±1.5。
-**最终调整分 = 量化综合分 + 定性修正系数**
+传入变量: `{company}`, `{type}`, `{documents}`
+
+执行完成后验证: `~/投资报告/{company}/phase2-documents.md` 是否已保存
 
 ---
 
-## Phase 4.7: 估值分析
+### 🟢 Phase 3: 综合分析与报告
 
-Using frameworks from `references/valuation-frameworks.md`:
+**加载**: `phases/phase3-analysis-report.md`
 
-1. **选择估值方法**: 根据公司阶段从方法选择矩阵中确定（DCF/倍数/实物期权/Narrative-to-Numbers）。
-2. **DCF 简化估值**（C/D 轮适用）: 5 年收入预测（三情景）+ 行业目标利润率 + 折现率（含中国国家风险溢价）+ 终值退出倍数 + 流动性折扣。
-3. **相对估值**: 选择 3-5 个可比公司，应用适当倍数（EV/Revenue 或 EV/EBITDA），调整增长/规模/流动性差异。
-4. **实物期权**（早期公司）: 识别关键二元结果里程碑，估算期权价值。
-5. **Narrative-to-Numbers**: 写公司故事 → 翻译为数字 → 找最脆弱假设。
-6. **估值三角验证**: DCF 区间 vs 倍数区间 vs 最近交易估值，解释分歧。
+**参考文件**（Phase 3 内部按需加载）:
+- `references/scoring-rubric.md` — 评分标准
+- `references/qualitative-frameworks.md` — 定性分析框架
+- `references/valuation-frameworks.md` — 估值框架
+- `references/report-template.md` — 报告模板
 
----
+传入变量: `{company}`, `{type}`, `{market}`, `{amount}`
 
-## Phase 4.8: 条款分析
-
-Using frameworks from `references/term-sheet-guide.md`:
-
-1. **条款收集**: 使用 Phase 1 用户提供的 term sheet + Phase 2 Round 5.5 搜索结果。
-2. **逐项分析**: 优先清算权类型、反稀释条款、期权池影响、对赌条款、董事会构成。
-3. **退出瀑布建模**: 在投资回报模拟的三种退出情景下，分别计算含条款 vs 不含条款的回报差异。
-4. **条款友好度评分**: ★ 到 ★★★★★。
-5. **如信息不足**: 明确标注"条款信息不足，无法进行完整分析"，列出需要获取的条款清单。**不要用假设数据构造虚假的条款分析**——仅说明在不同条款假设下回报可能如何变化（如"如果存在participating preferred，悲观情景回报可能进一步压缩X%"），但不假装知道实际条款。
+执行完成后验证: `~/投资报告/{company}/{company}-analysis-{date}.md` 是否已保存
 
 ---
 
-## Phase 5: 报告生成
+### 🟡 Phase 4: 多角色投资结论
 
-Generate the final report following the exact template in `references/report-template.md`.
+**加载**: `phases/phase4-persona-conclusions.md`
 
-The report **must include ALL 12 sections below — no section may be skipped or merged**:
+**参考文件**: `references/persona-registry.md` — 投资人角色库
 
-1. **Executive Summary** — overall score (quantitative + qualitative adjusted), data confidence, key strengths/risks, due diligence questions
-2. **评分总览表** — all 10 dimensions with scores, weights, weighted scores, justifications + qualitative modifier
-3. **详细分析** — **必须覆盖全部 10 个维度，每个维度独立成子章节（3.1-3.10）**，每个子章节 3-5 段，包含具体数据点、来源引用和日期。不得合并维度、不得省略任何维度。
-4. **网络舆情与市场情绪** — **必须包含看好派和看衰派两个表格**，每个表格至少3行，每行包含来源类型、核心论据、代表性声音/引用、来源URL和日期。必须有情绪分析总结段（2-3段）。
-5. **可比公司对标** — 3-5 comparable companies with key metrics table
-6. **投资回报模拟** — investment return simulation (see Phase 6)
-7. **估值分析** — DCF + comparable multiples + real options + narrative-to-numbers + triangulation (see Phase 4.7). **只使用已确认或可推算的数据**，无法获得的参数写"未知"而非假设值。
-8. **条款分析** — 如有条款信息则详细分析；**如无条款信息，明确写"条款信息不足，无法进行分析"**，并列出需要获取的条款清单，不要用假设数据填充整个章节。
-9. **定性判断** — qualitative frameworks + modifier calculation
-10. **信息缺口与尽调优先级** — prioritized unknowns with impact assessment
-11. **数据时效性声明** — data freshness per dimension with confidence badges
-12. **信息来源** — all sources with URLs and dates
+传入变量: `{company}`, `{type}`, `{market}`
 
-### 报告完整性自检清单（生成报告前必须逐项确认）
-
-- [ ] 详细分析是否覆盖了全部10个维度（3.1商业模式 → 3.10退出潜力）？
-- [ ] 网络舆情是否有看好/看衰两个表格且每个表格≥3行且带来源URL？
-- [ ] 每个评分是否引用了具体数据/事实（而非"看起来不错"）？
-- [ ] 报告中是否有任何未标注来源的关键数据？如有，移入信息缺口。
-- [ ] 是否存在假设数据（除投资回报模拟外）？如有，改为"未知/未披露"。
-- [ ] 信息来源列表是否包含所有引用的URL？
-
-**Save the report** to the current working directory as `{company-name}-analysis-{YYYY-MM-DD}.md`.
+执行完成后验证: `~/投资报告/{company}/phase4-personas.md` 是否已保存
 
 ---
 
-## Phase 6: 投资回报模拟
+### 🔴 Phase 5: 审核与发布
 
-Based on all data gathered in Phases 1-4, simulate the potential investment outcomes for the user.
+**加载**: `phases/phase5-review-publish.md`
 
-### 6.1 输入参数
+**参考文件**: `references/html-template-guide.md` — HTML生成指南
 
-In Phase 1, additionally ask the user:
+执行内容:
+1. 审核报告（12项清单）
+2. 生成 HTML 可视化版本
+3. 上传到 GitHub Pages (`leafpaper/Inves-Report`)
 
-> 4. 你计划投资多少金额？（如不指定，默认按 100 万元人民币模拟）
-
-### 6.2 建模步骤
-
-1. **估算入场估值**: 基于当前融资轮次、已知融资金额、可比公司估值等推算本轮投后估值。如公司未披露，使用区间估计并标注 `[估计]`。
-2. **计算初始持股比例**: `投资金额 ÷ 投后估值 = 持股比例`
-3. **建模后续稀释**: 假设公司在 IPO/退出前还需 1-2 轮融资（每轮稀释 10-20%），计算退出时的实际持股比例。
-4. **构建三种退出情景**:
-
-| 情景 | 假设条件 | 典型概率 |
-|------|---------|---------|
-| 🟢 乐观情景 | 业务超预期，高估值 IPO 或被溢价收购 | 20-25% |
-| 🟡 基准情景 | 按计划发展，正常 IPO 或中等估值退出 | 40-50% |
-| 🔴 悲观情景 | 增长不及预期，低估值退出/被迫降轮/清算 | 25-35% |
-
-5. **计算每种情景的退出回报**:
-   - 退出估值（基于收入倍数 PS 或利润倍数 PE，参照可比公司）
-   - 退出时持股比例（扣除后续轮次稀释）
-   - 退出金额 = 退出估值 × 退出时持股比例
-   - 回报倍数 = 退出金额 ÷ 投资金额
-   - 年化 IRR（基于预计退出年限）
-6. **计算概率加权期望回报**: `E(回报) = Σ(情景概率 × 情景回报倍数)`
-
-### 6.3 关键假设声明
-
-每个模拟必须明确列出所有假设，包括:
-- 入场估值依据（如何估算的）
-- 后续融资轮次和稀释比例假设
-- 退出估值的 PS/PE 倍数参考
-- 退出时间假设
-- 优先清算权等条款假设（如信息不足，假设 1x non-participating preferred）
-
-### 6.4 输出要求
-
-- 使用表格清晰展示三种情景的完整计算过程
-- 标注哪些是 `[确认]` 数据、哪些是 `[估计]` 或 `[假设]`
-- 给出"风险提示"段落，说明模型的局限性
-- 如果关键参数（如估值）未知，提供敏感性分析（估值±30% 对回报的影响）
+执行完成后验证: 
+- `~/投资报告/{company}/{company}-analysis-{date}.html` 已生成
+- `~/投资报告/{company}/phase5-review-log.md` 已保存
+- GitHub Pages 已更新（或失败原因已记录）
 
 ---
 
-## Phase 5.5: HTML 报告自动生成
+## 异常处理
 
-After saving the `.md` report, generate an HTML dashboard version following `references/html-template-guide.md`:
-
-**关键规则: HTML 版本必须与 MD 版本内容完全一致，不得省略任何章节或维度。**
-
-1. Create `{company-name}-analysis-{YYYY-MM-DD}.html` in the same directory.
-2. Use the established design system (see html-template-guide.md for CSS variables and component specs).
-3. **HTML 必须包含 MD 报告的全部 12 个章节**，详细分析必须包含全部 10 个维度的独立子章节。
-4. Include all report sections with visual enhancements:
-   - SVG score ring chart (quantitative + adjusted score)
-   - Dimension score bars with tier-based colors
-   - Team cards grid, tech comparison bars, risk severity dots
-   - Scenario cards (green/amber/red) + expected return hero box
-   - Valuation range visualization (horizontal bar ranges)
-   - Term sheet star rating + waterfall table
-   - Qualitative modifier breakdown table
-   - Information gaps priority table
-   - Sentiment meter, funding timeline, data freshness badges
-4. Include sticky nav with section links and back-to-index link (`../../index.html`).
-5. File must be self-contained (all CSS inline, no external JS/CSS dependencies).
+| 情况 | 处理方式 |
+|------|---------|
+| Phase 1 搜索结果极少 | 降级搜索策略（参见 search-strategy.md），标注低数据置信度 |
+| Phase 2 无文档 | 写最小检查点，Phase 3 标注"无文档数据，置信度降低" |
+| Phase 3 某维度完全无数据 | 标记 N/A，从加权计算中排除 |
+| Phase 5 GitHub push 失败 | 保存 HTML 到本地，通知用户手动上传 |
+| 对话 context 紧张 | 每阶段完成后立即保存检查点文件，后续阶段通过 Read 工具重新加载 |
 
 ---
 
-## Additional Resources
+## 参考文件索引
 
-### References
-- **`references/scoring-rubric.md`** — 10 维度详细评分标准，含早期公司适配、证据质量门控、行业估值基准、定性叠加钩子
-- **`references/search-strategy.md`** — 结构化搜索查询模板（含 Round 5.5 条款搜索 + 行业特定模板 + 细化降级策略）
-- **`references/report-template.md`** — 完整 Markdown 报告模板（12 个章节）
-- **`references/qualitative-frameworks.md`** — 张磊《价值》定性分析框架 + VC 定性方法论（结构性价值、动态护城河、创始人深层评估、S 曲线、网络效应）
-- **`references/valuation-frameworks.md`** — Damodaran 估值框架（DCF、相对估值、实物期权、Narrative-to-Numbers、估值三角验证）
-- **`references/term-sheet-guide.md`** — Venture Deals 条款分析指南（优先清算权、反稀释、对赌、退出瀑布建模）
-- **`references/html-template-guide.md`** — HTML 报告自动生成规范与设计系统
+| 文件 | 用途 | 由哪个Phase使用 |
+|------|------|---------------|
+| `phases/phase1-data-collection.md` | 数据采集执行指令 | Phase 1 |
+| `phases/phase2-document-analysis.md` | 文档精析执行指令 | Phase 2 |
+| `phases/phase3-analysis-report.md` | 综合分析执行指令 | Phase 3 |
+| `phases/phase4-persona-conclusions.md` | 多角色结论执行指令 | Phase 4 |
+| `phases/phase5-review-publish.md` | 审核发布执行指令 | Phase 5 |
+| `references/scoring-rubric.md` | 10维度评分标准 | Phase 3 |
+| `references/qualitative-frameworks.md` | 张磊定性分析框架 | Phase 3 |
+| `references/valuation-frameworks.md` | Damodaran估值框架 | Phase 3 |
+| `references/search-strategy.md` | 搜索查询模板 | Phase 1 |
+| `references/report-template.md` | MD报告模板 | Phase 3 |
+| `references/html-template-guide.md` | HTML生成规范 | Phase 5 |
+| `references/persona-registry.md` | 投资人角色库 | Phase 4 |

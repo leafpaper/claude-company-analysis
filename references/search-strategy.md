@@ -246,6 +246,60 @@
 
 ---
 
+## 社交媒体与投资社区专项搜索
+
+上市公司分析时必须执行此轮搜索，创业公司可选。
+
+### A股公司
+```
+1. site:xueqiu.com "{company}" 分析 评论 {YEAR}
+2. site:xueqiu.com "{ticker}" 研报 观点
+3. site:zhihu.com "{company}" 投资 值得买 {YEAR}
+4. site:eastmoney.com "{company}" 股吧 讨论 {YEAR}
+5. "{company} 雪球 大V 分析师 观点 {YEAR}"
+```
+
+### 美股公司
+```
+1. site:reddit.com/r/investing "{company}" OR "{ticker}" analysis
+2. site:reddit.com/r/stocks "{company}" OR "{ticker}" DD
+3. site:seekingalpha.com "{ticker}" analysis {YEAR}
+4. "{ticker} wall street analyst consensus {YEAR}"
+5. "{company} {ticker} twitter fintwit sentiment"
+```
+
+### 港股公司
+```
+1. site:xueqiu.com "{company}" 港股 分析 {YEAR}
+2. site:zhihu.com "{company}" 港股 投资
+3. "{company} 港股 研报 评级 {YEAR}"
+4. site:aastocks.com "{company}" analysis
+5. "{company} Hong Kong stock forum discussion {YEAR}"
+```
+
+---
+
+## 上市公司财务数据搜索
+
+上市公司分析时追加此轮：
+
+```
+1. "{ticker} financial statements income balance cash flow"
+2. "{ticker} PE ratio PB ROE historical {YEAR}"
+3. "{ticker} free cash flow per share dividend history"
+4. "{ticker} institutional ownership 13F holdings {YEAR}"
+5. "{ticker} insider transactions buying selling {YEAR}"
+6. "{ticker} short interest days to cover {YEAR}"
+7. "{ticker} analyst price target consensus {YEAR}"
+```
+
+**财务数据优先来源**:
+- A股: 东方财富(eastmoney.com)、同花顺(10jqka.com.cn)、巨潮资讯(cninfo.com.cn)
+- 美股: Yahoo Finance、SEC EDGAR(sec.gov)、Finviz
+- 港股: AAStocks、港交所披露易(hkexnews.hk)
+
+---
+
 ## 搜索结果处理规则
 
 1. **每个搜索结果记录来源日期** — 后续分析中标注 `[来源: 域名, YYYY-MM]`
