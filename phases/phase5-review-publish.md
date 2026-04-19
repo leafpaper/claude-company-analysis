@@ -14,8 +14,8 @@
 
 ## 前置条件
 
-1. `~/投资报告/{company}/{company}-analysis-{date}.md` 存在（Phase 3）
-2. `~/投资报告/{company}/phase4-personas.md` 存在（Phase 4）
+1. `output/{company}/{company}-analysis-{date}.md` 存在（Phase 3）
+2. `output/{company}/phase4-personas.md` 存在（Phase 4）
 3. HTML模板指南可用：`references/html-template-guide.md`
 
 ---
@@ -77,7 +77,7 @@
 14. 信息缺口优先级表
 15. 数据时效性（置信度徽章）
 
-保存为 `~/投资报告/{company}/{company}-analysis-{date}.html`
+保存为 `output/{company}/{company}-analysis-{date}.html`
 
 ---
 
@@ -96,7 +96,7 @@
    mkdir -p /tmp/Inves-Report/reports/{CompanySlug}_{CompanyNameCN}
 
 3. 复制HTML报告:
-   cp ~/投资报告/{company}/{company}-analysis-{date}.html /tmp/Inves-Report/reports/{CompanySlug}_{CompanyNameCN}/分析报告_dashboard.html
+   cp output/{company}/{company}-analysis-{date}.html /tmp/Inves-Report/reports/{CompanySlug}_{CompanyNameCN}/分析报告_dashboard.html
 
 4. 更新 index.html:
    - 在对应板块（美股/一级市场）添加新卡片
@@ -116,8 +116,8 @@
 
 ## 输出
 
-1. `~/投资报告/{company}/{company}-analysis-{date}.html` — HTML 报告
-2. `~/投资报告/{company}/phase5-review-log.md` — 审核日志
+1. `output/{company}/{company}-analysis-{date}.html` — HTML 报告
+2. `output/{company}/phase5-review-log.md` — 审核日志
 3. GitHub Pages 更新
 
 ### 审核日志格式

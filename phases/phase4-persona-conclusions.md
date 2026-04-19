@@ -17,7 +17,7 @@
 
 ## 前置条件
 
-1. `~/投资报告/{company}/{company}-analysis-{date}.md` 已存在（Phase 3 完成）
+1. `output/{company}/{company}-analysis-{date}.md` 已存在（Phase 3 完成）
 2. 协调器提供 `{type}` 和 `{market}` 用于角色选择
 
 ---
@@ -65,7 +65,7 @@
 
 ## 输出格式
 
-保存为 `~/投资报告/{company}/phase4-personas.md`：
+保存为 `output/{company}/phase4-personas.md`：
 
 ```markdown
 # Phase 4 多角色投资结论: {company}

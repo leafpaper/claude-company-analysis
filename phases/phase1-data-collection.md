@@ -145,7 +145,7 @@
 
 ## 输出格式
 
-保存为 `~/投资报告/{company}/phase1-data.md`，结构如下：
+保存为 `output/{company}/phase1-data.md`，结构如下：
 
 ```markdown
 # Phase 1 数据采集: {company}

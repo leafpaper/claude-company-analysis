@@ -40,10 +40,10 @@ argument-hint: <company-name>
 ## Step 2: 创建输出目录
 
 ```bash
-mkdir -p ~/投资报告/{company}
+mkdir -p output/{company}
 ```
 
-所有阶段输出保存到 `~/投资报告/{company}/`，**不保存到 skill 目录中**。
+所有阶段输出保存到 `output/{company}/`，**不保存到 skill 目录中**。
 
 ---
 
@@ -57,7 +57,7 @@ mkdir -p ~/投资报告/{company}
 
 传入变量: `{company}`, `{type}`, `{market}`, `{ticker}`
 
-执行完成后验证: `~/投资报告/{company}/phase1-data.md` 是否已保存
+执行完成后验证: `output/{company}/phase1-data.md` 是否已保存
 
 ---
 
@@ -71,7 +71,7 @@ mkdir -p ~/投资报告/{company}
 
 传入变量: `{company}`, `{type}`, `{documents}`
 
-执行完成后验证: `~/投资报告/{company}/phase2-documents.md` 是否已保存
+执行完成后验证: `output/{company}/phase2-documents.md` 是否已保存
 
 ---
 
@@ -87,7 +87,7 @@ mkdir -p ~/投资报告/{company}
 
 传入变量: `{company}`, `{type}`, `{market}`, `{amount}`
 
-执行完成后验证: `~/投资报告/{company}/{company}-analysis-{date}.md` 是否已保存
+执行完成后验证: `output/{company}/{company}-analysis-{date}.md` 是否已保存
 
 ---
 
@@ -99,7 +99,7 @@ mkdir -p ~/投资报告/{company}
 
 传入变量: `{company}`, `{type}`, `{market}`
 
-执行完成后验证: `~/投资报告/{company}/phase4-personas.md` 是否已保存
+执行完成后验证: `output/{company}/phase4-personas.md` 是否已保存
 
 ---
 
@@ -115,8 +115,8 @@ mkdir -p ~/投资报告/{company}
 3. 上传到 GitHub Pages (`leafpaper/Inves-Report`)
 
 执行完成后验证: 
-- `~/投资报告/{company}/{company}-analysis-{date}.html` 已生成
-- `~/投资报告/{company}/phase5-review-log.md` 已保存
+- `output/{company}/{company}-analysis-{date}.html` 已生成
+- `output/{company}/phase5-review-log.md` 已保存
 - GitHub Pages 已更新（或失败原因已记录）
 
 ---
