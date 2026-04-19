@@ -89,6 +89,28 @@ mkdir -p output/{company}
 
 执行完成后验证: `output/{company}/{company}-analysis-{date}.md` 是否已保存
 
+**⚠️ Phase 3 质量门控（必须执行）：**
+```
+读取刚保存的 MD 报告，逐项检查以下章节是否存在（搜索 "## " 标题）：
+□ Executive Summary
+□ 评分总览
+□ 行业基本面分析
+□ 公司基本面分析（含财务趋势表）
+□ 详细分析（验证 5.1 到 5.10 共10个子章节都存在）
+□ 网络舆情（含"看好派"和"看衰派"表格）
+□ 可比公司对标
+□ 投资回报模拟
+□ 估值分析（含DCF预测表+敏感性矩阵）
+□ 定性判断
+□ 信息缺口
+□ 数据时效性
+□ 信息来源
+
+→ 如果有章节缺失：立即补充生成缺失章节，追加到报告文件
+→ 如果10维度详细分析不足10个子章节：补充缺失维度
+→ 全部通过后才进入 Phase 4
+```
+
 ---
 
 ### 🟡 Phase 4: 多角色投资结论
@@ -118,6 +140,17 @@ mkdir -p output/{company}
 - `output/{company}/{company}-analysis-{date}.html` 已生成
 - `output/{company}/phase5-review-log.md` 已保存
 - GitHub Pages 已更新（或失败原因已记录）
+
+**⚠️ Phase 5 HTML 质量门控（必须执行）：**
+```
+统计 MD 报告中 "## " 标题数量 → md_sections
+统计 HTML 中 <div class="section"> 或 class="num" 数量 → html_sections
+
+如果 html_sections < md_sections × 0.8：
+  → HTML内容不完整，必须重新生成
+  → 重新生成时，逐章节对照 MD 转换（不允许概括或合并）
+  → 再次验证直到通过
+```
 
 ---
 
