@@ -23,7 +23,7 @@ argument-hint: <company-name>
 > 3. **股票代码**: （上市公司请提供，如 600519.SH / AAPL / 0700.HK）
 > 4. **你有内部资料吗？** 如年报PDF、Pitch Deck、BP、财务尽调报告等——请直接提供
 > 5. **投资金额**: 用于回报模拟（默认100万元人民币）
-> 6. **特别关注**: 有没有特别想了解的方面？
+> 6. **特别关注**（可选）: 有没有特别想了解的方面？将作为 Phase 2.5 差异化洞察的 additive 输入；不指定时 AI 会自主感知行业议题。
 >
 > 如果你已在消息中提供了上述信息，我将直接开始。
 
@@ -34,6 +34,7 @@ argument-hint: <company-name>
    - `{ticker}` — 股票代码（上市公司）
    - `{documents}` — 用户提供的文档列表
    - `{amount}` — 投资金额
+   - `{focus_points}` — 用户特别关注点列表（可为空，作为 Phase 2.5 的 additive 输入）
 
 ---
 
@@ -75,6 +76,31 @@ mkdir -p output/{company}
 
 ---
 
+### 🔵 Phase 2.5: 差异化洞察（Variant Perception）
+
+**加载**: `phases/phase2.5-alpha-insights.md`
+
+**目的**: 在综合分析报告之前，主动感知该公司/行业的关键议题，挖掘 3-7 条非共识但可验证的投资洞察（variant perception）。不依赖用户输入——AI 自主识别行业特色议题；用户的 `{focus_points}` 作为 additive 叠加。
+
+传入变量: `{company}`, `{type}`, `{market}`, `{ticker}`, `{focus_points}`
+
+执行完成后验证: `output/{company}/phase2.5-alpha-insights.md` 是否已保存
+
+**⚠️ Phase 2.5 质量门控（必须执行）：**
+```
+读取刚保存的 MD 文件，检查：
+□ 开头有"关键议题感知清单"，行业特征已识别
+□ 洞察数量 ∈ [3, 7]
+□ 每条洞察 11 字段齐全（假设/议题来源/共识/变异/证据/量化/信息不对称/验证/证伪/置信度/时间窗）
+□ 至少 1 条洞察是看空/风险方向
+□ 至少 1 条洞察是用户未提及、纯 AI 自主感知的议题
+□ 用户提供的每个关注点都有对应洞察（若用户有输入）
+
+→ 任一项未通过：补充或重写该部分后再进入 Phase 3
+```
+
+---
+
 ### 🟢 Phase 3: 综合分析与报告
 
 **加载**: `phases/phase3-analysis-report.md`
@@ -92,7 +118,7 @@ mkdir -p output/{company}
 **⚠️ Phase 3 质量门控（必须执行）：**
 ```
 读取刚保存的 MD 报告，逐项检查以下章节是否存在（搜索 "## " 标题）：
-□ Executive Summary
+□ Executive Summary（含"本报告的核心非共识观点"段落，列出 Top 3 洞察标题）
 □ 评分总览
 □ 行业基本面分析
 □ 公司基本面分析（含财务趋势表）
@@ -102,6 +128,7 @@ mkdir -p output/{company}
 □ 投资回报模拟
 □ 估值分析（含DCF预测表+敏感性矩阵）
 □ 定性判断
+□ 差异化洞察（§9.5，完整引用 Phase 2.5 每条洞察）
 □ 信息缺口
 □ 数据时效性
 □ 信息来源
@@ -160,6 +187,7 @@ mkdir -p output/{company}
 |------|---------|
 | Phase 1 搜索结果极少 | 降级搜索策略（参见 search-strategy.md），标注低数据置信度 |
 | Phase 2 无文档 | 写最小检查点，Phase 3 标注"无文档数据，置信度降低" |
+| Phase 2.5 无法生成 ≥ 3 条洞察 | 降级为 1-2 条并在开头标注"数据不足，洞察置信度降低" |
 | Phase 3 某维度完全无数据 | 标记 N/A，从加权计算中排除 |
 | Phase 5 GitHub push 失败 | 保存 HTML 到本地，通知用户手动上传 |
 | 对话 context 紧张 | 每阶段完成后立即保存检查点文件，后续阶段通过 Read 工具重新加载 |
@@ -172,6 +200,7 @@ mkdir -p output/{company}
 |------|------|---------------|
 | `phases/phase1-data-collection.md` | 数据采集执行指令 | Phase 1 |
 | `phases/phase2-document-analysis.md` | 文档精析执行指令 | Phase 2 |
+| `phases/phase2.5-alpha-insights.md` | 差异化洞察执行指令 | Phase 2.5 |
 | `phases/phase3-analysis-report.md` | 综合分析执行指令 | Phase 3 |
 | `phases/phase4-persona-conclusions.md` | 多角色结论执行指令 | Phase 4 |
 | `phases/phase5-review-publish.md` | 审核发布执行指令 | Phase 5 |
