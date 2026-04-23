@@ -1,0 +1,21 @@
+# Secrets
+.env
+*.token
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Outputs（用户生成的报告不应提交）
+output/
+投资报告/
+
+# Tushare / yfinance 本地缓存
+*.parquet.meta.json

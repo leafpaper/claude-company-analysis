@@ -1,130 +1,252 @@
-# Claude Code 投资分析 Skill
+# Claude Code 投资分析 Skill (v4.1)
 
-一个用于 Claude Code 的自定义 Skill，通过 **5 阶段流水线**系统性分析公司投资价值。支持**创业公司**和**上市公司**（A股/美股/港股）。
+> **结构化数据 + PDF 原文 + 11 大师框架自动审计** 的专业投资分析技能
+>
+> 支持 A 股 / 美股 / 港股 · 6 阶段流水线 + 量化监控 · 适用于 Anthropic Claude Code
 
-**报告示例**：https://leafpaper.github.io/Inves-Report/
+<p align="center">
+  <img src="https://img.shields.io/badge/version-v4.1-blue" alt="version">
+  <img src="https://img.shields.io/badge/markets-A%E8%82%A1%20%7C%20%E7%BE%8E%E8%82%A1%20%7C%20%E6%B8%AF%E8%82%A1-green" alt="markets">
+  <img src="https://img.shields.io/badge/audit-11%20frameworks-orange" alt="frameworks">
+  <img src="https://img.shields.io/badge/license-MIT-lightgrey" alt="license">
+</p>
+
+**在线报告示例**: [leafpaper.github.io/Inves-Report](https://leafpaper.github.io/Inves-Report)
 
 ---
 
-## 核心特性
+## 核心能力
 
-### 5 阶段流水线架构
+| 能力 | 说明 |
+|------|------|
+| **结构化金融数据** | Tushare Pro（A/港股） + yfinance（美股），25+ 个 bundle 自动采集到本地 Parquet |
+| **PDF 原文解析** | `pypdf` 自动抓取年报/季报，提取 9 类关键段落（利润表变动原因 / 子公司业绩 / MD&A / 风险因素 / 非经常性损益 / 前十大股东 / 资产负债变动 / 现金流变动 / 主要会计数据）|
+| **11 大师框架审计** | Piotroski F-Score · Beneish M-Score · Altman Z-Score · DuPont · Buffett Quality · Sloan Accrual · Governance · Shareholder Flow · Forward Guidance · **Valuation (PB-ROE Gordon 错配 + 历史分位)** · Related-Party Exposure — 一条命令扫出 15-20 个红旗 |
+| **差异化洞察** | 9 字段卡片，强制数学推导（反例库防伪），证据等级 A/B/C，信号强度三合一（Level+置信度+时间窗） |
+| **多角色评审** | 段永平 / 巴菲特 / 张磊 / 木头姐 / 彼得林奇 ... 3 角色 × 3 段固定结构，强制哲学分歧 |
+| **量化监控 (`--monitor`)** | 手动触发，对比基线指标 × 最新数据，扫描 Phase 5 洞察证伪条件，输出"维持 / 建议复评 / 重大修订" |
+| **缺口闭环补查** | §十四 信息缺口强制 ≥ 3 条，Phase 6 Part D 5 步穷举（巨潮 → 官网 → PDF → Google → Tushare API）|
+
+---
+
+## 🧭 6+1 阶段流水线
 
 ```
-Phase 1: 数据采集 → Phase 2: 文档精析 → Phase 3: 综合分析 → Phase 4: 多角色结论 → Phase 5: 审核发布
+Step 0-2：环境自检 + 输入确认 + 建目录
+   ↓
+Phase 1 数据采集       （Tushare + yfinance + PDF 下载解析）
+   ↓
+Phase 2 文档精析       （精读 PDF 9 段落，提取原文引用）
+   ↓
+Phase 3 综合分析与报告 （15 章节主报告 + Step 1.5 自动跑 11 框架 audit）
+   ↓
+Phase 4 多角色投资结论 （3 角色 × 3 段精简）
+   ↓
+Phase 5 差异化洞察     （9 字段数学推导卡片 + Level A/B/C 防伪）
+   ↓
+Phase 6 审核发布       （18 项审核 + Part D 补查闭环 + HTML + GitHub Pages）
+
+    [可选，手动触发] ↓
+Phase 7 量化监控       （/company-analysis <公司> --monitor）
 ```
 
-| 阶段 | 角色 | 做什么 |
-|------|------|--------|
-| **Phase 1** | 金融调查记者 | 联网搜索 + 社交媒体舆情（雪球/知乎/Reddit/SeekingAlpha） |
-| **Phase 2** | 财务文档分析师 | PDF年报/BP/尽调报告的结构化数据提取 |
-| **Phase 3** | 资深投资分析师 | 行业基本面 + 公司基本面 + 10维度评分 + 估值 + 回报模拟 |
-| **Phase 4** | 世界级投资人评审团 | 巴菲特/段永平/张磊/木头姐等真实投资人角色独立点评 |
-| **Phase 5** | 报告审计师 + 发布经理 | 21项审核清单 + HTML生成 + GitHub Pages自动发布 |
+完整流程 / 质量门控 / 异常处理见 [SKILL.md](./SKILL.md)。
 
-### 支持的公司类型
+---
 
-| 类型 | 搜索策略 | 评分标准 | 估值方法 | 回报模拟 |
-|------|---------|---------|---------|---------|
-| **创业公司** | 7轮搜索+行业专项 | VC评分标准 | DCF+倍数+实物期权 | 入场→稀释→退出 |
-| **上市公司** | 8轮搜索+财务数据+社交媒体 | 上市公司调整版 | 完整DCF+历史区间+DDM | 三情景目标价 |
+## 快速开始
 
-### 分析框架
-
-- **10维度加权评分** — 商业模式、市场机会、竞争格局、增长指标、团队、产品技术、财务健康、风险、估值、退出/回报潜力
-- **张磊《价值》定性框架** — 结构性价值、动态护城河、大雪长坡、价值创造 vs 转移
-- **Damodaran 估值体系** — DCF、相对估值、实物期权、Narrative-to-Numbers、估值三角验证
-- **社交媒体舆情采集** — 雪球、知乎、Reddit、SeekingAlpha、东方财富等平台
-- **多角色投资结论** — 5位真实投资人角色（巴菲特/段永平/张磊/木头姐/彼得林奇）独立点评
-
-## 一键安装
+### 1. 安装 skill
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/leafpaper/claude-company-analysis/main/install.sh | bash
 ```
 
-安装完成后重启 Claude Code，即可使用 `/company-analysis` 命令。
+这会克隆到 `~/.claude/skills/company-analysis/` 并创建 `~/投资报告/` 输出目录。
 
-## 使用方法
-
-在 Claude Code（CLI 或 VS Code 扩展）中输入：
-
-```
-/company-analysis 苹果
-```
-
-Skill 会自动判断公司类型（创业/上市），按 5 阶段流水线执行分析。
-
-### 示例
+### 2. 安装 Python 依赖
 
 ```bash
-# 上市公司
-/company-analysis 苹果          # A股/美股自动识别
-/company-analysis Tesla         # 美股
-/company-analysis 腾讯          # 港股
-
-# 创业公司（附带BP）
-/company-analysis 纽瑞芯        # 可同时上传 pitch deck PDF
-/company-analysis 程星通信       # 可同时上传年报/BP
+cd ~/.claude/skills/company-analysis/scripts
+pip3 install --user -r requirements.txt
 ```
 
-你可以同时提供 PDF 年报、Pitch Deck、财务尽调报告等文档，Phase 2 会自动提取关键数据并与 Phase 1 的公开数据交叉验证。
+依赖：`tushare yfinance pypdf pandas pyarrow requests`
 
-### 输出位置
+### 3. 配置 Tushare Token（A 股 / 港股必需）
 
-所有分析结果保存在 `~/投资报告/{公司名}/` 目录下：
-
-```
-~/投资报告/苹果/
-├── phase1-data.md              # 阶段1：原始数据（带来源URL）
-├── phase2-documents.md         # 阶段2：文档提取数据
-├── 苹果-analysis-2026-04-19.md  # 最终分析报告
-├── 苹果-analysis-2026-04-19.html # HTML可视化版本
-├── phase4-personas.md          # 多角色投资结论
-└── phase5-review-log.md        # 审核日志
-```
-
-## 多角色投资结论
-
-Phase 4 会激活 2-3 位真实投资人角色，每人独立阅读分析报告并给出结论：
-
-| 角色 | 投资哲学 | 适用市场 |
-|------|---------|---------|
-| 巴菲特 | 以合理价格买优秀企业，护城河，安全边际 | A股上市/美股 |
-| 段永平 | 买对的公司以对的价格，"本分"文化 | A股创业/上市 |
-| 张磊 | 长期结构性价值，大雪长坡，价值创造 | A股创业/港股 |
-| 木头姐 | 颠覆性创新，5年维度，技术融合 | 美股 |
-| 彼得林奇 | 投资你了解的，PEG比率，公司分类法 | 美股 |
-
-每位角色给出独立结论（买入/持有/卖出/放弃），引用报告数据，最后总结分歧点。
-
-## 文件结构
-
-```
-~/.claude/skills/company-analysis/
-├── SKILL.md                              # 精简协调器（~100行，路由+调度）
-├── phases/                               # 5个阶段执行文件
-│   ├── phase1-data-collection.md         # 数据采集（社交媒体舆情）
-│   ├── phase2-document-analysis.md       # 文档精析（年报/BP/尽调）
-│   ├── phase3-analysis-report.md         # 综合分析（行业+公司基本面+评分）
-│   ├── phase4-persona-conclusions.md     # 多角色投资结论
-│   └── phase5-review-publish.md          # 审核+HTML+GitHub发布
-├── references/                           # 分析框架（7个文件）
-│   ├── scoring-rubric.md                 # 10维度评分标准（含上市公司调整）
-│   ├── qualitative-frameworks.md         # 张磊《价值》+ VC定性方法论
-│   ├── valuation-frameworks.md           # Damodaran估值 + 条款分析
-│   ├── search-strategy.md                # 搜索策略（含社交媒体平台）
-│   ├── report-template.md                # 报告模板（含行业/公司基本面）
-│   ├── html-template-guide.md            # HTML生成规范
-│   └── persona-registry.md              # 5位投资人角色库
-```
-
-## 卸载
+注册 [tushare.pro](https://tushare.pro/register)，获取 token（建议申请学生权限获 5000+ 免费积分；或购买 2000 积分约 ¥200 解锁所有核心财报接口）。
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/leafpaper/claude-company-analysis/main/uninstall.sh | bash
+echo 'export TUSHARE_TOKEN="your_token_here"' >> ~/.zshrc
+source ~/.zshrc
 ```
 
-## 许可证
+> ⚠️ **千万别把 token 提交到 git**。[`.env.sample`](./.env.sample) 是模板；实际 token 写到 `~/.zshrc`（不在仓库内）。
 
-MIT
+### 4. 环境自检
+
+```bash
+cd ~/.claude/skills/company-analysis
+python3 -m scripts.check_env
+```
+
+全部 `[OK]` + `TUSHARE_TOKEN set` → 可用。
+
+### 5. 启动分析
+
+在 Claude Code 对话里：
+
+```
+/company-analysis 实丰文化
+```
+
+或提供股票代码（加速）：
+
+```
+/company-analysis 贵州茅台 600519.SH
+```
+
+量化监控（基于历史基线报告）：
+
+```
+/company-analysis 实丰文化 --monitor
+```
+
+---
+
+## 📂 仓库结构
+
+```
+claude-company-analysis/
+├── README.md                   # 本文件
+├── CHANGELOG.md                # v1 → v4.1 演进
+├── LICENSE                     # MIT
+├── .env.sample                 # 环境变量模板
+├── SKILL.md                    # ⭐ 协调器（6+1 阶段定义）
+├── install.sh / uninstall.sh   # 一键安装 / 卸载
+│
+├── phases/                     # 7 个阶段执行指令
+│   ├── phase1-data-collection.md
+│   ├── phase2-document-analysis.md
+│   ├── phase3-analysis-report.md
+│   ├── phase4-persona-conclusions.md
+│   ├── phase5-variant-perception.md
+│   ├── phase6-review-publish.md
+│   └── phase7-quantitative-monitor.md
+│
+├── references/                 # 7 个参考文档
+│   ├── scoring-rubric.md           # 10 维度事实评分
+│   ├── qualitative-frameworks.md   # 3 定性框架（v4.1）
+│   ├── valuation-frameworks.md     # Damodaran 估值
+│   ├── search-strategy.md          # WebSearch 辅助规范
+│   ├── report-template.md          # MD 报告模板
+│   ├── html-template-guide.md      # HTML 可视化规范
+│   └── persona-registry.md         # 投资人角色库
+│
+└── scripts/                    # ⭐ Python 数据层
+    ├── config.py               # Token / 缓存 / 速率
+    ├── check_env.py            # 环境自检
+    ├── data_cache.py           # 7 天 TTL Parquet 缓存
+    ├── tushare_collector.py    # A 股 25 个 API
+    ├── us_collector.py         # 美股 yfinance
+    ├── hk_collector.py         # 港股混合
+    ├── pdf_reader.py           # 财报 PDF 9 段落精析
+    ├── derived_metrics.py      # CAGR / FCF / ROIC / Owner Earnings
+    ├── financial_audit.py      # ⭐ 11 大师框架异常审计
+    ├── report_parser.py        # 解析历史报告（monitor 用）
+    ├── monitor.py              # ⭐ 量化监控核心
+    ├── requirements.txt
+    └── README.md
+```
+
+---
+
+## 📊 单次分析产出
+
+```
+~/投资报告/{公司名}/
+├── raw_data/
+│   ├── *.parquet               # Tushare/yfinance 结构化
+│   ├── pdfs/*.pdf              # 下载的财报 PDF
+│   ├── pdf_sections_*.json     # PDF 9 段落
+│   ├── metrics.json            # 30+ 衍生指标
+│   └── _manifest.json
+├── phase1-data.md              # 数据采集总结
+├── phase2-documents.md         # 文档精析
+├── {公司}-analysis-{date}.md   # ⭐ 主报告（15 章节）
+├── {公司}-analysis-{date}.html # ⭐ HTML 可视化
+├── phase4-personas.md          # 多角色深度版
+├── phase5-variant-perception.md # 洞察深度附件（Level C / 议题感知 / 共识映射）
+├── audit_report.md             # ⭐ 11 框架 15-20 条红旗
+├── phase6-review-log.md        # 审核日志
+└── monitor_{公司}_{date}.md    # 监控简报（--monitor 触发时）
+```
+
+---
+
+## 🧠 核心设计原则
+
+### 1. PDF 必读 + 来源可审计
+**v1 踩过坑**：依赖第三方摘要（如证券之星），错误把实丰文化 Q3 亏损归因为"费用上升"；**真相**是参股公司超隆光电爆雷 88%（年报 Page 4 明确写着）。v4 起强制下载解析 PDF，关键数据带 `[Tushare:income.revenue]` / `[PDF:q3_2025, P.4]` 标签。
+
+### 2. 数学推导 > 逻辑猜测
+Phase 5 每条洞察必须包含可独立验算的"数学推导"字段，每步含运算符+数值+单位。命中 5 种反例（如"均值回归 -52%"无具体锚点）即降级 Level C，禁入主清单。
+
+### 3. 11 大师框架防盲点
+Phase 3 Step 1.5 自动跑 11 框架审计 → 红旗进入主报告 Exec Summary 风险 Top。≥ 2 个 🔴 致命红旗 → 触发快筛否决。
+
+### 4. 定性判断禁止打分换壳
+v1/v2 的 7 框架 `-2~+2` 打分制是伪定量化。v4.1 改为 **3 框架**（护城河 / 管理层 / 催化剂）逻辑三段式，**黑白三档**（看多 / 看空 / 中性-分歧），禁止百分比修正。
+
+### 5. 缺口闭环补查
+§十四 信息缺口强制 ≥3 条，每条记录"已尝试的查询路径"。Phase 6 Part D 5 步穷举（巨潮 → 官网 → PDF → Google → Tushare API），补查成功必须反写到所有相关章节。
+
+### 6. 可监控可跟踪
+Phase 7 以历史报告的带标签指标为基线，重跑数据层对比变化 ≥10% 的指标，扫描 Phase 5 洞察证伪条件，给出"维持 / 复评 / 重大修订"。
+
+---
+
+## 🗂️ 与 Inves-Report 仓库的关系
+
+本仓库（`claude-company-analysis`）是 **skill 代码**。
+
+生成的 **分析报告 HTML** 发布在姊妹仓库 [leafpaper/Inves-Report](https://github.com/leafpaper/Inves-Report)，通过 GitHub Pages 在线浏览：
+
+👉 **在线报告**: [leafpaper.github.io/Inves-Report](https://leafpaper.github.io/Inves-Report)
+
+Phase 6 的 Part C 自动把 HTML 推到 Inves-Report 仓库。
+
+---
+
+## 📜 版本演进（详见 [CHANGELOG.md](./CHANGELOG.md)）
+
+| 版本 | 发布 | 关键变化 |
+|------|------|---------|
+| **v4.1** | 2026-04-24 | 激进精简 + 关键信息保护：13→9 字段 / 4→3 框架 / Phase 4 3×5→3×3 / 独立文件职责分离 |
+| **v4.0** | 2026-04-23 | Python 数据层 + 11 框架审计 + 量化监控 (Phase 7) |
+| **v3.3** | 2026-04-20 | Phase 2.5 差异化洞察 |
+| **v3.2** | 2026-04-19 | 协调器质量门控 + HTML 完整性 |
+| **v3.1** | 2026-04-18 | output 目录 + Phase 2 自动搜索 |
+| **v3.0** | 2026-04-16 | 5 阶段流水线 + 上市公司支持 + 多角色 |
+
+---
+
+## 🤝 贡献
+
+欢迎 issue / PR。重点方向：
+- 更多大师框架（Graham Net-Net / Lynch PEG / Piotroski G-Score）
+- 更多市场（新三板 / 日股 / 欧股）
+- 分析师 / 机构持仓数据源
+- Notebook 示例 + 测试套件
+
+---
+
+## 📝 License
+
+[MIT](./LICENSE)
+
+---
+
+**作者**: [@leafpaper](https://github.com/leafpaper)
+**思路借鉴**: [terancejiang/Turtle_investment_framework](https://github.com/terancejiang/Turtle_investment_framework)

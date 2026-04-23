@@ -1,308 +1,173 @@
-# 联网搜索策略 (Search Strategy)
+# 联网搜索策略（v3 - 辅助定位）
 
-> 所有搜索必须以获取**最新数据**为首要目标。使用动态日期变量 `{YEAR}` 代表当前年份。
+> **v3 重大调整**：本文件从 v1/v2 的"主数据源"降级为**辅助定位**工具。
+> 主数据源是 `scripts/tushare_collector.py` 和 `scripts/pdf_reader.py`，见 `phases/phase1-data-collection.md`。
+>
+> WebSearch 只用于：**舆情 / 新闻事件 / 行业背景 / PDF URL 定位**。
+> **禁止**用于关键财务数据（收入、利润、PE、PB、ROE 等）——这些必须来自 Tushare API 或 PDF 原文。
 
 ---
 
 ## 时效性规则
 
-1. **所有搜索查询必须附加时间限定词**: `{YEAR}`, `latest`, `recent`, `最新`
-2. **来源新鲜度优先级**:
-   - 优先级 1: 6 个月内的来源（高置信度）
-   - 优先级 2: 6-12 个月的来源（中置信度，需交叉验证）
-   - 优先级 3: 12+ 个月的来源（标记为 `[历史数据: YYYY-MM]`，仅作参考）
-3. **财务数据必须标注截止日期**（如 "截至 2026Q1"）
-4. **如果某维度最新数据获取失败**，执行补充搜索（见降级策略）
+1. 所有查询附加时间限定词：`{YEAR}`, `latest`, `recent`, `最新`
+2. 来源新鲜度优先级：
+   - ≤ 6 个月：高置信度
+   - 6-12 个月：中置信度，需交叉验证
+   - > 12 个月：标记 `[历史数据: YYYY-MM]`，仅作背景参考
+3. 所有引用必须带 URL + 发表日期
 
 ---
 
-## 搜索轮次
+## 允许的用途
 
-### Round 1: 公司基础信息与最新动态
-**目标**: 确定公司当前状态、最新融资、商业模式
+### A. 定位 PDF 报告 URL（最重要）
 
+用 WebSearch 找到财报 PDF 的直接下载地址，然后交给 `pdf_reader.py` 处理。
+
+**A 股（巨潮资讯）**:
 ```
-搜索查询:
-1. "{company} latest news {YEAR}"
-2. "{company} series C OR series D funding {YEAR}"
-3. "{company} business model revenue how it works"
-4. "{company} 最新融资 {YEAR}"
-5. "{company} CEO founder interview {YEAR}"
-```
-
-**期望获得**: 公司简介、最新融资金额/估值、投资人、商业模式描述、创始人背景
-
-### Round 2: 市场与竞争格局
-**目标**: 了解市场规模、竞争态势、行业趋势
-
-```
-搜索查询:
-1. "{company} market size TAM {YEAR}"
-2. "{company} competitors comparison {YEAR}"
-3. "{industry} market analysis report {YEAR}"
-4. "{company} market share industry position"
-5. "{company} vs {competitor} comparison" (基于 Round 1 发现的竞品)
+site:cninfo.com.cn "{company}" {ticker} 年度报告 {YEAR}
+site:cninfo.com.cn "{company}" 第三季度报告 {YEAR}
+site:cninfo.com.cn "{company}" 业绩预告 {YEAR}
 ```
 
-**期望获得**: TAM/SAM 数据、主要竞争对手列表、市场份额、行业增长率
-
-### Round 3: 增长与财务指标
-**目标**: 获取最新的增长数据和财务状况
-
+**美股（SEC EDGAR）**:
 ```
-搜索查询:
-1. "{company} revenue growth {YEAR}"
-2. "{company} users customers growth latest"
-3. "{company} ARR MRR valuation {YEAR}"
-4. "{company} profitability unit economics"
-5. "{company} employee count hiring {YEAR}"
+site:sec.gov {ticker} 10-K {YEAR}
+site:sec.gov {ticker} 10-Q {YEAR}
 ```
 
-**期望获得**: 营收数据/增速、用户数、ARR、估值、员工规模变化
-
-### Round 4: 风险与负面信息
-**目标**: 发现潜在风险、负面新闻、监管问题
-
+**港股（披露易）**:
 ```
-搜索查询:
-1. "{company} problems issues criticism {YEAR}"
-2. "{company} layoffs restructuring {YEAR}"
-3. "{company} lawsuit regulatory legal"
-4. "{company} {industry} regulation policy {YEAR}"
-5. "{company} customer complaints reviews"
+site:hkexnews.hk "{company}" annual report {YEAR}
+site:hkexnews.hk "{company}" interim report {YEAR}
 ```
 
-**期望获得**: 负面新闻、裁员信息、法律纠纷、监管风险、客户投诉
+### B. 社交媒体舆情（Phase 1 §8）
 
-### Round 5: 网络评价与市场情绪
-**目标**: 收集各方对公司的评价和看法，判断市场情绪是看好还是看衰
-
+**A 股**:
 ```
-搜索查询:
-1. "{company} review opinion {YEAR}"
-2. "{company} 评价 口碑 怎么样 {YEAR}"
-3. "{company} analyst opinion bullish bearish {YEAR}"
-4. "{company} reddit OR twitter OR 知乎 评价"
-5. "{company} employee review glassdoor {YEAR}"
-6. "{company} customer review experience"
-7. "{company} investment opinion worth {YEAR}"
+site:xueqiu.com "{company}" {YEAR}
+site:eastmoney.com "{company}" 股吧
+site:zhihu.com "{company}" 投资
+"{company}" 研报 券商 目标价 {YEAR}
 ```
 
-**期望获得**:
-- **投资人/分析师观点**: 知名投资人或分析师对公司的公开评价
-- **用户/客户评价**: 产品好评率、差评集中的痛点
-- **员工评价**: Glassdoor/脉脉评分、工作体验
-- **社交媒体舆论**: Twitter/知乎/Reddit 上的讨论风向
-- **媒体态度**: 主流科技媒体的报道倾向（正面/中性/负面）
-
-**情绪分析要求**:
-- 将收集到的评价分为 **看好派** 和 **看衰派**
-- 提炼每一方的核心论据（不是简单列举，要归纳逻辑）
-- 判断整体市场情绪倾向：强烈看好 / 偏向看好 / 中性分歧 / 偏向看衰 / 强烈看衰
-- 特别关注"聪明钱"（知名投资人、行业专家）的态度
-
-### Round 5.5: 条款与交易信息 (Term Sheet & Deal Intelligence)
-**目标**: 搜索本轮融资条款、cap table 结构、投资人动态
-
+**美股**:
 ```
-搜索查询:
-1. "{company} funding terms valuation cap table {YEAR}"
-2. "{company} 融资条款 对赌 优先清算权 回购"
-3. "{company} investor rights board composition {YEAR}"
-4. "{company} convertible note SAFE outstanding debt"
-5. "{company} 股权结构 持股比例 天眼查 企查查"
+site:seekingalpha.com "{company}" {YEAR}
+site:reddit.com/r/investing "{ticker}"
+site:reddit.com/r/stocks "{ticker}"
+"{ticker}" analyst consensus price target {YEAR}
 ```
 
-**期望获得**: 融资条款细节、cap table 结构、对赌条款、优先清算权类型、董事会构成、可转债/SAFE 信息
+**港股**: 混合：xueqiu + aastocks + seekingalpha
 
-*注: 条款信息通常高度保密，公开搜索可能收获有限。如信息不足，在报告中标注并使用行业标准假设。*
-
-### Round 6: 深度阅读 (WebFetch)
-**目标**: 深入阅读关键页面，获取结构化详细信息
-
-**优先 Fetch 的页面类型**:
-1. 公司官网 About/Product 页面
-2. Crunchbase 公司主页（融资历史、投资人、团队）
-3. 1-2 篇高质量深度分析文章（来自 Round 1-5 搜索结果中质量最高的）
-4. 行业报告摘要页
-5. 如有：公司博客中的里程碑公告（融资、产品发布）
-6. 1-2 篇有代表性的网络评价/讨论帖（来自 Round 5 中最有洞察力的）
-
----
-
-## 优先信息来源（域名）
-
-| 来源类型 | 推荐域名 |
-|---------|---------|
-| 融资与投资人 | crunchbase.com, pitchbook.com, cbinsights.com |
-| 科技新闻 | techcrunch.com, theinformation.com, bloomberg.com, reuters.com |
-| 中国公司 | 36kr.com, it桔子 (itjuzi.com), 天眼查 (tianyancha.com) |
-| 行业报告 | gartner.com, mckinsey.com, statista.com |
-| 公司评价 | glassdoor.com, g2.com, trustpilot.com |
-| 网络舆情 | reddit.com, zhihu.com (知乎), twitter.com/x.com, producthunt.com |
-| 员工评价 | glassdoor.com, maimai.cn (脉脉), levels.fyi |
-| 财务数据 | sec.gov (美国上市/预上市), 企查查, 启信宝 |
-| 社交媒体 | linkedin.com (团队), twitter.com (创始人动态) |
-
----
-
-## 降级策略
-
-### 当搜索结果不足时：
-
-**策略 1: 扩大搜索范围**
-- 去掉年份限定词，搜索全时间范围
-- 使用公司别名、英文/中文名交替搜索
-- 搜索母公司或子品牌
-- 具体查询: `"{company}" OR "{company别名}" site:36kr.com OR site:crunchbase.com`
-
-**策略 2: 间接推断**
-- 招聘信息 → 团队规模和方向: `"{company} jobs careers hiring {YEAR}"`、`"{company} 招聘 BOSS直聘 猎聘"`
-- 竞品数据 → 市场规模: `"{competitor1} OR {competitor2} market size revenue"`
-- LinkedIn 员工数变化 → 公司健康度: `site:linkedin.com "{company}" employees`
-- 专利申请 → 技术方向: `"{company} patent application {YEAR}"`、`"{company} 专利 发明"`
-- 政府补贴/项目 → 政策支持: `"{company} 政府补贴 专精特新 高新技术"`
-
-**策略 3: 专家与内部信号挖掘**
-- 创始人演讲/访谈: `"{founder name}" interview speech keynote {YEAR}`
-- 投资人评论: `"{lead investor}" portfolio "{company}" opinion`
-- 行业会议: `"{company}" demo day pitch conference {YEAR}`
-- 学术论文（技术公司）: `"{company}" OR "{founder}" paper publication`
-- 供应商/合作伙伴公告: `"{company}" partnership announcement supplier`
-
-**策略 4: 标记信息缺口**
-- 如果经过以上策略仍无法获取某维度数据，在报告的"信息缺口"章节中明确标注
-- 将该维度的数据置信度标记为"低"
-- 参照 `scoring-rubric.md` 的证据质量门控规则处理低置信维度
-- 在"关键尽调问题"中列出需要进一步调查的问题及建议获取途径
-
----
-
-## 中国公司特别搜索策略
-
-如果目标公司是中国公司，增加以下搜索:
+### C. 行业与宏观背景
 
 ```
-1. "{company} 天眼查 股权结构"
-2. "{company} 36氪 融资"
-3. "{company} 裁员 问题 {YEAR}"
-4. "{company} 行业报告 市场规模"
-5. "{company} 创始人 背景 履历"
+"{industry}" 行业分析 市场规模 {YEAR}
+"{industry}" policy regulation {YEAR}
+"{industry}" CAGR 增速 {YEAR}
+"{company}" vs "{competitor}" 对比
+```
+
+### D. 突发新闻与重大事件
+
+```
+"{company}" 公告 {YEAR}
+"{company}" 并购 / 重组 / 分拆 {YEAR}
+"{company}" 诉讼 / 监管 / 处罚 {YEAR}
+"{company}" 业绩预告 / 业绩快报
 ```
 
 ---
 
-## 行业特定搜索补充
+## 禁止的用途
 
-根据目标公司所在行业，增加以下专项搜索（选择适用的 1-2 个行业模板）：
+以下场景**严禁**使用 WebSearch 作为数据来源，必须走 Tushare API / PDF：
 
-### 半导体/芯片
+| 场景 | 正确来源 |
+|------|---------|
+| 最近 3 年的营收 / 净利 / 毛利率 | `tushare_collector.income()` + `fina_indicator()` |
+| 当前 PE / PB / PS / 市值 | `tushare_collector.daily_basic()` |
+| 资产负债表任一科目 | `tushare_collector.balancesheet()` |
+| 现金流量表任一科目 | `tushare_collector.cashflow()` |
+| Q3 亏损的具体构成 | `pdf_reader.extract_sections()` → `income_statement_changes` |
+| 子公司/参股公司业绩 | `pdf_reader.extract_sections()` → `subsidiaries` |
+| 前十大股东 | `tushare_collector.top10_holders()` + PDF 交叉 |
+| 股权质押 | `tushare_collector.pledge_detail()` |
+
+**为什么禁止？**
+
+v1 的 Q3 亏损归因错误根因就是用 WebSearch 拿到了"证券之星简析"，被"三费占比上升"的简化叙事误导，完全错过了**超隆光电参股爆雷**这个真实主因（PDF Page 4 明确写着）。
+
+v3 的铁律是：**关键数据必须有可审计的原文锚点**。Tushare 给你结构化数字，PDF 给你"为什么变动"的管理层原文——两者不可替代。
+
+---
+
+## WebFetch 深度阅读（精选 3-5 份）
+
+从 WebSearch 结果中**精选** 3-5 个最有信息密度的页面做 WebFetch：
+
+**优先级 P1（必读）**:
+- 1-2 份近期高质量研报（券商深度分析）
+- 管理层最新一次电话会议 / 调研纪要
+
+**优先级 P2（选做）**:
+- 1-2 份代表性的多空辩论帖（雪球 / Reddit）
+- 1 份行业协会 / 咨询机构的年度报告
+
+**禁止 WebFetch**:
+- 财经网站的财务摘要页（如 `stockstar.com` / `eastmoney.com` 的"财务分析"页）——这些是二手数据，走 Tushare 就行
+- 算法生成的评级页面（如"证券之星评级"）
+
+---
+
+## 查询模板速查
+
+### 创业公司（非上市）
+创业公司没有 Tushare / PDF，只能靠 WebSearch。参考 `phases/phase1-data-collection.md` §7 "创业公司模式"。
+
+### 条款 / 交易
 ```
-1. "{company} tape-out wafer foundry process node {YEAR}"
-2. "{company} design win customer qualification"
-3. "{company} AEC-Q certification FiRa CCC {YEAR}"
-4. "{industry} chip 国产替代 自主可控 {YEAR}"
+"{company}" Series {X} funding {YEAR}
+"{company}" valuation post-money pre-money
+"{company}" term sheet leak OR "liquidation preference"
+"{company}" down round OR up round {YEAR}
 ```
 
-### SaaS/企业软件
+### 团队背景
 ```
-1. "{company} NDR churn rate ARR NRR {YEAR}"
-2. "{company} customer case study ROI implementation"
-3. "{company} vs {competitor} G2 review comparison"
-4. "{company} enterprise contract ACV deal size"
-```
-
-### 消费品/电商
-```
-1. "{company} GMV repeat purchase rate {YEAR}"
-2. "{company} 抖音 天猫 旗舰店 销量 评价"
-3. "{company} customer acquisition cost unit economics"
-4. "{company} brand awareness NPS consumer survey"
+"{CEO name}" "{company}" LinkedIn
+"{founder name}" biography previous companies
+"{company}" executive team hiring firing {YEAR}
 ```
 
-### 生物医药
+### 社交媒体监控（负面信号）
 ```
-1. "{company} clinical trial phase FDA NMPA CDE {YEAR}"
-2. "{company} pipeline drug candidate IND NDA"
-3. "{company} patent expiry freedom to operate"
-4. "{company} KOL opinion scientific advisory board"
-```
-
-### 金融科技
-```
-1. "{company} license regulatory approval 牌照 {YEAR}"
-2. "{company} take rate NPL default rate risk"
-3. "{company} AUM transaction volume {YEAR}"
-4. "{company} compliance fintech regulation {YEAR}"
-```
-
-### AI/大模型
-```
-1. "{company} model benchmark performance {YEAR}"
-2. "{company} compute cost GPU training inference"
-3. "{company} API usage developer adoption {YEAR}"
-4. "{company} data moat proprietary dataset"
+"{company}" controversy scandal lawsuit {YEAR}
+"{company}" former employee review glassdoor
+"{company}" 离职 负面 评价
 ```
 
 ---
 
-## 社交媒体与投资社区专项搜索
+## 降级策略（Tushare/PDF 失败时）
 
-上市公司分析时必须执行此轮搜索，创业公司可选。
+若 Phase 1 Step 1-3（结构化数据 + PDF）失败：
 
-### A股公司
-```
-1. site:xueqiu.com "{company}" 分析 评论 {YEAR}
-2. site:xueqiu.com "{ticker}" 研报 观点
-3. site:zhihu.com "{company}" 投资 值得买 {YEAR}
-4. site:eastmoney.com "{company}" 股吧 讨论 {YEAR}
-5. "{company} 雪球 大V 分析师 观点 {YEAR}"
-```
+1. **记录失败原因**（积分不足？接口抖动？PDF URL 错误？）
+2. **通知用户**：告诉用户降级原因，征求是否继续
+3. **降级为 WebSearch 模式**，但 **Phase 1 生成的 phase1-data.md 必须在开头显式标注**：
 
-### 美股公司
-```
-1. site:reddit.com/r/investing "{company}" OR "{ticker}" analysis
-2. site:reddit.com/r/stocks "{company}" OR "{ticker}" DD
-3. site:seekingalpha.com "{ticker}" analysis {YEAR}
-4. "{ticker} wall street analyst consensus {YEAR}"
-5. "{company} {ticker} twitter fintwit sentiment"
+```markdown
+⚠️ **数据降级**: 本次采集未能使用 Tushare API / PDF 原文，仅依赖 WebSearch 二手摘要。
+   结论的置信度整体降低。建议:
+   - 核对 TUSHARE_TOKEN 是否有效（积分是否充足）
+   - 核对 PDF URL 是否正确
+   - 重跑 Phase 1
 ```
 
-### 港股公司
-```
-1. site:xueqiu.com "{company}" 港股 分析 {YEAR}
-2. site:zhihu.com "{company}" 港股 投资
-3. "{company} 港股 研报 评级 {YEAR}"
-4. site:aastocks.com "{company}" analysis
-5. "{company} Hong Kong stock forum discussion {YEAR}"
-```
-
----
-
-## 上市公司财务数据搜索
-
-上市公司分析时追加此轮：
-
-```
-1. "{ticker} financial statements income balance cash flow"
-2. "{ticker} PE ratio PB ROE historical {YEAR}"
-3. "{ticker} free cash flow per share dividend history"
-4. "{ticker} institutional ownership 13F holdings {YEAR}"
-5. "{ticker} insider transactions buying selling {YEAR}"
-6. "{ticker} short interest days to cover {YEAR}"
-7. "{ticker} analyst price target consensus {YEAR}"
-```
-
-**财务数据优先来源**:
-- A股: 东方财富(eastmoney.com)、同花顺(10jqka.com.cn)、巨潮资讯(cninfo.com.cn)
-- 美股: Yahoo Finance、SEC EDGAR(sec.gov)、Finviz
-- 港股: AAStocks、港交所披露易(hkexnews.hk)
-
----
-
-## 搜索结果处理规则
-
-1. **每个搜索结果记录来源日期** — 后续分析中标注 `[来源: 域名, YYYY-MM]`
-2. **交叉验证** — 关键数据（如营收、估值）需至少 2 个独立来源确认
-3. **矛盾数据** — 如不同来源数据冲突，优先采信更新、更权威的来源，并在报告中注明差异
-4. **区分事实与推测** — 明确标注 `[确认]`、`[估计]`、`[传闻]` 等信息等级
+降级时所有关键数据打 `[WebSearch-降级: domain.com]` 标签，Phase 3 综合分至少 -0.5。
