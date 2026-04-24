@@ -4,6 +4,88 @@
 
 ---
 
+## [v4.4] — 2026-04-24 — 技术分析 + 可比公司 + 主力控盘三合一
+
+> **主题**:补齐 A 股投资者最关心的 3 个空白 — 技术面、同行对标、机构/主力控盘。
+> 所有逻辑下沉到 Python 脚本,Phase 指令仅作触发器;Phase 3 对应章节强制 Read 结构化 artifact(不再 LLM 凭记忆)。
+
+### 根因
+
+用户反馈 skill 只有基本面审计,**A 股投资者最核心的 3 个维度全部空白**:
+- 技术面分析 = 0(有 3 年日线数据但没算 MA/MACD/RSI)
+- 可比公司对比 = LLM 手写猜竞品
+- 主力控盘/资金流 = 只用了 top10_holders + stk_holdernumber,完全没消费陆股通/两融/龙虎榜/大单资金流
+
+### Added
+
+#### 1. `scripts/peer_collector.py` — A 股同行业自动采集
+
+- 基于 `stock_basic.industry` + `daily_basic` 按市值相近度排序取 Top N peer
+- 输出 `peer_analysis.md`: §1 对比表(6 行 × 13 列) + §2 分位分析(ROE/毛利/净利/PE/PB/增速 6 维度) + §3 硬判定对比洞察
+- 闻泰实跑: 5 家同行业 peer(格科微/全志/国科/星宸/赛微),PB 分位 100%(最便宜),毛利率分位 20%(落后),**事实客观**
+
+#### 2. `scripts/capital_flow.py` — 主力控盘与资金流向(6 接口 + 6 推导指标)
+
+**数据源**(Tushare 2000+ 积分):
+- `moneyflow`(个股主力资金近 60 日)
+- `moneyflow_hsgt`(陆股通大盘)
+- `hk_hold`(陆股通个股持股每日)
+- `margin_detail`(两融每日)
+- `top_list` + `top_inst`(龙虎榜 + 机构席位近 30 日)
+
+**推导 6 控盘指标**(每个都有🟢/🟡/🔴 自动档位):
+1. 主力控盘度(前 10 流通股东合计持股 <30% / 30-50% / ≥50%)
+2. 筹码集中度 2×2 矩阵(户数变化 × 户均持股)
+3. 陆股通持仓趋势(20/60 日变化)
+4. 两融杠杆方向(融资余额相对 60 日中位数)
+5. 主力资金流(近 20 日大单净流入天数)
+6. 龙虎榜机构活跃(上榜次数 + 机构净买入)
+
+**闻泰实跑**:🔴 "筹码分散(户数+5.7%, 户均-5.4%)= 机构退出, 散户涌入" + 🔴 "主力资金近 20 日仅 6 日净流入, 累计 -2,692 万" — **精确定量打脸散户信心**
+
+#### 3. `scripts/technical_analysis.py` — MA/MACD/RSI/布林带/成交量/支撑阻力
+
+- 输入: Phase 1 `daily.parquet`(近 3 年日线)
+- 指标: MA5/20/60/120 排列、MACD(12,26,9)金叉死叉、RSI(14)超买超卖、BOLL(20,2σ)位置、成交量异常、近 60/120 日支撑阻力位
+- **闻泰实跑**: 3 🔴 信号 — 均线空头排列 + 破 MA120 + MACD 死叉;近 60 日 -28%;距 60 日支撑 28.27 元仅 0.28%(几乎贴底)
+
+### Changed
+
+- **Phase 1 指令** (`phases/phase1-data-collection.md`) 新增 3 步:
+  - Step 1.2 `peer_collector` → `peer_analysis.md`
+  - Step 1.3 `capital_flow` → `capital_flow.md`
+  - Step 1.4 `technical_analysis` → `technical_analysis.md`
+
+- **Phase 3 指令** (`phases/phase3-analysis-report.md`) 强制联动:
+  - Step 4 §四 公司基本面 加 **"主力控盘与筹码分析"** 子节 → Read `capital_flow.md` §1/§2/§3/§8
+  - Step 8 §八 可比公司对标 **强制 Read `peer_analysis.md`** → §1 对比表 + §2 分位 + §3 洞察直接搬入,禁止凭记忆猜竞品
+  - Step 9 §九 估值末尾加 **9.4 技术面位置** 子节 → Read `technical_analysis.md`,必写"基本面 × 技术面" 4 种配合判断
+  - Step 12 自检清单加 3 项(§四/§七/§八/§九 强制联动)
+
+- **`assets/templates/report-skeleton.md`** 骨架更新:
+  - §四 加 `capital_flow_summary_table / top10_float_holders_table / chip_concentration_2x2` 3 个 placeholder
+  - §七 `资金流向信号` 改为 Read `capital_flow.md` §4/§5/§6
+  - §八 骨架改为 §8.1-8.4 四子节(A 股 peer / 分位 / 洞察 / 海外补充)
+  - §九 加 9.4 `技术面位置` 子节 + 3 个 placeholder
+
+- **`assets/validation/report-checklist.json`** 新增 `phase3_mandatory_data_artifacts` section,列出 4 个必须消费的 artifact
+
+- **Phase 6 审核清单** 从 22 项扩至 **23 项**(新增 #23 "Phase 1 结构化 artifact 消费"检查)
+
+### Coverage
+
+- 🇨🇳 A 股: 5 个 Python 模块全部可用(tushare_collector + financial_audit + peer_collector + capital_flow + technical_analysis)
+- 🇺🇸 美股: 仅 yfinance + financial_audit,peer/capital/tech 三模块暂不支持
+- 🇭🇰 港股: 同美股
+
+### Not in scope (v4.5 继续)
+
+- ❌ `scripts/validate_report.py` validator(仍推迟)
+- ❌ `scripts/event_backtest.py`(业绩预告/回购/增持事件 → 次日/次月股价表现的历史规律)
+- ❌ 美股/港股版本的 peer/capital/tech 3 模块
+
+---
+
 ## [v4.3] — 2026-04-24 — assets 目录 + 报告骨架强制化
 
 > **主题**:符合 Anthropic 官方 skill 规范的资产分离,修复"每次报告格式都不一样"的根因。

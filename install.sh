@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Claude Code 投资分析 Skill — 一键安装 (v4.3)
+# Claude Code 投资分析 Skill — 一键安装 (v4.4)
 #
 # 使用方法：
 #   curl -fsSL https://raw.githubusercontent.com/leafpaper/claude-company-analysis/main/install.sh | bash
@@ -12,9 +12,10 @@ SKILL_DIR="$HOME/.claude/skills/company-analysis"
 REPO_URL="https://raw.githubusercontent.com/leafpaper/claude-company-analysis/main"
 
 echo "================================================"
-echo "  Claude Code — 投资分析 Skill 安装程序 v4.3"
+echo "  Claude Code — 投资分析 Skill 安装程序 v4.4"
 echo "  结构化数据 + PDF 精析 + 11 大师框架审计"
-echo "  v4.3: 骨架强制 + assets 目录 + 报告格式一致性"
+echo "  v4.4: 技术分析 + 可比公司 + 主力控盘"
+echo "  v4.3: 骨架强制 + assets 目录"
 echo "  支持 A 股 / 美股 / 港股"
 echo "================================================"
 echo ""
@@ -102,7 +103,10 @@ for py in \
     derived_metrics \
     financial_audit \
     report_parser \
-    monitor; do
+    monitor \
+    peer_collector \
+    capital_flow \
+    technical_analysis; do
   curl -fsSL "$REPO_URL/scripts/${py}.py" -o "$SKILL_DIR/scripts/${py}.py"
 done
 curl -fsSL "$REPO_URL/scripts/requirements.txt" -o "$SKILL_DIR/scripts/requirements.txt"
@@ -117,7 +121,7 @@ SCRIPT_COUNT=$(find "$SKILL_DIR/scripts" -name "*.py" 2>/dev/null | wc -l | tr -
 ASSETS_COUNT=$(find "$SKILL_DIR/assets" -type f 2>/dev/null | wc -l | tr -d ' ')
 # v4.3 期望: 7 phases + 6 refs (report-template.md 废弃) + 12 scripts + 7 assets + 1 SKILL.md = 33
 
-if [ "$PHASE_COUNT" -eq "7" ] && [ "$REF_COUNT" -eq "6" ] && [ "$SCRIPT_COUNT" -eq "12" ] && [ "$ASSETS_COUNT" -eq "7" ]; then
+if [ "$PHASE_COUNT" -eq "7" ] && [ "$REF_COUNT" -eq "6" ] && [ "$SCRIPT_COUNT" -eq "15" ] && [ "$ASSETS_COUNT" -eq "7" ]; then
     echo ""
     echo "============================================"
     echo "  ✅ 安装成功！(v4.3)"
@@ -157,7 +161,7 @@ if [ "$PHASE_COUNT" -eq "7" ] && [ "$REF_COUNT" -eq "6" ] && [ "$SCRIPT_COUNT" -
 else
     echo ""
     echo "❌ 错误：安装不完整"
-    echo "  预期(v4.3): phases=7 refs=6 scripts=12 assets=7"
+    echo "  预期(v4.4): phases=7 refs=6 scripts=15 assets=7"
     echo "  实际:       phases=$PHASE_COUNT refs=$REF_COUNT scripts=$SCRIPT_COUNT assets=$ASSETS_COUNT"
     exit 1
 fi

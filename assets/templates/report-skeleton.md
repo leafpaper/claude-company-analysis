@@ -88,6 +88,14 @@
 
 {{forecast_signal_analysis}}
 
+### 主力控盘与筹码分析（v4.4 — Read `capital_flow.md`）
+
+{{capital_flow_summary_table}}
+
+{{top10_float_holders_table}}
+
+{{chip_concentration_2x2}}
+
 ### ★ 若核心资产被剥离的剩余资产清单（v4.2 触发时必填）
 
 **触发判定**: {{sotp_trigger_status}}
@@ -163,17 +171,29 @@
 
 {{bear_sentiment_table}}
 
-### 资金流向信号（`stk_holdernumber` + `moneyflow_hsgt`）
+### 资金流向信号（v4.4 — Read `capital_flow.md` §4/§5/§6）
 
-{{capital_flow_analysis}}
+{{capital_flow_hsgt_margin_mainflow}}
 
 ---
 
-## §八 可比公司对标
+## §八 可比公司对标（v4.4 — Read `peer_analysis.md`）
 
-| 指标 | {{company_name}} | {{peer_1}} | {{peer_2}} | {{peer_3}} |
-|------|---------:|---------:|---------:|---------:|
-{{peer_comparison_rows}}
+### §8.1 A 股同行业对标（自动采集）
+
+{{peer_comparison_table}}
+
+### §8.2 目标公司在 peer 中的分位
+
+{{peer_percentile_table}}
+
+### §8.3 硬判定对比洞察
+
+{{peer_insights_list}}
+
+### §8.4 海外同业补充（若适用）
+
+{{overseas_peers_llm_filled}}
 
 ---
 
@@ -218,6 +238,16 @@
 ### 9.3 估值异常
 
 {{valuation_anomalies}}
+
+### 9.4 技术面位置（v4.4 — Read `technical_analysis.md`）
+
+{{technical_summary_table}}
+
+{{support_resistance_levels}}
+
+**基本面 × 技术面配合判断**:
+
+{{fundamental_technical_combo_judgment}}
 
 ---
 

@@ -1,10 +1,10 @@
 ---
 name: company-analysis
-description: "投资分析技能 v4.3（PDF+Tushare+量化监控+骨架强制）。支持 A 股/美股/港股。使用 /company-analysis <公司名称> 启动 6 阶段投资分析，或 /company-analysis <公司> --monitor 触发量化监控。"
+description: "投资分析技能 v4.4（PDF+Tushare+量化监控+骨架强制+peer/控盘/技术分析）。支持 A 股/美股/港股。使用 /company-analysis <公司名称> 启动 6 阶段投资分析，或 /company-analysis <公司> --monitor 触发量化监控。"
 argument-hint: <company-name> [--monitor]
 ---
 
-# 🎯 投资分析协调器 v4.3
+# 🎯 投资分析协调器 v4.4
 
 ## 你是谁？你的职责是什么？
 
@@ -269,6 +269,9 @@ mkdir -p output/{company}/raw_data/pdfs
 | `scripts/derived_metrics.py` | 衍生指标计算 | 1 / 7 |
 | `scripts/monitor.py` | 量化监控核心 | **7** |
 | `scripts/report_parser.py` | 历史报告解析 | **7** |
+| **`scripts/peer_collector.py`** ⭐v4.4 | **A 股同行业自动采集对比** | **1** |
+| **`scripts/capital_flow.py`** ⭐v4.4 | **主力控盘与资金流向 (6 接口 + 6 指标)** | **1** |
+| **`scripts/technical_analysis.py`** ⭐v4.4 | **MA/MACD/RSI/布林带/支撑阻力** | **1** |
 | `scripts/README.md` | 数据层说明 | 参考 |
 | `phases/phase1-data-collection.md` | 数据采集指令 | 1 |
 | `phases/phase2-document-analysis.md` | 文档精析指令 | 2 |

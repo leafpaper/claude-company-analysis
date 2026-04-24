@@ -65,6 +65,7 @@
 | **20** | **核心资产剥离风险 SOTP（v4.2 新增）** | 若满足以下**任一**触发条件：①核心子公司占合并净利 > 30% 且存在剥离/控制权丧失可能；②`forecast_vip` 预亏 > 50% 净资产；③PDF 自述"若 XX 发生面临阶段性下调"；④audit_report 🔴 涉及核心资产减值 —— 主报告 §四 是否有"若核心资产被剥离的剩余资产清单"子节（含货币/金融资产/非核心子公司/已剥离尾款/非核心固定资产/壳价值/有息负债/清算成本）？§九 是否有"最差情景"（3-10% 权重）作为下行地板？**若触发但缺其中任一则不通过**。 |
 | **21** | **HTML 资产加载（v4.3 新增）** | Phase 6 Part B 生成 HTML 是否**从 `assets/html/base.html` 加载骨架**？是否**内联了 `assets/html/styles.css` 完整内容**（`grep -c '^\s*--c-' *.html` ≥16 个 CSS 变量）？是否使用了 `assets/html/components.html` 中的 9 个组件 class（`grep -c 'class="(score-ring|dimension-bar|scenario|expected-return|team-card|risk-item|timeline|sentiment-bar|valuation-range)"'` ≥8）？是否 15 个 `<div class="section"` 对应 §一～§十五 且 id 属性正确？**禁止 Claude 自写 CSS 变量或组件 class**。 |
 | **22** | **Executive Summary 7 字段 schema（v4.3 新增）** | §一 执行摘要是否严格按 `assets/templates/exec-summary-schema.md` 的 7 固定字段展开？字段名与顺序字节一致（一句话结论 / 估值锚 / 综合评分 / 三大风险 / 三大机会 / 核心非共识观点 / 投资方向综合判定）？**是否出现禁用字段**：综合评级 / 量化分 / 定性修正 / 调整后分 / 建议仓位 / 尽调优先级（出现任一则不通过）？**章节标题 15 个 `## §` 是否与 `assets/templates/report-skeleton.md` 字节一致**？ |
+| **23** | **Phase 1 结构化 artifact 消费（v4.4 新增）** | Phase 1 生成的 4 个 artifact 必须被 Phase 3 对应章节**真实消费**（Read 后搬运数据，不凭记忆改写）: ① `peer_analysis.md` → §八 ② `capital_flow.md` → §四（主力控盘子节）+ §七（资金流向信号子节）③ `technical_analysis.md` → §九 9.4 技术面位置 ④ `audit_report.md` → §一 Top 3 风险 + §三 快筛 #6。**若 artifact 存在（A 股）但对应章节未见相应表格 → 不通过**。美股/港股可缺 peer/capital/tech 三者，但须显式标注“本市场无 Tushare 分析，改用 yfinance/WebSearch 手工”。 |
 
 ### 修正规则
 
