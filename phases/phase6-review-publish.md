@@ -75,36 +75,60 @@
 
 ---
 
-## Part B: HTML 生成（v4.3 — 加载 assets/html/ 骨架）
+## Part B: HTML 生成（v4.6 — Goldman + Morningstar + Bloomberg 风格升级）
 
-### ★ 强制加载流程（v4.3 替换了凭记忆重写 CSS 的旧模式）
+### ★ 强制加载流程
 
 ```
 Step 0: Read assets/html/base.html
         Read assets/html/styles.css
-        （按需）Read assets/html/components.html
+        Read assets/html/components.html
         — 这三个文件是 HTML 的唯一真相源
 
 Step 1: 复制 base.html 到 output/{company}/{company}-analysis-{date}.html
 
 Step 2: 将 styles.css 完整内容替换 base.html 中的
         <!-- PLACEHOLDER: styles.css 整体内联到此处 --> 注释
-        （禁止精简 / 删变量 / 改颜色值）
+        (禁止精简 / 删变量 / 改颜色值)
 
 Step 3: 替换 Header Hero 区域的 {{company_name}} / {{ticker}} / {{report_date}}
         / {{latest_close}} / {{market_cap}} / {{pb}} / {{anchor_price}} / {{price_tail}}
 
-Step 4: 逐章节填充 15 个 <!-- PLACEHOLDER: section_N_xxx --> 占位:
-        - 用 markdown 转 HTML（表格 → <table>，列表 → <ul>，加粗 → <strong>）
-        - 当章节需要可视化组件（评分环、情景卡、维度条、风险 badge 等）
-          时,从 components.html 复制对应片段并填充数据
-        - Phase 5 差异化洞察章节用 components.html 的 "洞察卡片" 片段
+★ Step 3.5 (v4.6 新增): 填充前置评级卡 + 侧边栏关键指标
+        从主报告 §一 Executive Summary 抽取:
+          composite_score / verdict / verdict_tone / anchor_price /
+          anchor_delta_signed / horizon / expected_return / return_tone / annualized_return
+        复制 components.html 中 "v4.6-1 前置评级三件套" 片段,填入 <!-- PLACEHOLDER: rating_trio --> 占位
+        (3 张 rating-card: 评分 / 估值锚 / 期望收益)
 
-Step 5: 自检（v4.3 新规）:
+        从 phase1-data.md §2.3 + audit_report + capital_flow 抽 5-8 个关键指标:
+          PE TTM / PB / 市值 / ROE / 毛利率 / 资产负债率 / 股东户数 / 控盘度
+        复制 components.html "v4.6-3 粘性侧边栏关键指标" 片段,填入 <aside class="metric-sidebar"> 的 <!-- PLACEHOLDER: key_metrics --> 占位
+        (metric-row tone 判定: ROE<0 / 资产负债率>60% / 家族持股>=40% → negative/risk/critical)
+
+Step 4: 逐章节填充 15 个 <!-- PLACEHOLDER: section_N_xxx --> 占位:
+        - 用 markdown 转 HTML (表格 → <table>, 列表 → <ul>, 加粗 → <strong>)
+        - 当章节需要可视化组件时从 components.html 复制对应片段并填充数据
+        - §一 三大风险 → 使用 v4.6-2 彩条风险卡 (risk-card-v2), tone 按致命/高/中/低分
+        - §八 Peer 对标 → 使用 v4.6-4 comparison-card (你 vs peer 中位)
+        - §十二 差异化洞察 → 使用 variant-perception 卡片
+        - §四 财务趋势或 §六 维度 3 盈利 → 可选 v4.6-6 heatmap-grid (历史趋势可视化)
+
+Step 4.5 (v4.6 新增): 深度内链(可选增强可读性)
+        在主报告中如果 §一 提到 "游戏业务崩塌 -94%",可加:
+          <a href="#detail" class="deep-link">维度 3 证据</a>
+        点击跳到 §六 并高亮脉冲
+        其他示例: §三 快筛触发 → 链到 §六 对应维度; §十二 洞察 → 链到 §九 估值影响
+
+Step 5: 自检 (v4.6 更新):
         - grep -c '<div class="section"' 应 = 15
-        - grep -c '^\s*--c-' 应 ≥ 16（CSS 变量未被删）
-        - 9 个组件 class 命中率 ≥ 8/9
-        - 所有 {{placeholder}} 必须已被替换（grep 后应无 `{{`）
+        - grep -c '^\s*--c-' 应 ≥ 16 (CSS 变量未被删)
+        - 9 个基础组件 class 命中率 ≥ 8/9
+        - v4.6 新组件 (rating-trio / metric-sidebar) 必须出现在 HTML 中
+        - 所有 {{placeholder}} 必须已被替换 (grep 后应无 `{{`)
+        - `<div class="container has-sidebar">` 存在 (验证两栏布局)
+        - `<aside class="metric-sidebar">` 内 metric-row 数量 ∈ [5, 8]
+        - `.rating-trio .rating-card` 数量 = 3
 ```
 
 **绝对禁止（v4.3 强化）**:
@@ -137,36 +161,54 @@ Step 5: 自检（v4.3 新规）:
 
 ---
 
-## Part C: GitHub Pages 发布
+## Part C: GitHub Pages 发布(v4.6 — 主页动态联动)
+
+> **v4.6 重大变更**: 不再手工编辑 `index.html` 加卡片。Phase 6 Part C Step 4 调用 `scripts/update_index.py` 自动抽取 card-metadata + upsert `data/reports.json`,主页通过 JS `fetch` 动态渲染。index.html 只有骨架,**永不需手工改**。
 
 **目标仓库**: `leafpaper/Inves-Report`
 
-**执行步骤**:
+**执行步骤**(v4.6 自动化):
 
 ```
-1. 确保仓库已克隆: 
-   cd /tmp/Inves-Report && git pull origin main
-   （如不存在则: git clone https://github.com/leafpaper/Inves-Report.git /tmp/Inves-Report）
+1. 确保仓库已克隆:
+   cd /tmp/Inves-Report-v2 && git pull origin main
+   (如不存在则 git clone)
 
 2. 创建/更新公司报告目录:
-   mkdir -p /tmp/Inves-Report/reports/{CompanySlug}_{CompanyNameCN}
+   mkdir -p /tmp/Inves-Report-v2/reports/{CompanySlug}_{CompanyNameCN}
 
-3. 复制HTML报告:
-   cp output/{company}/{company}-analysis-{date}.html /tmp/Inves-Report/reports/{CompanySlug}_{CompanyNameCN}/分析报告_dashboard.html
+3. 复制 HTML 报告:
+   cp output/{company}/{company}-analysis-{date}.html /tmp/Inves-Report-v2/reports/{CompanySlug}_{CompanyNameCN}/分析报告_dashboard.html
 
-4. 更新 index.html:
-   - 在对应板块（美股/一级市场）添加新卡片
-   - 更新统计数字（报告数、看好标的数）
-   - 创业公司放"一级市场"板块
-   - 上市公司按市场放对应板块（美股/A股/港股，如需新增板块则创建）
+4. ★ 自动更新主页卡片数据(v4.6 替换旧的"手工编辑 index.html"):
+   python3 -m scripts.update_index --company {company} \
+       --repo /tmp/Inves-Report-v2 \
+       --force
 
-5. 提交推送:
-   git add -A
+   这会:
+   - 解析主报告 MD 的 <!-- CARD_METADATA / RATING_TRIO_DATA / KEY_METRICS_SIDEBAR --> 结构化注释块
+   - 生成 output/{company}/card-metadata.json
+   - 复制到 /tmp/Inves-Report-v2/reports/{slug}/card-metadata.json
+   - upsert 到 /tmp/Inves-Report-v2/data/reports.json
+   - 主页 JS 会从 reports.json 自动渲染新卡片 + 更新统计数字
+
+   若解析结果不理想(老报告未带结构化注释块), 会走 regex fallback 并输出警告。
+   **v4.6 起新生成的报告必须在 hero 后带 CARD_METADATA/RATING_TRIO_DATA/KEY_METRICS_SIDEBAR
+   三个注释块**(见 assets/templates/report-skeleton.md)。
+
+5. 提交推送(v4.6 新 — 改动由 4 项减为 3 项: HTML + card-metadata + reports.json):
+   cd /tmp/Inves-Report-v2
+   git add reports/{CompanySlug}_{CompanyNameCN}/ data/reports.json
    git commit -m "feat: 新增/更新 {company} 投资分析报告"
    git push origin main
 ```
 
-**失败处理**: 如 git push 失败，保存 HTML 到本地并通知用户手动上传。
+**失败处理**: 如 git push 失败, 保存 HTML 到本地并通知用户手动上传。
+
+**向后兼容 v4.5 及之前的老报告**:
+- 老报告未带 CARD_METADATA 注释块, update_index.py 会走 regex fallback
+- 某些字段(sector/expected_return)可能不准, 用户需手动检查 reports.json 对应条目
+- v4.6 起的新报告必须带注释块(Phase 3 骨架 assets/templates/report-skeleton.md 已强制要求)
 
 ---
 

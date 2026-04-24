@@ -31,7 +31,8 @@
   <a href="#sources">来源</a>
 </nav>
 
-<div class="container">
+<div class="container has-sidebar">
+<main>
 
 <!-- ============================================================
      Header Hero
@@ -47,6 +48,13 @@
     <span>⚠️ 最差情景 {{price_tail}} 元</span>
   </div>
 </header>
+
+<!-- ============================================================
+     v4.6 新增: 前置评级三件套(Goldman 风格, hero 下方醒目位置)
+     ============================================================ -->
+<div class="rating-trio">
+<!-- PLACEHOLDER: rating_trio - Phase 6 Part B 从主报告 §一 抽取 composite_score / anchor_price / expected_return 填充 -->
+</div>
 
 <!-- ============================================================
      §一 执行摘要
@@ -158,6 +166,16 @@
   数据源：Tushare Pro / yfinance / 巨潮资讯 PDF / WebSearch · 不构成投资建议<br>
   <a href="https://github.com/leafpaper/claude-company-analysis">skill 代码</a> · <a href="https://github.com/leafpaper/Inves-Report">报告归档</a>
 </footer>
+
+</main>
+
+<!-- ============================================================
+     v4.6 新增: 粘性侧边栏 — 关键指标面板 (Bloomberg 风格, 滚动常驻)
+     ============================================================ -->
+<aside class="metric-sidebar">
+  <h4>关键指标</h4>
+<!-- PLACEHOLDER: key_metrics - Phase 6 Part B 从 phase1-data.md §2.3 / audit_report / capital_flow 抽 5-8 个最关键指标 -->
+</aside>
 
 </div>
 </body>

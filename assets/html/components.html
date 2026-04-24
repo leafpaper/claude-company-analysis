@@ -172,3 +172,128 @@
   <p><strong>量化影响</strong>: {{quant_impact}}</p>
   <p><strong>验证路径</strong>: {{verification_path}}</p>
 </div>
+
+
+<!-- ============================================================
+     v4.6 新增组件 (Goldman 蓝 + Morningstar 卡片 + Bloomberg 颜色)
+     ============================================================ -->
+
+<!-- ==================== v4.6-1. 前置评级三件套 ==================== -->
+<!-- 用在 hero 下方, Phase 6 Part B Step 3.5 必填 -->
+<div class="rating-trio">
+  <div class="rating-card rating-card--score">
+    <div class="label">综合评分</div>
+    <div class="value">{{composite_score}} <span class="out-of">/ 10</span></div>
+    <div class="sub">{{verdict}}</div>
+  </div>
+  <div class="rating-card rating-card--anchor">
+    <div class="label">估值锚(DCF 概率加权)</div>
+    <div class="value">{{anchor_price}} 元</div>
+    <div class="sub">相对当前 {{anchor_delta_signed}}%</div>
+  </div>
+  <div class="rating-card rating-card--return">
+    <div class="label">{{horizon}}期望收益</div>
+    <div class="value {{return_tone}}">{{expected_return}}%</div>
+    <div class="sub">年化 {{annualized_return}}%</div>
+  </div>
+</div>
+
+
+<!-- ==================== v4.6-2. 彩条风险卡 ==================== -->
+<!-- 用在 §一 Top 3 风险 / §六 维度 9 / §七 舆情 — 替代 Markdown 表格 -->
+<div class="risk-card-v2 risk-critical">
+  <div class="left-bar"></div>
+  <div>
+    <div class="title">{{risk_title}}</div>
+    <div class="body">{{risk_description}}</div>
+  </div>
+  <span class="sev-badge">🔴 致命</span>
+</div>
+<div class="risk-card-v2 risk-high">
+  <div class="left-bar"></div>
+  <div>
+    <div class="title">{{risk_title}}</div>
+    <div class="body">{{risk_description}}</div>
+  </div>
+  <span class="sev-badge">🟠 高</span>
+</div>
+<div class="risk-card-v2 risk-medium">
+  <div class="left-bar"></div>
+  <div>
+    <div class="title">{{risk_title}}</div>
+    <div class="body">{{risk_description}}</div>
+  </div>
+  <span class="sev-badge">🟡 中</span>
+</div>
+<div class="risk-card-v2 risk-low">
+  <div class="left-bar"></div>
+  <div>
+    <div class="title">{{positive_signal}}</div>
+    <div class="body">{{signal_description}}</div>
+  </div>
+  <span class="sev-badge">🟢 正面</span>
+</div>
+
+
+<!-- ==================== v4.6-3. 粘性侧边栏关键指标 ==================== -->
+<!-- 用在 base.html 右侧 <aside class="metric-sidebar"> -->
+<!-- 5-8 个最核心指标,tone: positive/negative/risk/critical -->
+<h4>关键指标</h4>
+<div class="metric-row"><span>PE (TTM)</span><strong class="neutral">{{pe_ttm}}</strong></div>
+<div class="metric-row"><span>PB</span><strong class="neutral">{{pb}}x</strong></div>
+<div class="metric-row"><span>市值</span><strong>{{market_cap}} 亿</strong></div>
+<div class="metric-row"><span>ROE</span><strong class="{{roe_tone}}">{{roe}}%</strong></div>
+<div class="metric-row"><span>毛利率</span><strong>{{gross_margin}}%</strong></div>
+<div class="metric-row"><span>资产负债率</span><strong class="{{debt_tone}}">{{debt_to_assets}}%</strong></div>
+<div class="metric-row"><span>股东户数</span><strong>{{holder_num}}</strong></div>
+<div class="metric-row"><span>控盘度</span><strong class="{{control_tone}}">{{control_ratio}}%</strong></div>
+
+
+<!-- ==================== v4.6-4. 对标卡 (你 vs peer 中位) ==================== -->
+<!-- 用在 §八 可比公司对标 -->
+<div class="comparison-card">
+  <div class="cmp-col">
+    <div class="cmp-label">历史均值</div>
+    <div class="cmp-value">{{historical_value}}</div>
+    <div class="cmp-sub">{{historical_period}}</div>
+  </div>
+  <div class="cmp-col center">
+    <div class="cmp-label">{{metric_name}} · 你</div>
+    <div class="cmp-value">{{current_value}}</div>
+    <div class="cmp-bar"><div class="fill" style="width: {{percentile_width}}%"></div></div>
+    <div class="cmp-sub">分位 {{percentile}}%</div>
+  </div>
+  <div class="cmp-col">
+    <div class="cmp-label">Peer 中位</div>
+    <div class="cmp-value">{{peer_median}}</div>
+    <div class="cmp-sub">{{peer_count}} 家同行</div>
+  </div>
+</div>
+
+
+<!-- ==================== v4.6-5. 深度链接 (内链跳转) ==================== -->
+<!-- 用在正文中, 点击跳到对应章节并高亮脉冲 -->
+<!-- 示例: "游戏业务崩塌 -94% <a href="#detail-dim-3" class="deep-link">维度 3</a>" -->
+<a href="#{{target_section_id}}" class="deep-link">{{link_label}}</a>
+
+
+<!-- ==================== v4.6-6. 微型热力图 (纯 CSS) ==================== -->
+<!-- 用在 §四 财务趋势 / §六 维度 3 盈利 — 展示 5-8 个季度的 ROE/毛利/净利变化 -->
+<!-- grid-template-columns 跟列数匹配, 每个 cell class "hm--2/--1/0/1/2" 代表 5 档 -->
+<div class="heatmap-grid" style="grid-template-columns: 80px repeat(6, 1fr);">
+  <span class="hm-row-label">ROE %</span>
+  <div class="hm-cell hm--2">-7.9</div>
+  <div class="hm-cell hm--1">3.2</div>
+  <div class="hm-cell hm-0">2.2</div>
+  <div class="hm-cell hm-1">4.3</div>
+  <div class="hm-cell hm-2">8.5</div>
+  <div class="hm-cell hm-2">12.1</div>
+
+  <span class="hm-row-label">毛利率 %</span>
+  <div class="hm-cell hm-0">15.0</div>
+  <div class="hm-cell hm-0">9.8</div>
+  <div class="hm-cell hm-1">14.0</div>
+  <div class="hm-cell hm-1">13.8</div>
+  <div class="hm-cell hm-2">17.0</div>
+  <div class="hm-cell hm-2">18.5</div>
+</div>

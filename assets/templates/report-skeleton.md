@@ -6,6 +6,44 @@
 **总市值**: {{market_cap}} 亿元 · PB {{pb}} · {{pe_display}}
 **分析师**: Claude Opus 4.7 · Skill v{{skill_version}}
 
+<!-- v4.6 HTML 生成锚点: 供 Phase 6 Part B Step 3.5 抽取以下字段填充前置评级卡 + 侧边栏
+     供 Phase 6 Part C Step 4 生成 card-metadata.json
+     LLM 写报告时务必让下列字段在正文中可找到(典型位置: §一 执行摘要 / §九 估值 / §十 回报) -->
+
+<!-- RATING_TRIO_DATA:
+  composite_score: {{composite_score}}      (例 4.0)
+  verdict: {{verdict}}                      (例 中性-分歧偏空)
+  verdict_tone: {{verdict_tone}}            (bullish / neutral / bearish)
+  anchor_price: {{anchor_price}}            (例 10.1)
+  anchor_delta_signed: {{anchor_delta_signed}}  (例 -44 或 +8.6, 含符号)
+  horizon: {{horizon}}                      (例 2 年 / 12 月)
+  expected_return: {{expected_return}}      (例 -44.1)
+  return_tone: {{return_tone}}              (positive / negative)
+  annualized_return: {{annualized_return}}  (例 -24.9)
+-->
+
+<!-- KEY_METRICS_SIDEBAR (5-8 项关键指标):
+  pe_ttm: {{pe_ttm}}                (负值显示 "–(亏损)")
+  pb: {{pb}}
+  market_cap: {{market_cap}}        (亿元)
+  roe: {{roe}}                      (%)
+  roe_tone: {{roe_tone}}            (positive / negative / neutral)
+  gross_margin: {{gross_margin}}    (%)
+  debt_to_assets: {{debt_to_assets}}  (%)
+  debt_tone: {{debt_tone}}
+  holder_num: {{holder_num}}        (股东户数)
+  control_ratio: {{control_ratio}}  (家族/前10大合计 %)
+  control_tone: {{control_tone}}    (risk 若家族 >= 40% 或前10大 >= 50%)
+-->
+
+<!-- CARD_METADATA (主页卡片用):
+  slug: {{company_slug}}            (目录名, 例 ShifengCulture_实丰文化)
+  sector: {{sector}}                (例 玩具+游戏+光伏参股)
+  market: {{market}}                (us/a/hk/pe)
+  one_liner: {{one_liner}}          (≤ 200 字, §一"一句话结论"浓缩)
+  top_risks_short: {{top_risks_short}}  (3 条 ≤ 30 字 array)
+-->
+
 ---
 
 ## §一 执行摘要

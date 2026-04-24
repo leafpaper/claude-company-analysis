@@ -4,6 +4,83 @@
 
 ---
 
+## [v4.6] — 2026-04-25 — 大厂风格 HTML + 主页动态联动
+
+> **主题**: 两个用户反馈方向合并实现:①主页手工维护痛点(每次加新报告都要 Edit index.html);②报告 HTML 视觉单调,缺大厂标配元素。
+
+### 根因
+
+1. **主页联动**: `phase6-review-publish.md Part C` 第 4 步写的是"手工编辑 index.html" —— 14 张卡片硬编码 + 4 个统计数字硬编码,每次新报告 5-10 分钟手工维护,易遗漏
+2. **报告单调**: 国外大厂(Goldman / Morgan Stanley / Bloomberg / Morningstar)标配的"前置评级卡 / 彩条风险 / 粘性侧边栏 / 对标卡 / 热力图 / 深度内链"全部缺失
+
+### Added
+
+#### 1. Inves-Report 仓库侧(`/tmp/Inves-Report-v2/` → `github.com/leafpaper/Inves-Report`)
+
+- **`data/reports.json`**: 所有报告的元数据 JSON(ticker / 评分 / verdict / tone / 一句话结论 / 指标 / badge 等)
+- **`assets/css/main.css`**: 从 index.html 内联 CSS 抽出(~300 行)+ 新增搜索/筛选/排序 UI 样式
+- **`assets/js/render.js`**: fetch reports.json → 按 market 分组 → 渲染卡片 + 搜索 + 市场 tab + 排序 + 评分筛选
+- **`index.html`**: 从 500 行压缩为 **~130 行骨架**,所有卡片由 JS 动态渲染
+- **搜索/筛选 UI**: 全文搜索框 + 市场 tab(全部/美股/A股/港股/一级) + 排序下拉(最新/评分/收益) + 评分筛选(全部/≥4/≥6/≥7.5)
+
+#### 2. skill 侧 HTML 大厂风格升级
+
+**`assets/html/styles.css`** 新增 6 个组件 class(~300 行新代码):
+- `.rating-trio` + `.rating-card` — Goldman 风格前置三件套(评分/估值锚/期望收益)
+- `.risk-card-v2` + `risk-critical/high/medium/low` — Bloomberg 风格彩条风险卡(替代 Markdown 表格)
+- `.metric-sidebar` + `.metric-row` — 粘性侧边栏(right 260px,滚动常驻,展示 5-8 关键指标)
+- `.comparison-card` + `cmp-col center/bar` — Morningstar 风格对标卡(你 vs peer 中位 vs 历史)
+- `.deep-link` + `:target` 脉冲 — 章节内链跳转 + 高亮动画
+- `.heatmap-grid` + `.hm-cell.hm--2/--1/0/1/2` — 微型 5 档色块热力图
+
+**`assets/html/base.html`** 改造:
+- `<div class="container">` → `<div class="container has-sidebar">` 两栏布局
+- hero 下新增 `<div class="rating-trio">` 前置评级卡占位
+- body 右侧新增 `<aside class="metric-sidebar">` 粘性关键指标
+
+**`assets/html/components.html`** 加 6 个新片段(供 Phase 6 按数据填充)
+
+**`assets/templates/report-skeleton.md`** 补 3 个 HTML 注释结构化块(Phase 3 写报告时填):
+- `<!-- RATING_TRIO_DATA: ... -->` 前置评级卡数据
+- `<!-- KEY_METRICS_SIDEBAR: ... -->` 侧边栏 5-8 指标
+- `<!-- CARD_METADATA: ... -->` 主页卡片元数据(sector/market/one_liner/top_risks_short)
+
+#### 3. `scripts/update_index.py` 新增(~300 行)
+
+- 解析主报告 MD 的 3 个结构化注释块(100% 精准)
+- Fallback: 老报告走 regex 抽取(部分字段可能不准,会输出警告)
+- 生成 `output/{company}/card-metadata.json`
+- 复制到 `/tmp/Inves-Report/reports/{slug}/card-metadata.json`
+- upsert 合并到 `/tmp/Inves-Report/data/reports.json`(by ticker match, --force 覆盖)
+- 自动按 report_date 降序排序 + 重算统计
+
+#### 4. 风格配色升级
+
+- 保留 Goldman 深蓝主色 `--c-primary: #1a56db`
+- 新增 Bloomberg 高对比风险等级色: `--c-risk-red/amber/yellow/green`
+- 新增 Morningstar 卡片化灰阶: `--c-card-border/header/hover`
+
+### Changed
+
+- **`phases/phase6-review-publish.md`** Part B:新增 Step 3.5 强制填 rating-trio + metric-sidebar
+- **`phases/phase6-review-publish.md`** Part C:Step 4 "手工编辑 index.html" → `python3 -m scripts.update_index` 自动调用
+- **Part C Step 5** git add 从 `-A` 收紧为 `reports/{slug}/ data/reports.json`(避免误提交)
+
+### Verified
+
+- 实丰 002862 v4.1 报告:抽结构化块后精准得到 sector="玩具 + 游戏 + 光伏参股" / expected_return="-44.1%" / valuation_tag="估值锚 10.1 元"
+- 主页本地启 `python3 -m http.server 8766` 验证:10 张卡片动态渲染 / 搜索"实丰"筛选正确 / 市场 tab 切换正确 / 统计数字从 reports.json 实时算
+- HTML 重生成:rating-trio 出现 1 次(正确) / metric-sidebar 出现 13 次(CSS + HTML 结构) / has-sidebar 出现 5 次 / 178 个 CSS 变量引用
+
+### Known limitations
+
+- `update_index.py` 对 **v4.6 之前的老报告**(无 CARD_METADATA 注释块)走 regex fallback,sector/expected_return 等可能不准 — 需手工检查 reports.json
+- 移动端 sidebar 折叠成顺序(未做复杂响应式)
+- 深色模式未做
+- GitHub Action 自动扫描报告目录推迟到 v4.7
+
+---
+
 ## [v4.5] — 2026-04-25 — capital_flow 口径修正 + 家族一致行动人识别
 
 > **主题**:修复 v4.4 `capital_flow.py` 在限售股占比高的公司严重低估实控人控盘度的 bug。用户在实丰文化分析中发现 "蔡氏家族真实持股 40% vs 脚本报告 22.61%" 的矛盾,追溯到数据源口径错误。
