@@ -4,6 +4,57 @@
 
 ---
 
+## [v4.6.1] — 2026-04-25 — HTML 生成脚本化 + 补 v4.6 3 处缺陷
+
+> **主题**: 修 v4.6 上线 1 小时后用户发现的 3 个问题。
+
+### Fixed (v4.6 → v4.6.1)
+
+1. **MD → HTML 转换丢章节**: v4.6 主报告 17 个 `##` 章节, base.html 只有 15 个固定 placeholder (§一 ~ §十五), 附录的第 16/17 (v4 修订日志 / v4.1 补丁) 被完全丢弃
+   - 修: base.html 在 §十五 后加 `<!-- PLACEHOLDER: extra_sections -->`, build_html.py 把第 16+ 章节自动追加到这里
+   - 修: 新增 `scripts/build_html.py` (~300 行) 替代 LLM inline Python 做 MD → HTML 转换, 保证 section 零丢失
+   - 副产物: 修了一个隐蔽的 `re.sub` bug — markdown 输出 HTML 中的 `\g` 会被当反向引用, 改用 lambda repl 避开
+
+2. **粘性侧边栏改为顶部横排**: 用户反馈"关键指标放旁边没必要, 放最上面就行"
+   - `<aside class="metric-sidebar">` 粘性右栏 → `<div class="metric-strip">` 顶部横排 (8 个 metric-chip 平铺)
+   - `.container.has-sidebar` 两栏 → 普通单栏
+   - `.metric-sidebar` 保留但降级为块级显示, 向后兼容 v4.6 老报告
+
+3. **主页去"龟龟策略"文案**: 用户反馈"龟龟策略的表述可以去掉"
+   - `<title>`: "Inves Reports · 龟龟投资策略" → "叶纸的投资分析报告 · Inves Reports"
+   - `.hero-badge`: "✦ 龟龟投资策略 v2 ✦" → "✦ AI 投资分析 v4.6 ✦"
+   - `<h1>`: "🐢 叶纸的投资分析报告" → "叶纸的投资分析报告"(去🐢)
+   - hero `<p>`: "基于龟龟策略框架..." → "基于 11 大师框架的定量审计 + DCF 概率加权估值..."
+   - footer: "🐢 基于龟龟策略框架..." → "AI 自动生成 · v4.6 动态联动 · 11 大师框架审计"
+   - `.nav-logo` 仍保留小🐢 + "叶纸的投资报告"(作为个人身份,非策略表述)
+
+### Added
+
+- **`scripts/build_html.py`** (~300 行)
+  - `_parse_structured_block()`: 解析 RATING_TRIO_DATA / KEY_METRICS_SIDEBAR / CARD_METADATA 注释块
+  - `split_sections()`: 按 `^## ` 稳健切 MD, 保留所有章节
+  - `build_rating_trio()`: 按 data 生成 3 张 rating-card
+  - `build_metric_strip()`: 按 data 生成 5-8 个 metric-chip (取代 sidebar)
+  - `build_html()`: 主流程, 自检 + 自动报警
+  - CLI: `python3 -m scripts.build_html --company X --md Y --out Z`
+
+- **assets/html/styles.css**: 新增 `.metric-strip` + `.metric-chip` 样式(横排自适应 5-8 chip), 保留 `.metric-sidebar` 降级为块式
+
+- **assets/html/base.html**: 去 `has-sidebar` 两栏, 在 hero + rating-trio 后加 `<div class="metric-strip">` 顶部面板, 在 §十五 后加 `extra_sections` 占位
+
+- **assets/html/components.html**: 新增 `.metric-strip` 完整 8 chip 片段
+
+### Changed
+
+- `phases/phase6-review-publish.md` Part B: 改为"推荐 `python3 -m scripts.build_html`"自动化, 手动流程降为备选
+- `install.sh`: scripts 数 16 → 17 (加 build_html)
+
+### Verified
+
+- 实丰 002862 重生 HTML: 17 section 全入 (15 固定 id + extra-1 + extra-2), metric-chip 8 个, rating-card 3 个, 0 个 {{placeholder}} 残留
+
+---
+
 ## [v4.6] — 2026-04-25 — 大厂风格 HTML + 主页动态联动
 
 > **主题**: 两个用户反馈方向合并实现:①主页手工维护痛点(每次加新报告都要 Edit index.html);②报告 HTML 视觉单调,缺大厂标配元素。

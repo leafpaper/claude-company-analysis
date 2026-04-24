@@ -235,18 +235,43 @@
 </div>
 
 
-<!-- ==================== v4.6-3. 粘性侧边栏关键指标 ==================== -->
-<!-- 用在 base.html 右侧 <aside class="metric-sidebar"> -->
-<!-- 5-8 个最核心指标,tone: positive/negative/risk/critical -->
-<h4>关键指标</h4>
-<div class="metric-row"><span>PE (TTM)</span><strong class="neutral">{{pe_ttm}}</strong></div>
-<div class="metric-row"><span>PB</span><strong class="neutral">{{pb}}x</strong></div>
-<div class="metric-row"><span>市值</span><strong>{{market_cap}} 亿</strong></div>
-<div class="metric-row"><span>ROE</span><strong class="{{roe_tone}}">{{roe}}%</strong></div>
-<div class="metric-row"><span>毛利率</span><strong>{{gross_margin}}%</strong></div>
-<div class="metric-row"><span>资产负债率</span><strong class="{{debt_tone}}">{{debt_to_assets}}%</strong></div>
-<div class="metric-row"><span>股东户数</span><strong>{{holder_num}}</strong></div>
-<div class="metric-row"><span>控盘度</span><strong class="{{control_tone}}">{{control_ratio}}%</strong></div>
+<!-- ==================== v4.6.1. 关键指标横排面板 (顶部, 替代 v4.6 sidebar) ==================== -->
+<!-- 用在 hero + rating-trio 之后, 展示 5-8 个最核心指标 -->
+<!-- tone: positive/negative/risk/critical/neutral -->
+<div class="metric-strip">
+  <div class="metric-chip">
+    <div class="metric-label">PE (TTM)</div>
+    <div class="metric-value neutral">{{pe_ttm}}</div>
+  </div>
+  <div class="metric-chip">
+    <div class="metric-label">PB</div>
+    <div class="metric-value neutral">{{pb}}x</div>
+  </div>
+  <div class="metric-chip">
+    <div class="metric-label">市值</div>
+    <div class="metric-value">{{market_cap}} 亿</div>
+  </div>
+  <div class="metric-chip">
+    <div class="metric-label">ROE</div>
+    <div class="metric-value {{roe_tone}}">{{roe}}%</div>
+  </div>
+  <div class="metric-chip">
+    <div class="metric-label">毛利率</div>
+    <div class="metric-value">{{gross_margin}}%</div>
+  </div>
+  <div class="metric-chip">
+    <div class="metric-label">资产负债率</div>
+    <div class="metric-value {{debt_tone}}">{{debt_to_assets}}%</div>
+  </div>
+  <div class="metric-chip">
+    <div class="metric-label">股东户数</div>
+    <div class="metric-value">{{holder_num}}</div>
+  </div>
+  <div class="metric-chip">
+    <div class="metric-label">家族持股</div>
+    <div class="metric-value {{control_tone}}">{{control_ratio}}%</div>
+  </div>
+</div>
 
 
 <!-- ==================== v4.6-4. 对标卡 (你 vs peer 中位) ==================== -->

@@ -538,24 +538,53 @@ footer {
 .risk-card-v2.risk-medium   .sev-badge { background: var(--c-risk-yellow); color: var(--c-gray-900); }
 .risk-card-v2.risk-low      .sev-badge { background: var(--c-risk-green);  color: white; }
 
-/* ---------- v4.6-3. 粘性侧边栏 (Bloomberg 关键指标面板) ---------- */
-.container.has-sidebar {
+/* ---------- v4.6.1. 关键指标横排面板 (顶部, 替代 v4.6 的粘性侧边栏) ---------- */
+.metric-strip {
   display: grid;
-  grid-template-columns: 1fr var(--sidebar-width);
-  gap: var(--sidebar-gap);
-  align-items: start;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin: 0 0 24px;
+  padding: 16px;
+  background: white;
+  border: 1px solid var(--c-card-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
 }
-.container.has-sidebar > main { min-width: 0; }
+.metric-strip .metric-chip {
+  padding: 10px 14px;
+  text-align: center;
+  border-right: 1px dashed var(--c-gray-100);
+}
+.metric-strip .metric-chip:last-child { border-right: none; }
+.metric-strip .metric-chip .metric-label {
+  font-size: 10px;
+  color: var(--c-gray-500);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.metric-strip .metric-chip .metric-value {
+  font-size: 18px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--c-gray-900);
+}
+.metric-strip .metric-chip .metric-value.positive { color: var(--c-risk-green); }
+.metric-strip .metric-chip .metric-value.negative { color: var(--c-risk-red); }
+.metric-strip .metric-chip .metric-value.risk     { color: var(--c-risk-amber); }
+.metric-strip .metric-chip .metric-value.critical { color: var(--c-risk-red); font-weight: 900; }
+.metric-strip .metric-chip .metric-value.neutral  { color: var(--c-gray-900); }
+
+/* ---------- v4.6 兼容: .metric-sidebar/metric-row 保留(弃用但不破坏存量报告) ---------- */
 .metric-sidebar {
-  position: sticky;
-  top: 70px;
+  /* 降级为块式显示, 不再粘性 */
   background: white;
   border: 1px solid var(--c-card-border);
   border-radius: var(--radius);
   padding: 20px 18px;
   box-shadow: var(--shadow);
-  max-height: calc(100vh - 100px);
-  overflow-y: auto;
+  margin: 0 0 24px;
 }
 .metric-sidebar h4 {
   font-size: 11px;
@@ -577,11 +606,7 @@ footer {
 }
 .metric-sidebar .metric-row:last-child { border-bottom: none; }
 .metric-sidebar .metric-row span { color: var(--c-gray-700); }
-.metric-sidebar .metric-row strong {
-  font-weight: 700;
-  color: var(--c-gray-900);
-  font-variant-numeric: tabular-nums;
-}
+.metric-sidebar .metric-row strong { font-weight: 700; color: var(--c-gray-900); font-variant-numeric: tabular-nums; }
 .metric-sidebar .metric-row strong.positive { color: var(--c-risk-green); }
 .metric-sidebar .metric-row strong.negative { color: var(--c-risk-red); }
 .metric-sidebar .metric-row strong.risk     { color: var(--c-risk-amber); font-weight: 800; }
@@ -690,13 +715,13 @@ footer {
 /* ---------- 响应式 ---------- */
 @media (max-width: 768px) {
   .container { padding: 20px 16px 60px; }
-  .container.has-sidebar { display: block; }  /* v4.6: 移动端侧边栏折叠成顺序 */
-  .metric-sidebar { position: static; margin-top: 24px; max-height: none; }
   header.hero { padding: 24px 16px; }
   header.hero h1 { font-size: 24px; }
   .section { padding: 16px; }
   .scenario-grid, .team-grid, .rating-trio { grid-template-columns: 1fr; }
   .comparison-card { grid-template-columns: 1fr; }
+  .metric-strip { grid-template-columns: repeat(2, 1fr); }
+  .metric-strip .metric-chip { border-right: none; border-bottom: 1px dashed var(--c-gray-100); }
   table { font-size: 12px; }
   table th, table td { padding: 6px 8px; }
 }
@@ -707,8 +732,7 @@ footer {
   .top-nav { display: none; }
   .section { box-shadow: none; border: 1px solid #ccc; break-inside: avoid; }
   header.hero { break-inside: avoid; }
-  .container.has-sidebar { display: block; }
-  .metric-sidebar { position: static; break-inside: avoid; }
+  .metric-strip { break-inside: avoid; }
   .deep-link { color: var(--c-gray-900); background: transparent; border-color: var(--c-gray-500); }
   .deep-link::before { content: ''; }
   .deep-link::after { content: ' (见对应章节)'; font-size: 10px; color: var(--c-gray-500); }

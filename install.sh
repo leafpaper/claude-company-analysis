@@ -107,7 +107,8 @@ for py in \
     peer_collector \
     capital_flow \
     technical_analysis \
-    update_index; do
+    update_index \
+    build_html; do
   curl -fsSL "$REPO_URL/scripts/${py}.py" -o "$SKILL_DIR/scripts/${py}.py"
 done
 curl -fsSL "$REPO_URL/scripts/requirements.txt" -o "$SKILL_DIR/scripts/requirements.txt"
@@ -122,7 +123,7 @@ SCRIPT_COUNT=$(find "$SKILL_DIR/scripts" -name "*.py" 2>/dev/null | wc -l | tr -
 ASSETS_COUNT=$(find "$SKILL_DIR/assets" -type f 2>/dev/null | wc -l | tr -d ' ')
 # v4.3 期望: 7 phases + 6 refs (report-template.md 废弃) + 12 scripts + 7 assets + 1 SKILL.md = 33
 
-if [ "$PHASE_COUNT" -eq "7" ] && [ "$REF_COUNT" -eq "6" ] && [ "$SCRIPT_COUNT" -eq "16" ] && [ "$ASSETS_COUNT" -eq "7" ]; then
+if [ "$PHASE_COUNT" -eq "7" ] && [ "$REF_COUNT" -eq "6" ] && [ "$SCRIPT_COUNT" -eq "17" ] && [ "$ASSETS_COUNT" -eq "7" ]; then
     echo ""
     echo "============================================"
     echo "  ✅ 安装成功！(v4.3)"
@@ -162,7 +163,7 @@ if [ "$PHASE_COUNT" -eq "7" ] && [ "$REF_COUNT" -eq "6" ] && [ "$SCRIPT_COUNT" -
 else
     echo ""
     echo "❌ 错误：安装不完整"
-    echo "  预期(v4.6): phases=7 refs=6 scripts=16 assets=7"
+    echo "  预期(v4.6.1): phases=7 refs=6 scripts=17 assets=7"
     echo "  实际:       phases=$PHASE_COUNT refs=$REF_COUNT scripts=$SCRIPT_COUNT assets=$ASSETS_COUNT"
     exit 1
 fi

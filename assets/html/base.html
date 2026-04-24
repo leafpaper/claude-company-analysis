@@ -31,8 +31,7 @@
   <a href="#sources">来源</a>
 </nav>
 
-<div class="container has-sidebar">
-<main>
+<div class="container">
 
 <!-- ============================================================
      Header Hero
@@ -54,6 +53,13 @@
      ============================================================ -->
 <div class="rating-trio">
 <!-- PLACEHOLDER: rating_trio - Phase 6 Part B 从主报告 §一 抽取 composite_score / anchor_price / expected_return 填充 -->
+</div>
+
+<!-- ============================================================
+     v4.6.1 关键指标横排面板(替代 v4.6 的粘性侧边栏,更简洁)
+     ============================================================ -->
+<div class="metric-strip">
+<!-- PLACEHOLDER: key_metrics - 5-8 个最关键指标, 每个一个 metric-chip -->
 </div>
 
 <!-- ============================================================
@@ -161,21 +167,18 @@
 <!-- PLACEHOLDER: section_15_sources -->
 </div>
 
+<!-- ============================================================
+     v4.6.1: 附录/补丁章节追加区(避免 MD→HTML 内容丢失)
+     主报告 §十五 之后的所有 ## 章节(如"附录 v4 修订日志" / "v4.1 补丁")
+     Phase 6 Part B 必须追加到这里, 不得丢弃
+     ============================================================ -->
+<!-- PLACEHOLDER: extra_sections -->
+
 <footer>
   本报告由 Claude Code company-analysis skill v{{skill_version}} 生成 · 6+1 阶段流水线 · 11 大师框架审计<br>
   数据源：Tushare Pro / yfinance / 巨潮资讯 PDF / WebSearch · 不构成投资建议<br>
   <a href="https://github.com/leafpaper/claude-company-analysis">skill 代码</a> · <a href="https://github.com/leafpaper/Inves-Report">报告归档</a>
 </footer>
-
-</main>
-
-<!-- ============================================================
-     v4.6 新增: 粘性侧边栏 — 关键指标面板 (Bloomberg 风格, 滚动常驻)
-     ============================================================ -->
-<aside class="metric-sidebar">
-  <h4>关键指标</h4>
-<!-- PLACEHOLDER: key_metrics - Phase 6 Part B 从 phase1-data.md §2.3 / audit_report / capital_flow 抽 5-8 个最关键指标 -->
-</aside>
 
 </div>
 </body>

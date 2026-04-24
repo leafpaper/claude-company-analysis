@@ -75,9 +75,26 @@
 
 ---
 
-## Part B: HTML 生成（v4.6 — Goldman + Morningstar + Bloomberg 风格升级）
+## Part B: HTML 生成（v4.6.1 — 脚本化, 不丢章节）
 
-### ★ 强制加载流程
+### ★ 推荐: 直接调用 `scripts/build_html.py`(v4.6.1 一键转换)
+
+```bash
+python3 -m scripts.build_html --company {company} --version 4.6
+```
+
+此脚本会:
+1. 读 `assets/html/base.html` + `styles.css` + `components.html`
+2. 读 `output/{company}/{company}-analysis-{date}.md`
+3. 解析结构化注释块(CARD_METADATA / RATING_TRIO_DATA / KEY_METRICS_SIDEBAR)
+4. 按 ^## 切 MD section,**前 15 填固定 placeholder,第 16+ 追加到 extra_sections** (避免 v4.6 之前的"附录丢失"bug)
+5. 填 rating-trio / metric-strip 面板
+6. 替换 hero meta 占位符
+7. 自检输出 section 数 + 组件命中率
+
+验证门槛(脚本自动检查): HTML section 数 >= MD ## 章节数;若少于则报警并返回非零退出码。
+
+### ★ 备选: 手动流程(LLM 按旧指令执行,但 v4.6.1 已不推荐)
 
 ```
 Step 0: Read assets/html/base.html
