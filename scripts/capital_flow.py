@@ -134,7 +134,9 @@ def collect_capital_flow(
                 ti_dfs.append(df)
     raw["top_inst"] = pd.concat(ti_dfs, ignore_index=True) if ti_dfs else pd.DataFrame()
 
-    # ---------- 辅助: 拉 top10_floatholders + stk_holdernumber + daily_basic ----------
+    # ---------- 辅助: 拉 top10_holders(含限售) + top10_floatholders + stk_holdernumber + daily_basic ----------
+    # v4.5 关键修正: 同时拉"全体前十大股东"(含限售,反映真实控盘)
+    raw["top10_all"] = tc.top10_holders(target_code, start_year=dt.date.today().year - 1)
     raw["top10_float"] = tc.top10_floatholders(target_code, start_year=dt.date.today().year - 1)
     raw["holder_num"] = tc.stk_holdernumber(target_code, start_year=dt.date.today().year - 1)
     raw["daily_basic"] = tc.daily_basic(target_code)
@@ -149,26 +151,109 @@ def collect_capital_flow(
     return raw, md
 
 
+def _family_control(top10_latest: pd.DataFrame) -> tuple[float, str, list[str]]:
+    """v4.5 新增: 识别实控人家族/一致行动人合计持股.
+
+    策略:
+    1. 找持股最大的自然人(假定为实控人)
+    2. 若有同姓股东(前两字相同且都是自然人,个人户 2-3 字姓名),视作家族一致行动人
+    3. 返回 (家族合计%, 最大股东姓名, 家族成员名单)
+
+    注意: 这是启发式识别, 不替代年报 "一致行动人" 正式披露. 对家族姓氏不同(婚姻关系等)会漏, 需 LLM 在 Phase 3 补齐.
+    """
+    if top10_latest.empty or "hold_ratio" not in top10_latest.columns:
+        return 0.0, "", []
+
+    # 只看自然人(排除机构/基金类)
+    def is_person(name: str) -> bool:
+        if not isinstance(name, str):
+            return False
+        n = name.strip()
+        # 排除机构: "公司"/"基金"/"银行"/"集团"/"合伙企业"/"有限"等关键词
+        for kw in ["公司", "基金", "银行", "集团", "合伙", "有限", "中心", "投资", "管理", "LIMITED", "CO.", "LLC", "Ltd", "Holding"]:
+            if kw in n:
+                return False
+        # 中文姓名一般 2-4 字, 或英文单词序列
+        return len(n) <= 10
+
+    persons = top10_latest[top10_latest["holder_name"].apply(is_person)].copy()
+    if persons.empty:
+        return 0.0, "", []
+
+    # 最大自然人股东 = 假定实控人
+    persons = persons.sort_values("hold_ratio", ascending=False)
+    top_person = persons.iloc[0]
+    top_name = str(top_person["holder_name"])
+    # 姓: 中文取第 1 字(大多数情况足够, 复姓"欧阳/司马"等罕见在 A 股)
+    surname = top_name[0] if top_name else ""
+
+    if not surname:
+        return float(top_person["hold_ratio"]), top_name, [top_name]
+
+    # 同姓股东合计
+    family = persons[persons["holder_name"].str.startswith(surname)]
+    family_total = family["hold_ratio"].sum()
+    family_names = family["holder_name"].tolist()
+    return round(float(family_total), 2), top_name, family_names
+
+
 def _derive_metrics(target_code: str, raw: dict) -> dict[str, Any]:
     m: dict[str, Any] = {}
 
-    # 1. 主力控盘度: 最近期前 10 大流通股东合计占流通股本
+    # v4.5 修正: 4 种控盘度指标 ----------------------------------
+    # 数据口径说明:
+    #   (a) top10_holders: 全体前十大股东 (含限售)
+    #   (b) top10_floatholders: 前十大流通股东 (不含限售)
+    #   Tushare hold_ratio 字段 = 占总股本的比例 (两类接口都是这个口径)
+    top10a = raw.get("top10_all", pd.DataFrame())
     top10f = raw["top10_float"]
-    if not top10f.empty:
-        latest_ed = top10f["end_date"].max()
-        latest = top10f[top10f["end_date"] == latest_ed]
-        if "hold_ratio" in latest.columns:
-            total_ratio = latest["hold_ratio"].sum()
-            m["control_ratio_top10"] = round(total_ratio, 2)
-            m["control_period"] = latest_ed
 
-            # 控盘档位
-            if total_ratio >= 50:
-                m["control_level"] = "🔴 高度控盘"
-            elif total_ratio >= 30:
-                m["control_level"] = "🟡 中度控盘"
-            else:
-                m["control_level"] = "🟢 分散"
+    # 指标 A: 前十大"全体股东"合计占总股本 (v4.5 新, 含限售, 最反映真实控盘)
+    if not top10a.empty and "hold_ratio" in top10a.columns:
+        latest_ed_a = top10a["end_date"].max()
+        latest_a = top10a[top10a["end_date"] == latest_ed_a]
+        total_a = latest_a["hold_ratio"].sum()
+        m["top10_all_pct"] = round(float(total_a), 2)
+        m["top10_all_period"] = latest_ed_a
+
+        # ★ 家族控盘度 (v4.5 新)
+        family_pct, controller_name, family_list = _family_control(latest_a)
+        if family_pct > 0:
+            m["family_control_pct"] = family_pct
+            m["controller_name"] = controller_name
+            m["family_members"] = family_list
+
+    # 指标 B: 前十大"流通股东"合计占总股本 (v3 旧口径, 降级为参考)
+    if not top10f.empty and "hold_ratio" in top10f.columns:
+        latest_ed_f = top10f["end_date"].max()
+        latest_f = top10f[top10f["end_date"] == latest_ed_f]
+        total_f = latest_f["hold_ratio"].sum()
+        m["top10_float_of_total_pct"] = round(float(total_f), 2)
+        m["top10_float_period"] = latest_ed_f
+        # 同时计算 "占流通股本" 的口径
+        if "hold_float_ratio" in latest_f.columns:
+            total_float_of_float = latest_f["hold_float_ratio"].sum()
+            m["top10_float_of_float_pct"] = round(float(total_float_of_float), 2)
+
+    # ★ 综合控盘档位 (v4.5 用 top10_all 优先, 没有则 fallback 到 top10_float)
+    primary_ratio = m.get("top10_all_pct") or m.get("top10_float_of_total_pct", 0)
+    m["control_ratio_top10"] = primary_ratio  # 保持向后兼容的字段名
+    if primary_ratio >= 50:
+        m["control_level"] = "🔴 高度控盘"
+    elif primary_ratio >= 30:
+        m["control_level"] = "🟡 中度控盘"
+    else:
+        m["control_level"] = "🟢 分散"
+
+    # 家族控盘独立档位
+    fp = m.get("family_control_pct", 0)
+    if fp >= 40:
+        m["family_level"] = "🔴 家族绝对控盘"
+    elif fp >= 25:
+        m["family_level"] = "🟡 家族相对控盘"
+    elif fp > 0:
+        m["family_level"] = "🟢 家族非控盘"
+    m["control_period"] = m.get("top10_all_period") or m.get("top10_float_period")
 
     # 2. 筹码集中度 2×2 矩阵 (户数变化 × 户均持股变化)
     hn = raw["holder_num"]
@@ -305,6 +390,7 @@ def _format_markdown(target_code: str, raw: dict, m: dict) -> str:
         "",
         f"**生成日期**: {dt.date.today().isoformat()}",
         f"**数据窗口**: 近 60 日 (两融/陆股通/主力资金) / 近 30 日 (龙虎榜)",
+        "**v4.5 口径说明**: 控盘指标用 **top10_holders(含限售)** 作为主口径, 旧版 top10_float(仅流通) 的 22.61% 等数字降为补充(对限售比例高的公司会严重低估真实控盘)。",
         "",
         "## §1 控盘综合判定 (Top 一眼可见)",
         "",
@@ -312,10 +398,22 @@ def _format_markdown(target_code: str, raw: dict, m: dict) -> str:
         "|------|------|------|",
     ]
 
-    # 一键汇总 6 维度
+    # v4.5: 主指标用 top10_all (含限售). family_control 作为独立指标放第 2 行.
+    top10_pct = m.get("top10_all_pct") or m.get("top10_float_of_total_pct")
+    top10_source = "前 10 大全体股东(含限售)" if m.get("top10_all_pct") else "前 10 大流通股东"
+
+    fam_line = "数据不足"
+    fam_detail = "–"
+    if m.get("family_control_pct"):
+        fam_line = m.get("family_level", "数据不足")
+        names = m.get("family_members", [])
+        fam_detail = f"{m.get('controller_name', '')}家族合计 **{m['family_control_pct']}%** (成员: {' / '.join(names)})"
+
+    # 一键汇总 7 维度(v4.5 新增家族控盘)
     dims = [
-        ("主力控盘度", m.get("control_level"), f"前 10 大流通股东合计 {m.get('control_ratio_top10', 'N/A')}%"),
-        ("筹码集中度", m.get("chip_concentration"), f"户数变化 {m.get('holder_num_change', 'N/A')}%"),
+        ("主力控盘度 (总股本口径)", m.get("control_level"), f"{top10_source}合计 **{top10_pct}%**"),
+        ("★ 实控人家族合计持股", fam_line, fam_detail),
+        ("筹码集中度 (流通股动态)", m.get("chip_concentration"), f"户数变化 {m.get('holder_num_change', 'N/A')}%"),
         ("陆股通(北向)", m.get("hsgt_direction"), f"持仓 {m.get('hsgt_ratio_latest', 'N/A')}% / 20 日变化 {m.get('hsgt_ratio_change_20d', 'N/A')}pp"),
         ("两融杠杆", m.get("margin_signal"), f"融资余额 {m.get('margin_rzye_latest_wan', 'N/A')} 万元, 相对近 60 日中位 {m.get('margin_vs_median', 'N/A')}%"),
         ("主力资金流", m.get("main_capital_signal"), f"近 20 日净流入天数 {m.get('main_capital_inflow_days_20', 'N/A')} / 20"),
@@ -324,21 +422,53 @@ def _format_markdown(target_code: str, raw: dict, m: dict) -> str:
     for dim, signal, detail in dims:
         lines.append(f"| {dim} | {signal or '数据不足'} | {detail} |")
 
-    # §2 详细: 前十大流通股东
+    # 补充口径行
+    if m.get("top10_float_of_total_pct") and m.get("top10_float_of_float_pct"):
+        lines.extend([
+            "",
+            f"**口径补充**: 前 10 大**流通**股东合计 占**总股本** {m['top10_float_of_total_pct']}% / 占**流通股本** {m['top10_float_of_float_pct']}%。当 top10_all 与 top10_float 差距大, 意味着实控人大量限售股尚未解锁(典型上市 3 年内公司)。",
+        ])
+
+    # §2 详细: 前十大全体股东 (v4.5 改为 top10_all, 反映真实控盘)
     lines.extend([
         "",
-        "## §2 前十大流通股东 (最近期)",
+        "## §2 前十大全体股东 (含限售, 年报/季报披露)",
         "",
     ])
-    top10f = raw["top10_float"]
-    if not top10f.empty:
-        latest_ed = top10f["end_date"].max()
-        latest = top10f[top10f["end_date"] == latest_ed].copy()
-        cols = ["holder_name", "hold_amount", "hold_ratio"]
-        available = [c for c in cols if c in latest.columns]
-        if available:
+    top10a = raw.get("top10_all", pd.DataFrame())
+    if not top10a.empty:
+        latest_ed = top10a["end_date"].max()
+        latest = top10a[top10a["end_date"] == latest_ed].copy()
+        lines.append(f"**披露期**: {latest_ed}")
+        lines.append(f"**前 10 大合计占总股本**: **{m.get('top10_all_pct', 'N/A')}%** ({m.get('control_level', '')})")
+        if m.get("family_control_pct"):
+            lines.append(f"**实控人家族合计持股**: **{m['family_control_pct']}%** ({m.get('family_level', '')})")
+        lines.append("")
+        lines.append("| 股东 | 持股数(万股) | 占总股本(%) |")
+        lines.append("|------|:---:|:---:|")
+        # 按持股比例降序
+        latest_sorted = latest.sort_values("hold_ratio", ascending=False) if "hold_ratio" in latest.columns else latest
+        for _, row in latest_sorted.iterrows():
+            name = row.get("holder_name", "-")
+            amount = row.get("hold_amount")
+            ratio = row.get("hold_ratio")
+            try:
+                amount_wan = f"{float(amount) / 10000:,.0f}" if amount else "-"
+            except (ValueError, TypeError):
+                amount_wan = "-"
+            try:
+                ratio_pct = f"{float(ratio):.2f}" if ratio is not None else "-"
+            except (ValueError, TypeError):
+                ratio_pct = "-"
+            lines.append(f"| {name} | {amount_wan} | {ratio_pct} |")
+    else:
+        # 回退到 top10_float
+        top10f = raw["top10_float"]
+        if not top10f.empty:
+            lines.append("*top10_holders 数据不足, 回退显示前十大流通股东*")
+            latest_ed = top10f["end_date"].max()
+            latest = top10f[top10f["end_date"] == latest_ed].copy()
             lines.append(f"**披露期**: {latest_ed}")
-            lines.append(f"**合计持股比例**: **{m.get('control_ratio_top10', 'N/A')}%**  ({m.get('control_level', '')})")
             lines.append("")
             lines.append("| 股东 | 持股数(万股) | 比例(%) |")
             lines.append("|------|:---:|:---:|")
@@ -355,8 +485,8 @@ def _format_markdown(target_code: str, raw: dict, m: dict) -> str:
                 except (ValueError, TypeError):
                     ratio_pct = "-"
                 lines.append(f"| {name} | {amount_wan} | {ratio_pct} |")
-    else:
-        lines.append("*数据不足*")
+        else:
+            lines.append("*数据不足*")
 
     # §3 筹码集中度 2×2
     lines.extend([
@@ -456,13 +586,21 @@ def _format_markdown(target_code: str, raw: dict, m: dict) -> str:
     ])
     warnings = []
 
-    # 规则触发
-    if m.get("control_ratio_top10", 0) >= 50:
-        warnings.append("🔴 **高度控盘** — 前十大流通股东 ≥50%,股价易被大股东影响,流动性风险需评估")
+    # v4.5 规则: 优先检查家族控盘(绝对/相对), 其次检查前十大合计
+    fp = m.get("family_control_pct", 0)
+    if fp >= 40:
+        names = " / ".join(m.get("family_members", []))
+        warnings.append(f"🔴 **家族绝对控盘 {fp}%** — {m.get('controller_name','')}家族({names})合计占总股本 ≥40%, 重大决策一家独大, 关联交易/大股东占款风险需高度关注")
+    elif fp >= 25:
+        warnings.append(f"🟡 **家族相对控盘 {fp}%** — 实控人家族合计占 25-40%, 叠加董事会席位/一致行动人协议可能实现控股")
+
+    top_pct = m.get("top10_all_pct") or m.get("top10_float_of_total_pct", 0)
+    if top_pct >= 50:
+        warnings.append(f"🔴 **前十大合计 {top_pct}%** — 流通盘极度集中, 股价受大股东行为主导, 中小股东议价权弱")
     if "筹码分散" in str(m.get("chip_concentration", "")):
-        warnings.append("🔴 **筹码分散** — 户数增加 >5%,散户涌入,机构可能正在退出")
+        warnings.append("🔴 **筹码分散** — 户数增加 >5%, 散户涌入, 机构可能正在退出")
     if "筹码集中" in str(m.get("chip_concentration", "")):
-        warnings.append("🟢 **筹码集中** — 户数减少 + 户均持股上升,机构可能在吸筹")
+        warnings.append("🟢 **筹码集中** — 户数减少 + 户均持股上升, 机构可能在吸筹")
     if m.get("hsgt_ratio_change_20d", 0) < -0.5:
         warnings.append(f"🔴 **外资撤离** — 陆股通 20 日减仓 {m['hsgt_ratio_change_20d']:.2f}pp")
     if m.get("hsgt_ratio_change_20d", 0) > 0.5:
