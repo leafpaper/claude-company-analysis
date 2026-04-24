@@ -190,12 +190,10 @@ def build_html(
 
     # 2. 切 section
     pre_h2, sections = split_sections(md_text)
-    # 剥离 pre_h2 中的注释块(它们已抽走, 避免出现在 HTML)
-    pre_h2_clean = re.sub(
-        r"<!--\s*(RATING_TRIO_DATA|KEY_METRICS_SIDEBAR|CARD_METADATA).*?-->",
-        "", pre_h2, flags=re.DOTALL,
-    )
-    # pre_h2 转 HTML (主要是 title + meta 行, 我们手工填所以无需保留)
+    # 剥离 pre_h2 中所有注释块 (不止 RATING_TRIO_DATA/KEY_METRICS_SIDEBAR/CARD_METADATA, 所有 <!-- --> 都去掉)
+    pre_h2_clean = re.sub(r"<!--.*?-->", "", pre_h2, flags=re.DOTALL)
+    # 删 MD 顶层 title 行 (# xxx), hero.h1 已处理
+    pre_h2_clean = re.sub(r"^#\s+.+$", "", pre_h2_clean, count=1, flags=re.MULTILINE)
 
     # 3. 从 MD 第一行抽 title 信息
     first_line = md_text.splitlines()[0] if md_text else ""
@@ -245,6 +243,13 @@ def build_html(
     html = html.replace(
         "<!-- PLACEHOLDER: key_metrics - 5-8 个最关键指标, 每个一个 metric-chip -->",
         build_metric_strip(metric_block) or "  <!-- 无指标数据 -->",
+    )
+
+    # 8.5 v4.6.2: 填 preamble 区 (第一个 ## 之前的 blockquote / meta / 段落)
+    preamble_html = md_to_html(pre_h2_clean).strip() if pre_h2_clean.strip() else ""
+    html = html.replace(
+        "<!-- PLACEHOLDER: preamble -->",
+        preamble_html or "<!-- 无 preamble 内容 -->",
     )
 
     # 9. 填 15 个固定 section placeholder + extra_sections
@@ -337,13 +342,53 @@ def main():
 
     # 验证
     import re as _re
-    md_h2_count = md_path.read_text(encoding="utf-8").count("\n## ")
+    md_text_raw = md_path.read_text(encoding="utf-8")
+    md_h2_count = md_text_raw.count("\n## ")
     # 严格: 以 '<div class="section' 开头的行(涵盖 section 和 section variant-perception 等)
     html_section_count = len(_re.findall(r'<div class="section[^"]*"', html))
     rating_card_count = html.count('rating-card--')
     metric_chip_count = html.count('class="metric-chip"')
     css_var_count = len(_re.findall(r"--c-[a-z-]+:", html))
     placeholders_left = html.count("{{")
+
+    # ★ v4.6.2: 内容命中率自检 — 检测 "MD 正文中的关键 token" 是否全部在 HTML 出现
+    def _normalize(s: str) -> str:
+        """归一化: 全部去除标点和空白, 只保留中文/字母/数字."""
+        return "".join(_re.findall(r"[\w\u4e00-\u9fa5]+", s))
+
+    import html as _html
+    md_no_comment = _re.sub(r"<!--.*?-->", "", md_text_raw, flags=_re.DOTALL)
+    # 剥标签 + 解码实体(&gt; &amp; &quot; 等)后再归一化
+    html_stripped = _re.sub(r"<[^>]+>", "", html)
+    html_stripped = _html.unescape(html_stripped)
+    html_text_norm = _normalize(html_stripped)
+
+    checked = 0
+    missing_lines: list[tuple[int, str]] = []
+    for lno, line in enumerate(md_no_comment.splitlines(), 1):
+        s = line.strip()
+        if not s:
+            continue
+        # 跳过 MD 分隔符 / 纯空行
+        if _re.fullmatch(r"[-=_~`]{3,}", s):
+            continue
+        # 跳过行首的 list marker (1. / - / * / > / | 等), markdown 渲染成 <li>/<blockquote>/<td>
+        stripped = _re.sub(r"^(\s*[-*+>|]\s+|\s*\d{1,3}\.\s+)", "", s)
+        stripped = _re.sub(r"^\|\s*|\s*\|\s*$", "", stripped)  # 表格首尾 |
+        # [text](url) 只保留 text (HTML <a> 只显示 text, url 藏在 href 属性里)
+        stripped = _re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", stripped)
+        # ![alt](url) 类似
+        stripped = _re.sub(r"!\[([^\]]*)\]\([^)]+\)", r"\1", stripped)
+        core_norm = _normalize(stripped)
+        if len(core_norm) < 12:
+            continue  # 太短的行 跳过
+        # 取"中间"15-20 字符做指纹, 避免前缀被 list marker / bold 标记吃掉影响
+        mid_start = max(0, len(core_norm) // 2 - 10)
+        sig = core_norm[mid_start:mid_start + 20]
+        checked += 1
+        if sig not in html_text_norm:
+            missing_lines.append((lno, s[:70]))
+    hit_rate = (checked - len(missing_lines)) / checked if checked else 1.0
 
     print(f"✅ HTML 已写入 {out_path} ({len(html):,} chars)")
     print(f"   MD ## 章节 = {md_h2_count}")
@@ -352,12 +397,22 @@ def main():
     print(f"   metric-chip 数 = {metric_chip_count}  (期望 5-8)")
     print(f"   CSS 变量定义数 ≈ {css_var_count}  (期望 >= 16)")
     print(f"   未替换 {{{{placeholder}}}} = {placeholders_left}  (期望 0)")
+    print(f"   ★ 内容命中率 = {checked - len(missing_lines)}/{checked} = {hit_rate:.1%}  (期望 >= 98%)")
 
+    fail = False
     if html_section_count < md_h2_count:
-        print(f"   ⚠️  HTML section 数少于 MD ## 数, 可能丢章节!")
-        return 2
+        print(f"   🔴 HTML section 数少于 MD ## 数 → 丢章节!")
+        fail = True
+    if hit_rate < 0.98 and missing_lines:
+        print(f"   ⚠️  有 {len(missing_lines)} 行内容未在 HTML 中命中 (阈值 2%):")
+        for lno, txt in missing_lines[:10]:
+            print(f"     L{lno}: {txt}")
+        if len(missing_lines) > 10:
+            print(f"     ... 还有 {len(missing_lines) - 10} 行")
+        if hit_rate < 0.90:
+            fail = True
 
-    return 0
+    return 2 if fail else 0
 
 
 if __name__ == "__main__":

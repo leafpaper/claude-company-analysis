@@ -538,6 +538,30 @@ footer {
 .risk-card-v2.risk-medium   .sev-badge { background: var(--c-risk-yellow); color: var(--c-gray-900); }
 .risk-card-v2.risk-low      .sev-badge { background: var(--c-risk-green);  color: white; }
 
+/* ---------- v4.6.2. Preamble 区 (hero 之后、rating-trio 之前) ---------- */
+.preamble {
+  background: var(--c-gray-50);
+  border-left: 3px solid var(--c-accent);
+  border-radius: 6px;
+  padding: 14px 20px;
+  margin: -8px 0 20px;
+  font-size: 13px;
+  color: var(--c-gray-700);
+  line-height: 1.7;
+}
+.preamble:empty { display: none; }
+.preamble blockquote {
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+}
+.preamble blockquote p { margin: 6px 0; }
+.preamble p { margin: 6px 0; }
+.preamble strong { color: var(--c-primary-dark); }
+.preamble hr { display: none; }  /* 吃掉 --- 分隔符,避免视觉噪音 */
+
 /* ---------- v4.6.1. 关键指标横排面板 (顶部, 替代 v4.6 的粘性侧边栏) ---------- */
 .metric-strip {
   display: grid;
