@@ -1,0 +1,174 @@
+{
+  "schema_version": "v4.3",
+  "description": "报告审核清单 — 机器可读版本。v4.3 由 Phase 6 人工对照;v4.4 将由 scripts/validate_report.py 自动扫描。",
+
+  "sections": {
+    "required_count": 15,
+    "order_locked": true,
+    "titles": [
+      "§一 执行摘要",
+      "§二 事实评分总览（10 维度）",
+      "§三 快速筛选（致命看空条款 - 6 项）",
+      "§四 公司基本面",
+      "§五 行业与竞争格局",
+      "§六 10 维度详细证据",
+      "§七 网络舆情与市场情绪",
+      "§八 可比公司对标",
+      "§九 估值与回报模拟",
+      "§十 投资回报测算（与 §九 共用情景）",
+      "§十一 定性判断（3 框架，v4.1 — 无打分）",
+      "§十二 差异化洞察（Phase 5 回写 — 9 字段卡片）",
+      "§十三 多角色投资结论（Phase 4 回写 — 3 角色 × 3 段精简版）",
+      "§十四 信息缺口与尽调优先级",
+      "§十五 数据可审计性（时效性 + 来源 3 类分组）"
+    ]
+  },
+
+  "exec_summary_fields": {
+    "required_count": 7,
+    "order_locked": true,
+    "field_names": [
+      "一句话结论",
+      "估值锚",
+      "综合评分",
+      "三大风险（Top 3）",
+      "三大机会（Top 3）",
+      "核心非共识观点",
+      "投资方向综合判定"
+    ],
+    "forbidden_fields": [
+      "综合评级",
+      "量化分",
+      "定性修正",
+      "调整后分",
+      "建议仓位",
+      "尽调优先级"
+    ]
+  },
+
+  "scoring": {
+    "dimension_count": 10,
+    "table_columns_required": ["维度", "权重", "分数", "加权"],
+    "table_columns_forbidden": ["关键理由", "调整分", "基准分", "定性修正"],
+    "weight_sum_must_equal": 100
+  },
+
+  "screening": {
+    "conditions_count": 6,
+    "condition_names": [
+      "单季/单年度净利 < -50%",
+      "资产负债率 > 70%",
+      "大股东累计质押 > 50%",
+      "审计机构连续 2 年变更",
+      "CFO 非正常离任",
+      "Audit ≥ 2 个 🔴 红旗"
+    ]
+  },
+
+  "valuation_anchor_rule": {
+    "description": "v4.2 强制 — §九 估值锚只能是 DCF 概率加权;禁止'三角验证均值'",
+    "primary_anchor_method": "DCF 概率加权",
+    "cross_validation_methods": ["可比 PE", "PB 相对", "最近交易"],
+    "scenario_count_min": 3,
+    "scenario_count_max": 4,
+    "tail_scenario_when_triggered": {
+      "triggers_any_of": [
+        "核心子公司占合并净利 > 30% 且存在剥离/控制权丧失可能",
+        "forecast_vip 预告首亏/续亏 且 预亏 > 50% 净资产",
+        "PDF 原文公司自述'若 XX 事件发生可能面临阶段性下调'",
+        "audit_report 有 🔴 红旗涉及核心资产减值"
+      ],
+      "weight_range": [3, 10],
+      "label": "最差情景（核心资产零回收）"
+    },
+    "consistency_rule": "§九 情景 / 概率 与 §十 投资回报情景 / 概率必须完全一致"
+  },
+
+  "sotp_on_core_asset_separation_risk": {
+    "description": "v4.2 新增 — 若触发上面的 triggers_any_of,则 §四 必须有'剩余资产清单'子节",
+    "required_asset_items": [
+      "货币资金",
+      "交易性金融资产",
+      "立讯/接盘方交易尾款（若适用）",
+      "非核心子公司净资产",
+      "非核心固定资产/无形/IP",
+      "上市公司壳价值"
+    ],
+    "required_liability_items": [
+      "有息负债（转债 + 借款）",
+      "清算/法律/裁员成本"
+    ]
+  },
+
+  "qualitative_frameworks": {
+    "framework_count": 3,
+    "framework_names": ["护城河", "管理层", "催化剂"],
+    "forbidden_framework": "估值判断",
+    "verdict_options": ["看多", "看空", "中性-分歧"],
+    "no_numeric_scoring": true,
+    "forbidden_phrases": [
+      "修正值 +",
+      "修正值 -",
+      "调整后 ",
+      "强烈看多",
+      "有条件看好",
+      "谨慎",
+      "回避"
+    ]
+  },
+
+  "variant_perception": {
+    "required_field_count": 9,
+    "field_names": [
+      "假设",
+      "市场共识",
+      "变异认知",
+      "数学推导",
+      "支撑证据",
+      "证伪条件",
+      "信号强度",
+      "量化影响",
+      "验证路径"
+    ],
+    "signal_strength_format_pattern": "Level [A-C] / (高|中|低)(置信)? / (3M|6M|1Y|2Y|3Y|5Y)",
+    "level_a_b_count_range": [3, 7]
+  },
+
+  "personas": {
+    "required_count": 3,
+    "segments_per_persona": 3,
+    "segment_names": ["核心投资结论", "最担忧风险", "对 1 条洞察回应"],
+    "min_cross_persona_disagreement_insights": 1
+  },
+
+  "info_gaps": {
+    "min_count": 3,
+    "status_options": ["✅ 已解决", "⚠️ 部分", "❌ 未找到"]
+  },
+
+  "source_tags": {
+    "allowed_sources": ["Tushare:", "PDF:", "metrics.json:", "yfinance:", "WebSearch:", "Phase 5 补查"],
+    "forbidden_sources": ["证券之星算法", "某财经网摘要", "第三方解读"],
+    "required_for_sections": ["§四 财务趋势表", "§六 10 维度", "§九 估值"]
+  },
+
+  "html_generation": {
+    "css_variables_min": 16,
+    "component_classes_expected": [
+      "score-ring",
+      "dimension-bar",
+      "scenario-grid",
+      "expected-return",
+      "team-grid",
+      "risk-item",
+      "timeline",
+      "sentiment-bar",
+      "valuation-range"
+    ],
+    "component_hit_rate_min": 0.88,
+    "assets_must_be_loaded": [
+      "assets/html/base.html",
+      "assets/html/styles.css"
+    ]
+  }
+}

@@ -1,173 +1,98 @@
-# HTML 报告生成指南 (HTML Report Generation Guide)
+# HTML 报告设计哲学 (v4.3 精简版)
 
-> 在保存 `.md` 报告后，自动生成同名 `.html` 可视化 dashboard 版本。
-
----
-
-## 一、输出规范
-
-- 文件名: `{company-name}-analysis-{YYYY-MM-DD}.html`
-- 与 `.md` 报告保存在同一目录
-- **自包含**: 所有 CSS 内联于 `<style>` 标签，不依赖外部 JS/CSS/CDN
-- **单文件**: 可独立打开，可作为附件发送
+> ⚠️ **v4.3 变更**:本文件**不再包含可执行 CSS / HTML 代码块**。
+> 所有可执行的 CSS 变量、组件 class、HTML 骨架均已迁至:
+> - `assets/html/base.html` — HTML 骨架（15 section + sticky nav + hero）
+> - `assets/html/styles.css` — 完整 CSS（16 变量 + 9 组件样式 + 响应式 + 打印）
+> - `assets/html/components.html` — 10 个组件片段（评分环/维度条/情景卡/团队名片/风险项/时间轴/情绪量表/估值区间/洞察卡片）
+>
+> **Phase 6 Part B 必须 Read 上面三个文件并按骨架填充,禁止凭记忆重写 CSS 或自创变量名**。本文件仅描述**设计理念**,供作者/审稿人理解为什么这么设计。
 
 ---
 
-## 二、CSS 设计系统
+## 一、输出哲学
 
-复用以下 CSS 变量（参考纽瑞芯报告的实现）：
-
-```css
-:root {
-  --c-primary: #1a56db;
-  --c-primary-light: #e8effc;
-  --c-green: #059669;
-  --c-green-bg: #ecfdf5;
-  --c-yellow: #d97706;
-  --c-yellow-bg: #fffbeb;
-  --c-red: #dc2626;
-  --c-red-bg: #fef2f2;
-  --c-gray-50: #f9fafb;
-  --c-gray-100: #f3f4f6;
-  --c-gray-200: #e5e7eb;
-  --c-gray-500: #6b7280;
-  --c-gray-700: #374151;
-  --c-gray-900: #111827;
-  --radius: 12px;
-  --shadow: 0 1px 3px rgba(0,0,0,.1), 0 1px 2px rgba(0,0,0,.06);
-  --shadow-md: 0 4px 6px rgba(0,0,0,.07), 0 2px 4px rgba(0,0,0,.06);
-}
-```
-
-字体: `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif`
+- **自包含**:所有 CSS 内联于 `<style>` 标签,不依赖外部 JS/CSS/CDN → 可独立打开、可作为附件发送
+- **单文件**:一份 HTML 即一份完整报告,不切片
+- **品牌一致**:跨报告保持相同配色、字体、间距 → 读者建立一致的阅读预期
 
 ---
 
-## 三、必需组件
+## 二、CSS 设计系统(理念)
 
-### 3.1 Sticky 顶部导航栏
+### 颜色语义
 
-```html
-<nav class="top-nav">
-  <a href="../../index.html" class="nav-brand">叶纸的投资报告</a>
-  <a href="../../index.html" class="nav-back">← 返回首页</a>
-  <a href="#scoring">评分</a>
-  <a href="#detail">详细分析</a>
-  <a href="#valuation">估值分析</a>
-  <a href="#terms">条款分析</a>
-  <a href="#qualitative">定性判断</a>
-  <a href="#invest-sim">投资模拟</a>
-</nav>
-```
+- **主色蓝** (`--c-primary: #1a56db`):严肃、金融、可信
+- **语义色**:
+  - 绿 (`--c-green`):看多、正面、机会
+  - 黄 (`--c-yellow`):观望、中性、警示
+  - 红 (`--c-red`):看空、负面、风险
+- **紫 variant** (`--c-variant: #7a4dab`):差异化洞察专用(§十二 章节)—— 视觉上与主体报告区隔,提示这是"非共识认知"
+- **灰度系 50/100/200/500/700/900**:文本层级与背景层级
 
-样式: `position: sticky; top: 0; z-index: 200; backdrop-filter: blur(12px); height: 50px`
+### 字体
 
-### 3.2 评分环形图 (Score Ring)
+系统字体栈:`-apple-system, "PingFang SC", "Noto Sans SC", sans-serif`
+中英混排友好,不依赖网络字体。
 
-使用 SVG 实现:
-```html
-<svg width="140" height="140" viewBox="0 0 140 140">
-  <circle cx="70" cy="70" r="58" fill="none" stroke="#e5e7eb" stroke-width="10"/>
-  <circle cx="70" cy="70" r="58" fill="none" stroke="#1a56db" stroke-width="10"
-    stroke-dasharray="364.4" stroke-dashoffset="{364.4 - (score/10 * 364.4)}"
-    stroke-linecap="round" transform="rotate(-90 70 70)"/>
-</svg>
-```
+### 形状
 
-需同时展示: 量化综合分 + 定性调整后综合分（如有差异，用小字标注调整值）
-
-### 3.3 维度评分条形图
-
-每个维度一行: `名称 | 分数 | 进度条 | 权重`
-
-进度条颜色按 Tier:
-- tier1 (1.5x): `linear-gradient(90deg, #3b82f6, #1d4ed8)` — 蓝色
-- tier2 (1.0x): `linear-gradient(90deg, #8b5cf6, #6d28d9)` — 紫色
-- tier3 (0.75x): `linear-gradient(90deg, #f59e0b, #d97706)` — 琥珀色
-
-条宽 = `score * 10%`
-
-### 3.4 三色情景卡片
-
-```css
-.scenario.bull { background: var(--c-green-bg); border: 1px solid #a7f3d0; }
-.scenario.base { background: var(--c-yellow-bg); border: 1px solid #fde68a; }
-.scenario.bear { background: var(--c-red-bg); border: 1px solid #fecaca; }
-```
-
-每张卡片显示: 标签（概率）、大数字（回报倍数）、详情（退出估值/金额/IRR）
-
-### 3.5 期望回报高亮条
-
-深蓝渐变背景 (`linear-gradient(135deg, #1e3a5f, #1a56db)`)，白色文字，展示概率加权期望回报和 IRR。
-
-### 3.6 团队名片网格
-
-`display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr))`
-
-每张卡片: 头像圆圈（取姓氏首字）、姓名、职位、简要背景
-
-### 3.7 风险矩阵
-
-每项风险: 彩色圆点（红/黄/绿）+ 标题 + 描述 + 严重度/可能性 badge
-
-### 3.8 融资时间轴
-
-水平时间轴，每轮一个节点（dot），显示年份/轮次/金额。当前拟融轮用不同颜色标注。
-
-### 3.9 情绪量表
-
-水平条，渐变色从红到绿，带标记指针显示当前情绪位置。
+- `--radius: 12px` 圆角适中 —— 不太方(冷漠)也不太圆(俏皮)
+- `--shadow / --shadow-md` 两档阴影 —— section 一档轻,hero/expected-return 一档重
 
 ---
 
-## 四、新增组件（v2）
+## 三、组件设计意图(9+1)
 
-### 4.1 估值区间可视化
-
-水平范围条，显示三种估值方法的区间和重叠:
-
-```
-DCF:     |----[=====]--------|
-倍数:       |---[======]----|
-最近交易:          |X|
-```
-
-用不同颜色区分方法，重叠区域为估值共识区间。
-
-### 4.2 条款星级评估
-
-用 CSS 实现 ★ 填充/空心显示:
-```css
-.star-filled { color: #fbbf24; }
-.star-empty { color: #e5e7eb; }
-```
-
-### 4.3 定性修正表
-
-表格列出每个定性框架的评估结果和修正值。最终行显示加粗的平均修正系数。
-如修正为正 → 绿色；为负 → 红色。
-
-### 4.4 信息缺口优先级表
-
-使用彩色 badge:
-- 🔴 关键: `background: #fef2f2; color: #dc2626`
-- 🟡 重要: `background: #fffbeb; color: #d97706`
-- 🟢 补充: `background: #ecfdf5; color: #059669`
+| 组件 | 用在 | 意图 |
+|------|------|------|
+| **评分环(Score Ring)** | §一 / §二 | SVG 圆环把"综合评分 / 10"可视化 —— 远比数字本身更"一眼入眼" |
+| **维度条(Dimension Bar)** | §二 | 10 维度进度条 + Tier 颜色(蓝 = 权重 15% / 紫 = 10% / 琥珀 = 5%)→ 直观看哪些维度权重大 |
+| **情景卡(Scenario Card)** | §九 / §十 | v4.2 起 4 情景(乐优/基/悲/**最差**)。最差卡用深黑色背景 —— 视觉强调"尾部风险" |
+| **期望回报条(Expected Return)** | §十 | 深蓝渐变大字 —— 最终加权收益率是报告的"一句话结论"的数字背书 |
+| **团队名片网格(Team Grid)** | §六 维度 5 | 头像圆圈(姓氏首字)+ 姓名 + 职位 → 比纯文本易记 |
+| **风险项(Risk Item)** | §一 / §六 | 左边色条 + 圆点 + badge →红黄绿分级一眼可辨 |
+| **时间轴(Timeline)** | §四 | 水平节点时间轴 —— 融资轮次 / 事件演进 / current 节点高亮 |
+| **情绪量表(Sentiment Bar)** | §七 | 红到绿渐变条 + 指针 —— 市场情绪定位更直观 |
+| **估值区间(Valuation Range)** | §九 | DCF/可比/PB 三种方法的区间叠加显示 —— 看重叠区域就是共识 |
+| **洞察卡片(Variant Perception Card)** ⭐v4.1 | §十二 | 紫色调背景 + 9 字段结构化 —— 让非共识观点视觉独立于主体评分 |
 
 ---
 
-## 五、自适应行为
+## 四、自适应行为
 
-当某些章节缺少数据时（如无 term sheet、无法做 DCF）:
-- **不跳过该章节**
-- 显示占位提示: `"本分析暂无足够数据支持此章节。以下为基于行业标准假设的分析框架，建议在尽调中补充。"`
-- 仍展示框架结构（空表格+说明），让读者知道应关注什么
+### 4.1 数据不足时
+
+**不跳过该章节**,改显占位提示:
+> "本分析暂无足够数据支持此章节。以下为基于行业标准假设的分析框架,建议在尽调中补充。"
+
+仍展示框架结构(空表格 + 说明),让读者知道应关注什么。
+
+### 4.2 响应式
+
+- 断点 `@media (max-width: 768px)`:卡片单列、表格横向滚动、hero 缩小
+- 所有 section 加 `id` 属性 → 顶部 sticky nav 锚点跳转
+
+### 4.3 打印
+
+- `@media print` 去阴影、加边框、`break-inside: avoid`
+- hero 和每个 section 不被切断
 
 ---
 
-## 六、响应式与打印
+## 五、v4.3 质量门控
 
-- 响应式断点: `@media (max-width: 768px)` — 卡片单列、表格横向滚动
-- 打印: `@media print` — 去阴影、加边框、`break-inside: avoid`
-- 所有 section 加 `id` 属性供导航栏锚点跳转
+Phase 6 Part B 自检(写入 `phase6-review-log.md`):
+
+- `grep -c '<div class="section"' *.html` **应 = 15**
+- `grep -c '^\s*--c-' *.html` **应 ≥ 16** (CSS 变量未被删)
+- 9 个组件 class 命中率 **≥ 8/9**
+- 所有 `{{placeholder}}` 必须已被替换(`grep -c '{{' *.html` 应 = 0)
+
+---
+
+## 历史
+
+- **v4.3 — 2026-04-24**: 拆分本文件,可执行代码迁至 `assets/html/`,本文件仅保留设计哲学
+- **v2 — 2026-04-20**: 新增估值区间、星级评估、定性修正表、缺口优先级 4 个组件(已迁至 components.html)
+- **v1 — 2026-03**: 初版 9 组件设计(与 纽瑞芯报告并行开发)

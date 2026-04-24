@@ -1,10 +1,10 @@
 ---
 name: company-analysis
-description: "投资分析技能 v4（PDF+Tushare+量化监控）。支持 A 股/美股/港股。使用 /company-analysis <公司名称> 启动 6 阶段投资分析，或 /company-analysis <公司> --monitor 触发量化监控。"
+description: "投资分析技能 v4.3（PDF+Tushare+量化监控+骨架强制）。支持 A 股/美股/港股。使用 /company-analysis <公司名称> 启动 6 阶段投资分析，或 /company-analysis <公司> --monitor 触发量化监控。"
 argument-hint: <company-name> [--monitor]
 ---
 
-# 🎯 投资分析协调器 v4
+# 🎯 投资分析协调器 v4.3
 
 ## 你是谁？你的职责是什么？
 
@@ -118,9 +118,14 @@ argument-hint: <company-name> [--monitor]
 | 查看质量门控 | 见每个 Phase 的说明（下方） |
 | 处理异常 | 见下方"异常处理" |
 | 数据层说明 | `scripts/README.md` |
+| **报告骨架(v4.3 强制)** | **`assets/templates/report-skeleton.md`** |
+| **Exec Summary 字段 schema(v4.3)** | **`assets/templates/exec-summary-schema.md`** |
+| **HTML 骨架(v4.3)** | **`assets/html/base.html` + `styles.css` + `components.html`** |
+| 审核清单 JSON | `assets/validation/report-checklist.json` |
 | 评分标准 | `references/scoring-rubric.md` |
-| 4 框架定性（v4 简化） | `references/qualitative-frameworks.md` |
+| 3 框架定性（v4.1） | `references/qualitative-frameworks.md` |
 | 估值框架 | `references/valuation-frameworks.md` |
+| HTML 设计哲学(说明) | `references/html-template-guide.md` |
 
 ---
 
@@ -273,9 +278,16 @@ mkdir -p output/{company}/raw_data/pdfs
 | `phases/phase6-review-publish.md` | 审核发布指令（原 5 后移）| 6 |
 | `phases/phase7-quantitative-monitor.md` | 量化监控指令（新）| 7 |
 | `references/scoring-rubric.md` | 10 维度评分 | 3 |
-| `references/qualitative-frameworks.md` | 4 框架定性（v4 简化） | 3 |
-| `references/valuation-frameworks.md` | Damodaran 估值 | 3 |
+| `references/qualitative-frameworks.md` | 3 框架定性（v4.1） | 3 |
+| `references/valuation-frameworks.md` | Damodaran 估值 + v4.2 SOTP 强制规则 | 3 |
 | `references/search-strategy.md` | WebSearch 辅助 | 1 |
-| `references/report-template.md` | MD 报告模板 | 3 |
-| `references/html-template-guide.md` | HTML 规范 | 6 |
+| `references/html-template-guide.md` | HTML 设计哲学(无代码,代码见 assets/html/) | 6 |
 | `references/persona-registry.md` | 投资人角色库 | 4 |
+| ~~`references/report-template.md`~~ | **v4.3 废弃** → `assets/templates/report-skeleton.md` | – |
+| **`assets/templates/report-skeleton.md`** ⭐ | **报告 15 章节严格骨架(v4.3 Phase 3 强制加载)** | **3** |
+| **`assets/templates/exec-summary-schema.md`** ⭐ | **Exec Summary 7 字段 schema(v4.3)** | **3** |
+| **`assets/html/base.html`** ⭐ | **HTML 骨架 + 15 section 占位(v4.3 Phase 6 强制加载)** | **6** |
+| **`assets/html/styles.css`** ⭐ | **真 CSS 文件(16 变量 + 9 组件样式)** | **6** |
+| **`assets/html/components.html`** | **10 个组件片段库** | **6** |
+| `assets/validation/report-checklist.json` | 机器可读的 22 项审核清单(供 v4.4 validator) | 6 |
+| `assets/validation/insight-card-schema.json` | Phase 5 9 字段 schema(供 v4.4 validator) | 5 / 6 |

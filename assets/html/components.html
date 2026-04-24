@@ -1,0 +1,174 @@
+<!-- ============================================================
+     HTML 组件片段库 v4.3
+     Phase 6 Part B 按需 Read 此文件,剪贴对应片段填入 base.html 的 section
+     占位符 {{...}} 由 LLM 填充
+     ============================================================ -->
+
+
+<!-- ==================== 1. 评分环形图 (Score Ring) ==================== -->
+<!-- 用在 §一 Executive Summary 或 §二 评分总览 -->
+<div class="score-ring" style="width:140px;height:140px">
+  <svg width="140" height="140" viewBox="0 0 140 140">
+    <circle cx="70" cy="70" r="58" fill="none" stroke="#e5e7eb" stroke-width="10"/>
+    <circle cx="70" cy="70" r="58" fill="none" stroke="#1a56db" stroke-width="10"
+      stroke-dasharray="364.4"
+      stroke-dashoffset="{{364.4_minus_score_over_10_times_364.4}}"
+      stroke-linecap="round" transform="rotate(-90 70 70)"/>
+  </svg>
+  <div class="score-text">
+    <div class="num">{{composite_score}}</div>
+    <div class="label">综合评分 / 10</div>
+  </div>
+</div>
+
+
+<!-- ==================== 2. 维度评分条形图 (Dimension Bar) ==================== -->
+<!-- 用在 §二 评分总览 — 每维度一行 -->
+<div class="dimension-bar">
+  <span class="dim-name">1. 市场规模与结构</span>
+  <span class="dim-score">{{score_1}}</span>
+  <div class="dim-progress">
+    <div class="fill tier1" style="width:{{score_1_times_10}}%"></div>
+  </div>
+  <span class="dim-weight">10%</span>
+</div>
+<!-- Tier 约定: tier1(权重≥15%)=蓝 tier2(10%)=紫 tier3(≤5%)=琥珀 -->
+
+
+<!-- ==================== 3. 三色情景卡片 (Scenario Card) ==================== -->
+<!-- 用在 §九 估值 / §十 投资回报 — v4.2 起 4 情景 -->
+<div class="scenario-grid">
+  <div class="scenario bull">
+    <div class="label">乐观 · {{weight_bull}}%</div>
+    <div class="big-num">{{return_bull}}%</div>
+    <div class="detail">目标 {{price_bull}} 元 · 估值 {{valuation_bull}} 亿</div>
+  </div>
+  <div class="scenario base">
+    <div class="label">基准 · {{weight_base}}%</div>
+    <div class="big-num">{{return_base}}%</div>
+    <div class="detail">目标 {{price_base}} 元 · 估值 {{valuation_base}} 亿</div>
+  </div>
+  <div class="scenario bear">
+    <div class="label">悲观 · {{weight_bear}}%</div>
+    <div class="big-num">{{return_bear}}%</div>
+    <div class="detail">目标 {{price_bear}} 元 · 估值 {{valuation_bear}} 亿</div>
+  </div>
+  <div class="scenario tail">
+    <div class="label">最差 · {{weight_tail}}%</div>
+    <div class="big-num">{{return_tail}}%</div>
+    <div class="detail">目标 {{price_tail}} 元 · 估值 {{valuation_tail}} 亿(尾部地板)</div>
+  </div>
+</div>
+
+
+<!-- ==================== 4. 期望回报高亮条 (Expected Return) ==================== -->
+<!-- 用在 §十 投资回报测算底部 -->
+<div class="expected-return">
+  <div>
+    <div class="label">概率加权期望收益</div>
+    <div class="value">{{weighted_expected_return}}%</div>
+  </div>
+  <div style="text-align:right">
+    <div class="label">年化 ({{horizon}} 展望)</div>
+    <div class="value">{{annualized_return}}%</div>
+  </div>
+</div>
+
+
+<!-- ==================== 5. 团队名片网格 (Team Grid) ==================== -->
+<!-- 用在 §六 维度 5 团队与管理层 -->
+<div class="team-grid">
+  <div class="team-card">
+    <div class="avatar">{{first_char_of_name}}</div>
+    <div class="name">{{person_name}}</div>
+    <div class="role">{{person_role}}</div>
+  </div>
+  <!-- 重复此 team-card 若干 -->
+</div>
+
+
+<!-- ==================== 6. 风险矩阵 (Risk Item) ==================== -->
+<!-- 用在 §一 Top 3 风险 或 §九 估值异常 -->
+<div class="risk-item high">
+  <span class="dot"></span>
+  <div>
+    <strong>{{risk_title}}</strong><br>
+    <span style="color:var(--c-gray-700);font-size:13px">{{risk_description}}</span>
+  </div>
+  <span class="badge critical">🔴 致命</span>
+</div>
+<div class="risk-item medium">
+  <span class="dot"></span>
+  <div>
+    <strong>{{risk_title}}</strong><br>
+    <span style="color:var(--c-gray-700);font-size:13px">{{risk_description}}</span>
+  </div>
+  <span class="badge important">🟠 高</span>
+</div>
+
+
+<!-- ==================== 7. 融资/事件时间轴 (Timeline) ==================== -->
+<!-- 用在 §四 最新经营动态 -->
+<div class="timeline">
+  <div class="tl-node">
+    <div class="year">{{date_1}}</div>
+    <div class="round">{{event_1_short}}</div>
+    <div class="amount">{{event_1_signal}}</div>
+  </div>
+  <div class="tl-node current">
+    <div class="year">{{date_2}}</div>
+    <div class="round">{{event_2_short}}</div>
+    <div class="amount">{{event_2_signal}}</div>
+  </div>
+  <!-- 重复 -->
+</div>
+
+
+<!-- ==================== 8. 情绪量表 (Sentiment Bar) ==================== -->
+<!-- 用在 §七 网络舆情 -->
+<div class="sentiment-bar">
+  <div class="pointer" style="left:{{sentiment_percent}}%"
+       data-label="{{sentiment_label}}"></div>
+</div>
+
+
+<!-- ==================== 9. 估值区间可视化 (Valuation Range) ==================== -->
+<!-- 用在 §九 估值交叉验证 -->
+<div class="valuation-range-group">
+  <div class="label-row">
+    <span>DCF 锚</span>
+    <div class="valuation-range">
+      <div class="range dcf" style="left:{{dcf_min_percent}}%;width:{{dcf_range_width}}%"></div>
+    </div>
+  </div>
+  <div class="label-row">
+    <span>可比 PE</span>
+    <div class="valuation-range">
+      <div class="range comparable" style="left:{{peer_min_percent}}%;width:{{peer_range_width}}%"></div>
+    </div>
+  </div>
+  <div class="label-row">
+    <span>有形 PB</span>
+    <div class="valuation-range">
+      <div class="range transaction" style="left:{{pb_min_percent}}%;width:{{pb_range_width}}%"></div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ==================== 10. 差异化洞察卡片 (Variant Perception Card) ==================== -->
+<!-- 用在 §十二 差异化洞察 — 每条洞察一张卡 -->
+<div class="section" style="background:var(--c-variant-bg);border-left:4px solid var(--c-variant);margin:12px 0;padding:16px 20px">
+  <h4 style="color:var(--c-variant);margin:0 0 8px">
+    洞察 #{{N}}: {{insight_title}}
+    <span class="badge" style="background:white;color:var(--c-variant);font-size:11px">{{signal_strength}}</span>
+  </h4>
+  <p><strong>假设</strong>: {{hypothesis}}</p>
+  <p><strong>市场共识</strong>: {{market_consensus}}</p>
+  <p><strong>变异认知</strong>: {{variant_view}}</p>
+  <p><strong>数学推导</strong>: {{math_derivation}}</p>
+  <p><strong>支撑证据</strong>: {{evidence}}</p>
+  <p><strong>证伪条件</strong>: {{falsification}}</p>
+  <p><strong>量化影响</strong>: {{quant_impact}}</p>
+  <p><strong>验证路径</strong>: {{verification_path}}</p>
+</div>

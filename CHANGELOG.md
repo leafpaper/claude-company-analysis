@@ -4,6 +4,70 @@
 
 ---
 
+## [v4.3] — 2026-04-24 — assets 目录 + 报告骨架强制化
+
+> **主题**:符合 Anthropic 官方 skill 规范的资产分离,修复"每次报告格式都不一样"的根因。
+
+### 根因诊断(用户反馈驱动)
+
+用户反馈 2 个问题,调研发现是**同一个根因的 3 重坏**:
+1. "我怎么没有用 assets" — skill 从未建 `assets/` 目录
+2. "每次报告的风格都不一样" — 3 份历史报告(闻泰/实丰/震安)的 Exec Summary 字段名和字段数量完全不同
+
+**根因**:
+- `references/report-template.md` 本身是坏的(12 章节 + 两个"四"、两个"五")
+- Phase 3 指令**从未加载**它 → LLM 每次凭记忆生成 15 章节
+- `references/html-template-guide.md` 是纯散文,没有真实 `.css` 或 `.html` 文件 → HTML 样式每次重写
+
+### Added
+
+- **`assets/` 目录**(官方 L3 资源层,按需加载,零上下文成本)
+  - `assets/templates/report-skeleton.md` — 15 章节严格骨架 + `{{placeholder}}`(Phase 3 强制加载)
+  - `assets/templates/exec-summary-schema.md` — Exec Summary 7 固定字段 + 6 类禁用字段黑名单
+  - `assets/html/base.html` — HTML 骨架(sticky nav + hero + 15 section placeholder + footer)
+  - `assets/html/styles.css` — 真 CSS 文件(16 变量 + 9 组件样式 + 响应式 + 打印)
+  - `assets/html/components.html` — 10 个组件片段库(评分环/维度条/4 情景卡/期望回报/团队名片/风险项/时间轴/情绪量表/估值区间/洞察卡片)
+  - `assets/validation/report-checklist.json` — 机器可读的 22 项审核清单(供 v4.4 validator)
+  - `assets/validation/insight-card-schema.json` — Phase 5 9 字段 schema
+
+### Changed
+
+- **Phase 3 指令**(`phases/phase3-analysis-report.md`)
+  - 新增 **Step 0.5 强制加载骨架**:Read `assets/templates/report-skeleton.md` + `exec-summary-schema.md`
+  - Step 12 组装规则改为"以骨架为真相源",15 章节列表指向骨架文件
+  - 分段写入 5 批的内容描述改为"填充骨架对应章节 placeholder"
+  - 新增自检指令:`grep -c '^## §' *.md` 应 = 15
+
+- **Phase 6 指令**(`phases/phase6-review-publish.md`)
+  - Part B HTML 生成改为"Read assets/html/base.html + styles.css + components.html 并按占位填充"
+  - 禁止凭记忆重写 CSS、自创变量名、自命名组件 class
+  - 修复 L103-121 章节表 bug(原表跳过 §十一,编号错乱)→ 新 15 章节表与骨架字节对齐
+  - 审核清单从 20 项扩至 **22 项**:
+    - #21 HTML 资产加载(`grep -c '^\s*--c-' *.html` ≥16, 组件命中率 ≥8/9)
+    - #22 Exec Summary 7 字段 schema(禁用字段黑名单扫描)
+
+- **`references/report-template.md` → `report-template.LEGACY.md`**(改名废弃,加头注"已废弃,用 assets/templates/report-skeleton.md")
+- **`references/html-template-guide.md` 精简**(删除所有代码块,保留设计哲学;所有可执行代码迁至 `assets/html/`)
+- **`SKILL.md`** 参考索引表补充 `assets/` 三个子目录;废弃 `report-template.md` 行
+
+### Fixed
+
+- `references/report-template.md` 章节号错乱(两个"四"、两个"五",总数仅 12 章节)——从根本上靠骨架文件替代
+- Phase 6 L103-121 章节表跳过 §十一(从 §十 直接到 §十二)——修正为完整 15 章节顺序
+
+### Not in scope (v4.4 继续)
+
+- ❌ `scripts/validate_report.py` validator 脚本 — 推迟到 v4.4,基于 v4.3 新骨架稳定 1-2 次后定规则
+- ❌ 翻修已发布的闻泰/实丰/震安 HTML(保留作历史对照)
+- ❌ 多语言模板
+
+### 向后兼容
+
+- `scripts/report_parser.py` **不需要改** — 它按 `[Tushare:*]`/`[PDF:*]` 标签匹配,不按章节标题,历史报告监控不受影响
+- 已发布的 GitHub Pages 报告链接保持有效
+
+---
+
 ## [v4.2] — 2026-04-24 — 估值一致性 + 核心资产剥离 SOTP
 
 > **主题**：修复真实案例（闻泰科技 600745.SH 分析）暴露的 3 个估值框架缺陷，防止未来同类错误。

@@ -1,4 +1,19 @@
-# 报告输出模板 (Report Template)
+# 报告输出模板 (Report Template) — ⚠️ 已废弃 (v4.3 起)
+
+> **🚨 此文件已于 v4.3 废弃,请使用 `assets/templates/report-skeleton.md` 作为唯一报告骨架源。**
+>
+> **废弃原因**:
+> - 章节号错乱(有两个"四"、两个"五",总数仅 12 章节;与 Phase 3/6 承诺的 15 章节对不上)
+> - Phase 3 指令从未加载此文件 → LLM 凭记忆生成 → 报告格式每次漂移
+> - v4.3 新建的 `assets/templates/report-skeleton.md` 修复了章节编号并用 `{{placeholder}}` 替代 `{变量}`,是 Phase 3 强制加载的唯一骨架
+>
+> **保留此文件的唯一理由**:给未来的 `scripts/validate_report.py` 提供"旧格式 → 新格式"迁移参考。不得在任何 Phase 中 Read 此文件。
+
+---
+
+## ⬇️ 以下是 v4.2 及之前的历史内容,仅供参考,请勿使用
+
+---
 
 > 以下为最终报告的完整 Markdown 结构。`{变量}` 为占位符，由分析结果填充。
 

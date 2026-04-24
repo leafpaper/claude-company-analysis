@@ -1,0 +1,83 @@
+{
+  "schema_version": "v4.1 + v4.3",
+  "description": "Phase 5 差异化洞察卡片 9 字段 schema（v4.1 从 v3 的 13 字段精简而来）。用于 Phase 5 自检与未来 validate_report.py 扫描。",
+
+  "card_required_fields": [
+    {
+      "name": "假设",
+      "required": true,
+      "max_chars": 200,
+      "format": "一句话陈述核心预测,加粗"
+    },
+    {
+      "name": "市场共识",
+      "required": true,
+      "max_chars": 200,
+      "format": "主流卖方/散户观点 — 与本洞察差异化锚点"
+    },
+    {
+      "name": "变异认知",
+      "required": true,
+      "max_chars": 300,
+      "format": "为什么我的判断和市场共识不同"
+    },
+    {
+      "name": "数学推导",
+      "required": true,
+      "max_chars": 500,
+      "format": "每步含运算符+数值+单位;禁止 5 种伪推导(均值回归无锚点/历史分位倒推目标/相对估值循环论证/概率加权伪精确/单一指标外推)",
+      "anti_pattern_examples": [
+        "均值回归 -52%(无具体基数或锚点)",
+        "PB 历史分位 2% → 对应目标股价 X(反向解)",
+        "PE = 15x(用可比均值反推目标估值)",
+        "30% 概率 × 目标 50 亿 = 期望 15 亿(无绝对值基准)",
+        "ROE 从 5% 提升到 8% → 股价翻倍(单指标 + 无折现)"
+      ]
+    },
+    {
+      "name": "支撑证据",
+      "required": true,
+      "min_sources": 2,
+      "required_source_tags": ["[Tushare:", "[PDF:", "[metrics.json:", "[WebSearch:"],
+      "format": "≥2 个带来源标签的事实"
+    },
+    {
+      "name": "证伪条件",
+      "required": true,
+      "max_chars": 200,
+      "format": "清晰的、可被 Phase 7 monitor 自动扫描的条件",
+      "monitor_consumption": true
+    },
+    {
+      "name": "信号强度",
+      "required": true,
+      "format": "Level A / 高置信 / 1Y  (三合一:证据等级 A|B|C / 置信度 高|中|低 / 时间窗 3M|6M|1Y|2Y|3Y|5Y)",
+      "regex": "^Level\\s+[A-C]\\s*[/|]\\s*(高|中|低)(置信)?\\s*[/|]\\s*(3M|6M|1Y|2Y|3Y|5Y)$"
+    },
+    {
+      "name": "量化影响",
+      "required": true,
+      "format": "估值中枢偏移 ±X% 或 ±X 亿元;不得使用'显著影响'等定性描述"
+    },
+    {
+      "name": "验证路径",
+      "required": true,
+      "format": "Phase 6 Part D 补查路径 + Phase 7 跟踪指标"
+    }
+  ],
+
+  "card_count_rules": {
+    "level_a_b_min": 3,
+    "level_a_b_max": 7,
+    "level_c_in_appendix_only": true,
+    "direction_diversity_required": "至少 1 条看空方向 + 至少 1 条看多方向(禁止全方向同向)"
+  },
+
+  "phase5_deep_file_required": [
+    "§1 关键议题感知清单(Phase 7 monitor 用)",
+    "§2 市场共识映射(Phase 6 审核用)",
+    "§3 Level C 附录(Phase 6 Part D 补查用)",
+    "§4 被拒绝的候选洞察(三重筛子淘汰)",
+    "§5 Phase 7 监控接口"
+  ]
+}

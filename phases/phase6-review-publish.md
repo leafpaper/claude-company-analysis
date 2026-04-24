@@ -1,11 +1,12 @@
-# Phase 6: 审核与发布（v4，原 Phase 5 后移）
+# Phase 6: 审核与发布（v4.3）
 
 > **🧭 你在这里**：[SKILL.md 协调器](../SKILL.md) → Phase 5 → **Phase 6 审核与发布**（终点）
 >
 > **接收自**: 所有上游产出（`phase1-data.md` / `phase2-documents.md` / 主报告 `{company}-analysis-*.md` / `phase4-personas.md` / `phase5-variant-perception.md`）
 > **输出**: `*.html` + `phase6-review-log.md` + GitHub Pages（leafpaper/Inves-Report）
-> **v4 说明**: 审核 18 项（含 v3.1 新增的 #16 定性三段式、#17 缺口补查闭环、#18 数据源可审计）+ Part D 5 步穷举补查保留
-> **质量门控**: 全部 18 项通过；每个缺口有 ✅/⚠️/❌ 状态；HTML section 数 ≥ MD "## " × 0.8；Phase 5 洞察的 13 字段在 HTML 中完整
+> **v4.3 说明**: 审核 **22 项**（v4.2 新增 #19/#20 估值一致性+SOTP；v4.3 新增 #21 HTML 资产加载 + #22 Exec Summary 7 字段）+ Part D 5 步穷举补查保留
+> **v4.3 HTML 规则**: 必须从 `assets/html/base.html` + `assets/html/styles.css` + `assets/html/components.html` 加载,**禁止凭记忆重写 CSS 或自创变量名**
+> **质量门控**: 全部 22 项通过；每个缺口有 ✅/⚠️/❌ 状态；HTML section 数 = 15；Phase 5 洞察的 9 字段在 HTML 中完整；CSS 变量数 ≥ 16
 
 ---
 
@@ -62,6 +63,8 @@
 | **18** | **数据来源可审计（v3 新增）** | 关键财务数据（§4 财务趋势表、§5 10 维度、§9 估值）是否都有 `[Tushare:*]` 或 `[PDF:*]` 来源标签？是否无任何`[证券之星算法]` / `[某财经网摘要]`作为关键数据来源？ |
 | **19** | **估值-回报一致性（v4.2 新增）** | §九 估值锚（DCF 概率加权）和 §十 投资回报测算是否**共用同一组情景**（乐观/基准/悲观 ± 最差）和同一组概率？是否禁止"三角验证均值"作为综合锚？交叉验证的可比倍数/PB 差距 > 20% 是否已解释分歧原因？**若审核发现 §九 锚 ≠ §十 基准或概率分布不同则不通过**。 |
 | **20** | **核心资产剥离风险 SOTP（v4.2 新增）** | 若满足以下**任一**触发条件：①核心子公司占合并净利 > 30% 且存在剥离/控制权丧失可能；②`forecast_vip` 预亏 > 50% 净资产；③PDF 自述"若 XX 发生面临阶段性下调"；④audit_report 🔴 涉及核心资产减值 —— 主报告 §四 是否有"若核心资产被剥离的剩余资产清单"子节（含货币/金融资产/非核心子公司/已剥离尾款/非核心固定资产/壳价值/有息负债/清算成本）？§九 是否有"最差情景"（3-10% 权重）作为下行地板？**若触发但缺其中任一则不通过**。 |
+| **21** | **HTML 资产加载（v4.3 新增）** | Phase 6 Part B 生成 HTML 是否**从 `assets/html/base.html` 加载骨架**？是否**内联了 `assets/html/styles.css` 完整内容**（`grep -c '^\s*--c-' *.html` ≥16 个 CSS 变量）？是否使用了 `assets/html/components.html` 中的 9 个组件 class（`grep -c 'class="(score-ring|dimension-bar|scenario|expected-return|team-card|risk-item|timeline|sentiment-bar|valuation-range)"'` ≥8）？是否 15 个 `<div class="section"` 对应 §一～§十五 且 id 属性正确？**禁止 Claude 自写 CSS 变量或组件 class**。 |
+| **22** | **Executive Summary 7 字段 schema（v4.3 新增）** | §一 执行摘要是否严格按 `assets/templates/exec-summary-schema.md` 的 7 固定字段展开？字段名与顺序字节一致（一句话结论 / 估值锚 / 综合评分 / 三大风险 / 三大机会 / 核心非共识观点 / 投资方向综合判定）？**是否出现禁用字段**：综合评级 / 量化分 / 定性修正 / 调整后分 / 建议仓位 / 尽调优先级（出现任一则不通过）？**章节标题 15 个 `## §` 是否与 `assets/templates/report-skeleton.md` 字节一致**？ |
 
 ### 修正规则
 
@@ -71,56 +74,63 @@
 
 ---
 
-## Part B: HTML 生成
+## Part B: HTML 生成（v4.3 — 加载 assets/html/ 骨架）
 
-加载 `references/html-template-guide.md`，生成自包含 HTML。
-
-### ⚠️ HTML 生成核心规则：逐章节对照 MD 转换
-
-**绝对禁止：**
-- ❌ 禁止"概括""合并""简化"任何 MD 章节
-- ❌ 禁止生成"dashboard摘要版"跳过详细内容
-- ❌ 禁止因为"HTML太长"而省略章节
-
-**强制执行的转换流程：**
+### ★ 强制加载流程（v4.3 替换了凭记忆重写 CSS 的旧模式）
 
 ```
-Step 1: 读取 MD 报告，提取所有 "## " 大标题 → 生成章节列表
-Step 2: 对每个 "## " 大标题，在 HTML 中创建 <div class="section"><h2>
-Step 3: 对每个 "### " 子标题，在对应 section 内创建 <h3>
-Step 4: 逐段转换内容：
-  - Markdown 表格 → <table>（完整保留所有行和列，不截断）
-  - 列表 → <ul>/<li>
-  - 加粗 → <strong>
-  - 链接 → <a href="...">
-  - 引用块/警告 → <div class="warning">
-Step 5: 完成后统计：
-  - MD 中 "## " 标题数量 = md_count
-  - HTML 中 class="section" 或 class="num" 数量 = html_count
-  - 如果 html_count < md_count → 找出缺失章节并补充
+Step 0: Read assets/html/base.html
+        Read assets/html/styles.css
+        （按需）Read assets/html/components.html
+        — 这三个文件是 HTML 的唯一真相源
+
+Step 1: 复制 base.html 到 output/{company}/{company}-analysis-{date}.html
+
+Step 2: 将 styles.css 完整内容替换 base.html 中的
+        <!-- PLACEHOLDER: styles.css 整体内联到此处 --> 注释
+        （禁止精简 / 删变量 / 改颜色值）
+
+Step 3: 替换 Header Hero 区域的 {{company_name}} / {{ticker}} / {{report_date}}
+        / {{latest_close}} / {{market_cap}} / {{pb}} / {{anchor_price}} / {{price_tail}}
+
+Step 4: 逐章节填充 15 个 <!-- PLACEHOLDER: section_N_xxx --> 占位:
+        - 用 markdown 转 HTML（表格 → <table>，列表 → <ul>，加粗 → <strong>）
+        - 当章节需要可视化组件（评分环、情景卡、维度条、风险 badge 等）
+          时,从 components.html 复制对应片段并填充数据
+        - Phase 5 差异化洞察章节用 components.html 的 "洞察卡片" 片段
+
+Step 5: 自检（v4.3 新规）:
+        - grep -c '<div class="section"' 应 = 15
+        - grep -c '^\s*--c-' 应 ≥ 16（CSS 变量未被删）
+        - 9 个组件 class 命中率 ≥ 8/9
+        - 所有 {{placeholder}} 必须已被替换（grep 后应无 `{{`）
 ```
 
-**HTML 必须包含的所有章节**（与 MD 一一对应）：
+**绝对禁止（v4.3 强化）**:
+- ❌ **禁止凭记忆重写 CSS** — 必须整体内联 `styles.css` 文件
+- ❌ **禁止自创 CSS 变量名**（如 `--primary` 取代 `--c-primary`;`--accent` 取代 `--c-yellow` 等）
+- ❌ **禁止自命名组件 class** — 必须用 components.html 中定义的 9 个标准 class
+- ❌ **禁止"概括/合并/简化"** MD 章节 — 15 个 section 必须一一对应
 
-| # | 章节 | MD标题 | HTML要求 |
+**HTML 15 章节要求**（严格与 `assets/templates/report-skeleton.md` 对齐）:
+
+| # | 章节 | MD 骨架标题 | HTML section id |
 |---|------|--------|---------|
-| 1 | Executive Summary | `## 一、Executive Summary` | header区+优势/风险卡片 + **"核心非共识观点"列表（Top 3 洞察标题）** |
-| 2 | 评分总览 | `## 二、评分总览` | 评分条形图（**单列，不得引入基准/调整分双列**） |
-| 3 | 行业基本面 | `## 三、行业基本面分析` | **完整文本+表格** |
-| 4 | 公司基本面 | `## 四、公司基本面分析` | **完整财务趋势表** |
-| 5 | 详细分析10维度 | `## 五、详细分析` | **10个子章节各自独立** |
-| 6 | 网络舆情 | `## 六、网络舆情` | 看好/看衰表格带URL |
-| 7 | 可比公司 | `## 七、可比公司对标` | 完整对比表 |
-| 8 | 投资回报 | `## 八、投资回报模拟` | 三色情景卡+期望回报 |
-| 9 | 估值分析 | `## 九、估值分析` | **DCF表+敏感性矩阵** |
-| 10 | 定性判断 | `## 十、定性判断` | 框架修正表 |
-| 11 | **差异化洞察** | `## 十二、差异化洞察` | **`<div class="section variant-perception">`，含关键议题清单 + 市场共识映射 + 每条洞察独立卡片（11 字段全显示，含类型徽章、置信度、时间窗）+ 汇总 Top 3** |
-| 12 | 角色结论 | Phase 4 内容 | **每个角色独立卡片 + "对差异化洞察的回应"子区块（显示该 persona 选的 2-3 条洞察及态度徽章）** |
-| 13 | 信息缺口 | `## 十三、信息缺口` | 优先级表 |
-| 14 | 数据时效性 | `## 十四、数据时效性` | 置信度徽章 |
-| 15 | 信息来源 | `## 十五、信息来源` | 完整URL列表 |
-
-**如果 MD 有额外章节（如条款分析、快筛结果），HTML 也必须包含。**
+| 1 | 执行摘要 | `## §一 执行摘要` | `exec-summary` |
+| 2 | 评分总览 | `## §二 事实评分总览（10 维度）` | `scoring` |
+| 3 | 快速筛选 | `## §三 快速筛选（致命看空条款 - 6 项）` | `screening` |
+| 4 | 公司基本面 | `## §四 公司基本面` | `fundamentals` |
+| 5 | 行业与竞争格局 | `## §五 行业与竞争格局` | `industry` |
+| 6 | 10 维度详细证据 | `## §六 10 维度详细证据` | `detail` |
+| 7 | 网络舆情 | `## §七 网络舆情与市场情绪` | `sentiment` |
+| 8 | 可比公司对标 | `## §八 可比公司对标` | `peers` |
+| 9 | 估值与回报模拟 | `## §九 估值与回报模拟` | `valuation` |
+| 10 | 投资回报测算 | `## §十 投资回报测算（与 §九 共用情景）` | `invest-sim` |
+| 11 | 定性判断 | `## §十一 定性判断（3 框架，v4.1 — 无打分）` | `qualitative` |
+| 12 | 差异化洞察 | `## §十二 差异化洞察（Phase 5 回写 — 9 字段卡片）` | `variant`（加 `.variant-perception` class） |
+| 13 | 多角色投资结论 | `## §十三 多角色投资结论（Phase 4 回写 — 3 角色 × 3 段精简版）` | `personas` |
+| 14 | 信息缺口与尽调 | `## §十四 信息缺口与尽调优先级` | `gaps` |
+| 15 | 数据可审计性 | `## §十五 数据可审计性（时效性 + 来源 3 类分组）` | `sources` |
 
 保存为 `output/{company}/{company}-analysis-{date}.html`
 
