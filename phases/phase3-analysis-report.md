@@ -1,12 +1,13 @@
-# Phase 3: 综合分析与报告（v4.3）
+# Phase 3: 综合分析与报告（v4.7）
 
 > **🧭 你在这里**：[SKILL.md 协调器](../SKILL.md) → Phase 2 → **Phase 3 综合分析** → Phase 4 多角色
 >
-> **接收自**: Phase 1 (`phase1-data.md` + `metrics.json`) + Phase 2 (`phase2-documents.md`)
-> **输出给**: Phase 4（主报告作为读入输入）+ Phase 5（提供完整画像作为洞察输入源）+ Phase 6（主报告 15 章节接受审核）
-> **v4.3 关键点**: 骨架强制化 — `assets/templates/report-skeleton.md` 是**唯一结构源**，`assets/templates/exec-summary-schema.md` 是 Exec Summary 字段源。禁止自命名章节、调序、增减 Exec Summary 字段
+> **接收自**: Phase 1 (`phase1-data.md` + `metrics.json` + 4 个 artifact) + Phase 2 (`phase2-documents.md`)
+> **输出给**: Phase 4（主报告作为读入输入）+ Phase 5（提供完整画像作为洞察输入源）+ Phase 6（主报告 15 章节接受审核 + Step 0 机械化 lint）
+> **v4.7 反偷懒强制**: 主报告**必须自包含可独立阅读**, 严禁"详见 capital_flow.md / 详见 phase2-documents.md / 见附件"等外链规避;Phase 6 Step 0 会用 `scripts/anti_lazy_lint.py` 4 条 hard-fail 规则机械检查, **退出码 1 直接 BLOCK**, 不能进入 LLM 审核或 HTML 生成
+> **v4.3 关键点**: 骨架强制化 — `assets/templates/report-skeleton.md` 是**唯一结构源**;禁止自命名章节、调序、增减 Exec Summary 字段
 > **v4 关键点**: §十二 "差异化洞察" 和 §十三 "多角色结论" **留白**（带注释），由 Phase 4/5 回写
-> **质量门控**: 15 章节标题与骨架字节一致 / Exec Summary 7 字段齐全 / 10 维度评分完整 / 3 框架定性（v4.1）
+> **质量门控**: 15 章节标题与骨架字节一致 / Exec Summary 7 字段齐全 / 10 维度评分完整 / 3 框架定性（v4.1）/ **anti_lazy_lint 4 条全过 (v4.7)**
 
 ---
 
@@ -217,14 +218,16 @@ Owner Earnings = 净利润 + 折旧摊销 - 维护性Capex
 
 **必须 Read `output/{company}/capital_flow.md`** 并在 §四 中新增子节 `### 主力控盘与筹码分析`:
 
+**v4.7 反偷懒强制**: 此处必须**完整 inline 全表格 + 全数字 + 全维度信号**, 不允许"详见 capital_flow.md"或类似外链 — Phase 6 Step 0 会被 anti_lazy_lint Rule 1 (外链 = 0) 与 Rule 3 (capital_flow 关键短语覆盖率 ≥ 20%) 双重阻断。
+
 ```markdown
 ### 主力控盘与筹码分析
 
-(Read capital_flow.md §1 控盘综合判定表 → 直接搬入,6 维度信号一眼看清)
+(Read capital_flow.md §1 控盘综合判定表 → **完整搬入** 6 维度信号表, 含全部信号 + 解读列)
 
-(Read capital_flow.md §2 前十大流通股东 → 补充关键股东解读: 实控人/机构/陆股通各方比例 + 最近进出)
+(Read capital_flow.md §2 前十大流通股东 → **完整搬入** 表格 + 解读: 实控人/机构/陆股通各方比例 + 最近进出)
 
-(Read capital_flow.md §3 筹码集中度 2×2 → 判断机构是在吸筹还是退出)
+(Read capital_flow.md §3 筹码集中度 2×2 → **完整搬入** 数字, 判断机构是在吸筹还是退出)
 
 (Read capital_flow.md §8 综合控盘警示 → 进入 Exec Summary 三大风险/机会)
 ```
@@ -395,10 +398,12 @@ Owner Earnings = 净利润 + 折旧摊销 - 维护性Capex
 
 ```
 Step 1: Read output/{company}/peer_analysis.md  ← Phase 1 Step 1.2 自动生成
-Step 2: 对比表和分位分析**直接搬入**主报告 §八,不要改写
+Step 2: 对比表和分位分析**完整 inline** 到主报告 §八(全表格行 + 全列), 不要改写, 不要"详见 peer_analysis.md"
 Step 3: 把硬判定对比洞察(§3 "供 Phase 3 §八 消费")引用到 Exec Summary 或 §九 估值的"交叉验证"段
 Step 4: 若需补海外 peer(Infineon / STMicro 等),在 §八 末尾起 "§八.1 海外同业补充" 子节(LLM 手工 + yfinance/WebSearch)
 ```
+
+**v4.7 反偷懒**: §八 必须有完整 peer 对比表 + 分位表 + 国际同业(若涉及). anti_lazy_lint Rule 3 要求 peer_analysis.md 关键短语 ≥ 20% 命中.
 
 **禁止项(v4.4)**:
 - ❌ 禁止凭记忆/WebSearch 猜 A 股竞品 — A 股 peer **必须来自 peer_analysis.md**
@@ -436,11 +441,11 @@ Step 4: 若需补海外 peer(Infineon / STMicro 等),在 §八 末尾起 "§八.
 ```markdown
 ### 技术面位置
 
-(Read technical_analysis.md §1 技术面综合判定 → 直接搬入 6 维度表)
+(Read technical_analysis.md §1 技术面综合判定 → **完整 inline** 6 维度表, 含全部行 + 列)
 
-(Read technical_analysis.md §2 价格位置 → 支撑阻力 + 近期表现)
+(Read technical_analysis.md §2 价格位置 → **完整搬入** 支撑阻力 + 近期表现 + 数字)
 
-(Read technical_analysis.md §3 红/绿旗 → 技术面警示)
+(Read technical_analysis.md §3 红/绿旗 → **完整搬入** 技术面警示项)
 
 **基本面 vs 技术面配合判断** (必写):
 - DCF 基准情景 {方向} + 技术面 {偏多/偏空/中性} → 结论:{现在买/等回调/等突破/减仓}

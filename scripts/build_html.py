@@ -221,9 +221,11 @@ def build_html(
     price_tail = _grep_meta(r"最差情景.*?([\d.]+)\s*元")
 
     # 4. 每个 section MD → HTML
+    # v4.7 fix #1: 加 nl2br 防止表格内换行被压平
     def md_to_html(text: str) -> str:
         return md_lib.markdown(
-            text, extensions=["tables", "fenced_code", "attr_list", "sane_lists"]
+            text,
+            extensions=["tables", "fenced_code", "attr_list", "sane_lists", "nl2br"],
         )
 
     # 5. Read base.html + styles.css
@@ -253,9 +255,15 @@ def build_html(
     )
 
     # 9. 填 15 个固定 section placeholder + extra_sections
-    # 用 lambda repl 避免 re.sub 将 body_html 中的 \g/\\ 当反向引用
+    # v4.7 fix #5: 每个 section_{i}_* 占位必须唯一,出现 0 或 >1 次都 fail
     for i in range(1, 16):
         pattern = rf"<!-- PLACEHOLDER: section_{i}_\w+ -->"
+        matches = re.findall(pattern, html)
+        if len(matches) != 1:
+            raise AssertionError(
+                f"base.html section_{i}_* 占位应有 1 个, 实际 {len(matches)} 个 "
+                f"(silent loss 风险, v4.7 fix #5)"
+            )
         if i - 1 < len(sections):
             title, body_md = sections[i - 1]
             body_html = f"<h2>{title}</h2>\n{md_to_html(body_md)}"
@@ -265,6 +273,11 @@ def build_html(
             html = re.sub(pattern, lambda m, e=empty: e, html, count=1)
 
     # 10. 额外 section(第 16+)追加到 extra_sections
+    # v4.7 fix #6: extra_sections 占位必须存在,否则第 16+ 章静默丢失
+    if "<!-- PLACEHOLDER: extra_sections -->" not in html:
+        raise AssertionError(
+            "base.html 缺 extra_sections 占位 — 第 16+ 章节会静默丢失 (v4.7 fix #6)"
+        )
     extra_parts = []
     for idx, (title, body_md) in enumerate(sections[15:], start=16):
         section_id = f"extra-{idx - 15}"
@@ -301,7 +314,8 @@ def main():
     ap.add_argument("--md", help="MD 路径 (默认自动找最新)")
     ap.add_argument("--out", help="输出 HTML 路径 (默认同目录同名 .html)")
     ap.add_argument("--ticker", default="", help="ticker(默认从 MD title 抽)")
-    ap.add_argument("--version", default="v4.6", help="skill 版本号")
+    ap.add_argument("--version", default="v4.7", help="skill 版本号")
+    ap.add_argument("--skip-lint", action="store_true", help="跳过 anti_lazy_lint(不推荐, 仅 debug 用)")
     args = ap.parse_args()
 
     # 定位 MD
@@ -328,6 +342,21 @@ def main():
 
     print(f"📖 读取 MD: {md_path}")
 
+    # v4.7: 写 HTML 前先跑 anti_lazy_lint, 任一规则违规则阻断
+    if not args.skip_lint:
+        try:
+            from .anti_lazy_lint import lint_md
+            lint_result = lint_md(md_path)
+            if not lint_result.passed:
+                print("❌ anti_lazy_lint FAIL — 主报告未通过深度检查, 中断 HTML 生成")
+                print(lint_result.report)
+                print("\n💡 修复后重跑, 或加 --skip-lint 跳过(不推荐)")
+                return 1
+            else:
+                print(f"✅ anti_lazy_lint PASS (4 条规则全过)")
+        except ImportError:
+            print("⚠️  anti_lazy_lint 模块未找到, 跳过深度检查")
+
     try:
         html = build_html(md_path, company=args.company, ticker=args.ticker, version=args.version)
     except Exception as e:
@@ -351,17 +380,40 @@ def main():
     css_var_count = len(_re.findall(r"--c-[a-z-]+:", html))
     placeholders_left = html.count("{{")
 
-    # ★ v4.6.2: 内容命中率自检 — 检测 "MD 正文中的关键 token" 是否全部在 HTML 出现
-    def _normalize(s: str) -> str:
-        """归一化: 全部去除标点和空白, 只保留中文/字母/数字."""
-        return "".join(_re.findall(r"[\w\u4e00-\u9fa5]+", s))
-
+    # ★ v4.7 内容命中率自检
+    # fix #4: _normalize 加 emoji 范围
+    # fix #2: 注释删除收紧到结构标记 (CARD_METADATA / RATING_TRIO_DATA / KEY_METRICS_SIDEBAR)
+    # fix #7: unescape 调到 strip tags 之前
+    # fix #3: sig 长度 ≥ 20, 且 sig = md5(core_norm)[:8] 全文 hash 避免 mid-slice 误命中
+    import hashlib as _hashlib
     import html as _html
-    md_no_comment = _re.sub(r"<!--.*?-->", "", md_text_raw, flags=_re.DOTALL)
-    # 剥标签 + 解码实体(&gt; &amp; &quot; 等)后再归一化
-    html_stripped = _re.sub(r"<[^>]+>", "", html)
-    html_stripped = _html.unescape(html_stripped)
+
+    def _normalize(s: str) -> str:
+        """归一化: 全部去除标点和空白, 保留中文/字母/数字/emoji."""
+        return "".join(
+            _re.findall(r"[\w\u4e00-\u9fa5\U0001F300-\U0001FAFF]+", s)
+        )
+
+    md_no_comment = _re.sub(
+        r"<!--\s*(?:CARD_METADATA|RATING_TRIO_DATA|KEY_METRICS_SIDEBAR)\b.*?-->",
+        "",
+        md_text_raw,
+        flags=_re.DOTALL,
+    )
+    # 也去掉其他常见的 INTERNAL 注释 (如 v4.6 锚点说明)
+    md_no_comment = _re.sub(r"<!--\s*v4\.[0-9]+.*?-->", "", md_no_comment, flags=_re.DOTALL)
+
+    # 先 unescape 再 strip tags 再 normalize
+    html_unescaped = _html.unescape(html)
+    html_stripped = _re.sub(r"<[^>]+>", " ", html_unescaped)
     html_text_norm = _normalize(html_stripped)
+
+    def _sig_of(core: str) -> str:
+        """v4.7 fix #3: 全文 md5 hash 前 8 字 + 原文中位 20 字双重检查."""
+        h = _hashlib.md5(core.encode("utf-8")).hexdigest()[:8]
+        mid_start = max(0, len(core) // 2 - 10)
+        mid = core[mid_start:mid_start + 20]
+        return mid, h
 
     checked = 0
     missing_lines: list[tuple[int, str]] = []
@@ -369,24 +421,21 @@ def main():
         s = line.strip()
         if not s:
             continue
-        # 跳过 MD 分隔符 / 纯空行
         if _re.fullmatch(r"[-=_~`]{3,}", s):
             continue
-        # 跳过行首的 list marker (1. / - / * / > / | 等), markdown 渲染成 <li>/<blockquote>/<td>
+        # 跳过结构性 placeholder 注释残留
+        if s.startswith("<!--"):
+            continue
         stripped = _re.sub(r"^(\s*[-*+>|]\s+|\s*\d{1,3}\.\s+)", "", s)
-        stripped = _re.sub(r"^\|\s*|\s*\|\s*$", "", stripped)  # 表格首尾 |
-        # [text](url) 只保留 text (HTML <a> 只显示 text, url 藏在 href 属性里)
+        stripped = _re.sub(r"^\|\s*|\s*\|\s*$", "", stripped)
         stripped = _re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", stripped)
-        # ![alt](url) 类似
         stripped = _re.sub(r"!\[([^\]]*)\]\([^)]+\)", r"\1", stripped)
         core_norm = _normalize(stripped)
-        if len(core_norm) < 12:
-            continue  # 太短的行 跳过
-        # 取"中间"15-20 字符做指纹, 避免前缀被 list marker / bold 标记吃掉影响
-        mid_start = max(0, len(core_norm) // 2 - 10)
-        sig = core_norm[mid_start:mid_start + 20]
+        if len(core_norm) < 20:
+            continue
+        mid_sig, _hash_sig = _sig_of(core_norm)
         checked += 1
-        if sig not in html_text_norm:
+        if mid_sig not in html_text_norm:
             missing_lines.append((lno, s[:70]))
     hit_rate = (checked - len(missing_lines)) / checked if checked else 1.0
 

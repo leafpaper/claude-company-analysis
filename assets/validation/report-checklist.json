@@ -201,5 +201,45 @@
       "assets/html/base.html",
       "assets/html/styles.css"
     ]
+  },
+
+  "anti_lazy_lint": {
+    "description": "v4.7 — Phase 6 Part A Step 0 机械化检查, 4 条规则全部 hard fail.",
+    "tool": "scripts/anti_lazy_lint.py",
+    "invocation": "python3 -m scripts.anti_lazy_lint --md output/{company}/{company}-analysis-{date}.md",
+    "rule_1_forbidden_links": {
+      "max_hits": 0,
+      "patterns": [
+        "详见 xxx.md",
+        "参见 xxx.md",
+        "见 phaseX.md",
+        "详见 phaseX",
+        "见附件",
+        "[xxx](xxx.md) 外链"
+      ],
+      "section_whitelist": {
+        "§十二": ["phase5-variant-perception.md"],
+        "§十三": ["phase4-personas.md"],
+        "§十五": ["audit_report.md", "metrics.json", "phase1-data.md", "phase2-documents.md"]
+      }
+    },
+    "rule_2_min_section_chars": {
+      "§一": 600, "§二": 150, "§三": 180, "§四": 800,
+      "§五": 600, "§六": 1500, "§七": 600, "§八": 600,
+      "§九": 700, "§十": 200, "§十一": 200, "§十二": 600,
+      "§十三": 400, "§十四": 100, "§十五": 100
+    },
+    "rule_3_artifact_coverage": {
+      "overall_min": 0.40,
+      "per_artifact_min": 0.20,
+      "phrase_pattern": "数字 + 单位 (%/亿/万/元/x/倍/台/名/股/月/日/年/σ)",
+      "applies_to_markets": ["A股"],
+      "exempted_for": ["美股", "港股"]
+    },
+    "rule_4_title_byte_exact": {
+      "skeleton_path": "assets/templates/report-skeleton.md",
+      "comparison": "去除全角/半角括号注释 + ## 前缀 + 反引号后逐字符比对"
+    },
+    "enforcement": "Phase 6 Part A Step 0 强制调用 — 任一规则违规则退出码 1, BLOCK 后续 LLM 审核与 HTML 生成"
   }
 }

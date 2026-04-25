@@ -39,6 +39,40 @@
 
 ## Part A: 报告审核
 
+### Step 0 (v4.7 强制门控): 机械化深度检查 — 任一规则 fail 直接 BLOCK
+
+**为什么必须先跑这一步**: 23 项 LLM 自审看不见自己的"懒"(写者=审者)。机械化的 grep + 字数 + diff 是确定性的, 能挡住下列懒惰模式:
+- "详见 capital_flow.md / phase2-documents.md" 这种把内容推到附件的外链
+- §四/§五/§六 等深度章节字符数过低(摘要式填充)
+- artifact 关键数字短语没有 inline 到主报告
+- §一~§十五 章节标题被 LLM 重命名(如 §四 公司基本面 → §四 业务概况)
+
+**执行**:
+```bash
+python3 -m scripts.anti_lazy_lint --md output/{company}/{company}-analysis-{date}.md
+# 退出码 0 = 进入下面的 23 项 LLM 审核
+# 退出码 1 = BLOCK, 必须返回 Phase 3 修复后再来; 不允许 LLM 自审"绕过"机械检查
+```
+
+**4 条规则 (全部 hard fail)**:
+
+| # | 规则 | 阈值 | 例外白名单 |
+|:---:|------|------|---------|
+| 1 | 外链引用扫描 (详见 xxx.md / 见 phaseX.md / [xxx](xxx.md)) | 命中 = 0 | §十二 允许引用 phase5-variant-perception.md / §十三 允许 phase4-personas.md / §十五 允许 audit_report.md 等 |
+| 2 | 章节最小字符数 (中文+字母+数字) | 见 `assets/validation/report-checklist.json:anti_lazy_lint` | – |
+| 3 | Artifact 关键短语覆盖率 (capital_flow / peer / tech / audit) | overall ≥ 40% AND 单 artifact ≥ 20% | 美股/港股无 artifact 时跳过 |
+| 4 | 章节标题与 `assets/templates/report-skeleton.md` 字节一致 (去括号注释后) | 0 differences | – |
+
+**修复指引**:
+- Rule 1 命中 → 删除外链, **inline 完整内容**(表格 / 数字 / 段落)到对应章节
+- Rule 2 不足 → 补充该章节内容深度(展开证据链 / 加表格 / 加数字事实)
+- Rule 3 不足 → Read 对应 artifact, 把关键数字短语真实搬入主报告
+- Rule 4 不一致 → 把 ## §X 标题改回 skeleton 的字面字符串(允许加括号注释如 "## §四 公司基本面(v4.5 含主力控盘)")
+
+**Step 0 通过后才能进入下面 22 项 LLM 审核 + Part B HTML 生成**。
+
+---
+
 ### 审核清单（逐项执行，记录结果）
 
 | # | 审核项 | 通过标准 |
