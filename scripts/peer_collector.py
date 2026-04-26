@@ -80,17 +80,19 @@ def collect_peers(
     target_code: str,
     n: int = 5,
     trade_date: str | None = None,
+    name_hint: str | None = None,
 ) -> tuple[pd.DataFrame, str]:
-    """Returns (peers_df, markdown_report)."""
-    target_code = normalize_a_code(target_code)
+    """Returns (peers_df, markdown_report).
+
+    target_code 可以是错的/老的代码;resolve_ticker 会自动尝试 BJ 8↔9 迁移
+    或 name_hint 名称匹配 fallback。
+    """
     tc = TushareCollector()
+    target_code, target_basic = tc.resolve_ticker(target_code, name_hint=name_hint)
     tc._ensure_pro()
     pro = tc._pro
 
-    # 1. 查目标公司行业
-    target_basic = tc.stock_basic(target_code)
-    if target_basic.empty:
-        raise RuntimeError(f"无法获取 {target_code} 基本信息")
+    # 1. 查目标公司行业 (target_basic 已由 resolve_ticker 取回)
     industry = target_basic.iloc[0].get("industry")
     target_name = target_basic.iloc[0].get("name")
     if not industry or pd.isna(industry):
@@ -351,14 +353,20 @@ def _compare_label(p: float, direction: str) -> str:
 
 def main():
     ap = argparse.ArgumentParser(description="A 股可比公司自动采集 (v4.4)")
-    ap.add_argument("ts_code", help="目标公司代码, 如 600745.SH 或 002862")
+    ap.add_argument("ts_code", help="目标公司代码, 如 600745.SH 或 002862 (北交所支持 8XXXXX↔9XXXXX 自动迁移)")
     ap.add_argument("--peers", type=int, default=5, help="peer 家数 (默认 5)")
     ap.add_argument("--trade-date", help="指定交易日 YYYYMMDD (默认最近)")
     ap.add_argument("--out", help="输出 md 路径 (默认 stdout)")
+    ap.add_argument("--name", default=None, help="公司名 (用于 ticker 解析失败时按名称搜索 fallback)")
     args = ap.parse_args()
 
     try:
-        df, md = collect_peers(args.ts_code, n=args.peers, trade_date=args.trade_date)
+        df, md = collect_peers(
+            args.ts_code,
+            n=args.peers,
+            trade_date=args.trade_date,
+            name_hint=args.name,
+        )
     except RuntimeError as e:
         print(f"❌ 失败: {e}")
         return 1

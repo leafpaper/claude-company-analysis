@@ -41,9 +41,14 @@ _HK_PATTERN = re.compile(r"^(\d{1,5})(?:\.HK)?$", re.IGNORECASE)
 
 
 def normalize_a_code(code: str) -> str:
-    """'002862' → '002862.SZ'; '600519' → '600519.SH'; '430047' → '430047.BJ'.
+    """'002862' → '002862.SZ'; '600519' → '600519.SH'; '832522' → '832522.BJ'; '920522' → '920522.BJ'.
 
-    Rules: 6xx/9xx → .SH; 0xx/3xx → .SZ; 4xx/8xx → .BJ.
+    Rules without explicit suffix:
+      6xx → .SH (主板/科创板)
+      0xx/3xx → .SZ (主板/创业板)
+      4xx/8xx/9xx → .BJ (北交所；含 2025 年 8XXXXX→9XXXXX 迁移代码)
+
+    若需访问 SH 900XXX B 股(罕见,且大多已退市), 必须显式指定 ".SH" 后缀。
     """
     code = code.strip().upper()
     m = _A_SHARE_PATTERN.match(code)
@@ -53,11 +58,11 @@ def normalize_a_code(code: str) -> str:
     if suffix:
         return f"{num}.{suffix}"
     first = num[0]
-    if first in "69":
+    if first == "6":
         return f"{num}.SH"
     if first in "03":
         return f"{num}.SZ"
-    if first in "48":
+    if first in "489":
         return f"{num}.BJ"
     raise ValueError(f"Unknown market prefix for {code!r}")
 
@@ -152,6 +157,72 @@ class TushareCollector:
         )
         data_cache.put(key, df, extra={"api": "stock_basic"})
         return df
+
+    def resolve_ticker(
+        self,
+        code_or_name: str,
+        name_hint: str | None = None,
+    ) -> tuple[str, pd.DataFrame]:
+        """Resolve a possibly-wrong / legacy / ambiguous ticker.
+
+        Tries (in order):
+          1. The provided code as-is (after normalize_a_code if it parses)
+          2. If a name_hint is given OR the input is non-numeric: search stock_basic
+             by name field (含模糊匹配; 单一命中即返回, 多命中报错列出 5 条候选)
+             — 这是北交所 2025 年 8XXXXX→9XXXXX 代码迁移的主 fallback 路径,
+               因 BSE 迁移并非简单字符替换 (832522 → 920522 而非 932522), 必须靠名称匹配
+
+        Returns: (resolved_code, basic_df)
+        Raises: RuntimeError with helpful suggestions if all fallbacks fail.
+        """
+        self._ensure_pro()
+
+        # Step 1: Try as-is (if it parses as a code)
+        try:
+            code = normalize_a_code(code_or_name)
+        except ValueError:
+            code = None
+
+        if code:
+            df = self.stock_basic(code)
+            if not df.empty:
+                return code, df
+
+        # Step 2: Search by name (when name_hint OR input looks like name not code)
+        name = name_hint if name_hint else (code_or_name if not code else None)
+        if name:
+            all_basic = self._call(
+                self._pro.stock_basic,
+                list_status="L",
+                fields="ts_code,name,industry,market,exchange",
+            )
+            match = all_basic[all_basic["name"].str.contains(name, na=False, regex=False)]
+            if len(match) == 1:
+                found_code = match.iloc[0]["ts_code"]
+                sys.stderr.write(
+                    f"⚠️  '{code_or_name}' 未直接命中, 按名称匹配到 "
+                    f"{found_code} ({match.iloc[0]['name']})\n"
+                )
+                return found_code, self.stock_basic(found_code)
+            elif len(match) > 1:
+                hits = match[["ts_code", "name"]].head(5).to_dict("records")
+                raise RuntimeError(
+                    f"按名称 '{name}' 找到 {len(match)} 个匹配 (前 5):\n"
+                    f"  {hits}\n"
+                    "请显式指定 ts_code"
+                )
+
+        # All fallbacks exhausted
+        attempted = [f"stock_basic(ts_code={code or code_or_name})"]
+        if name:
+            attempted.append(f"按名称 '{name}' 搜索 stock_basic")
+        raise RuntimeError(
+            f"无法解析 ticker '{code_or_name}'。已尝试:\n"
+            + "\n".join(f"  - {a}" for a in attempted)
+            + "\n建议: (a) 检查代码拼写; "
+            "(b) 北交所 2025 部分股票从 8XXXXX 迁至 9XXXXX, 建议输入最新 9XXXXX 代码; "
+            "(c) 添加 --name 公司名 以启用名称 fallback"
+        )
 
     # ---- 3 大报表 ----
 
@@ -638,10 +709,10 @@ def main():
     ap.add_argument("--name", default=None, help="Chinese/common name for output dir (default from stock_basic)")
     args = ap.parse_args()
 
-    ts_code = normalize_a_code(args.code)
-    print(f"Normalized code: {ts_code}")
-
     c = TushareCollector()
+    ts_code, target_basic = c.resolve_ticker(args.code, name_hint=args.name)
+    print(f"Resolved code: {ts_code}")
+
     print(f"Fetching bundle for {ts_code}...")
     bundle = c.collect_all(ts_code, start_year=args.start_year)
 

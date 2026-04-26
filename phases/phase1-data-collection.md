@@ -66,6 +66,8 @@ python3 -m scripts.check_env
 python3 -m scripts.tushare_collector {ticker} --name {company}
 ```
 
+**北交所代码自动迁移（v4.6 起）**：北交所 2025 年把许多股票从 8XXXXX 迁至 9XXXXX。如果用户输入旧代码（如 `832522.BJ`），`tushare_collector` 内部 `resolve_ticker` 会自动尝试 9-prefix（→ `920522.BJ`）并打印迁移提示。如果代码完全不识别，还可加 `--name 公司名` 用名称作为最后 fallback。无须手动转换。
+
 这会在 `output/{company}/raw_data/` 下生成：
 - `stock_basic.parquet` — 公司基本信息（name/行业/上市日期/交易所）
 - `income.parquet` — 利润表（多年，默认从 2022 起）
