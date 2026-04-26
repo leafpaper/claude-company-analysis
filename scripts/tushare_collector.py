@@ -560,7 +560,12 @@ class TushareCollector:
         return df
 
     def daily(self, ts_code: str, years: int = 3) -> pd.DataFrame:
-        """日线行情（不复权）。"""
+        """日线行情（不复权）。
+
+        若 Tushare Pro 返回空(常见于北交所低积分账户), 自动 fallback 到新浪
+        免费 K 线 JSON, 字段名/单位适配到 Pro 风格。fallback 标志写入 cache extra
+        以便排查。
+        """
         key = f"tushare_daily_{ts_code}_y{years}"
         cached = data_cache.get(key)
         if cached is not None:
@@ -574,7 +579,30 @@ class TushareCollector:
             start_date=start.strftime("%Y%m%d"),
             end_date=end.strftime("%Y%m%d"),
         )
-        data_cache.put(key, df, extra={"api": "daily"})
+
+        source = "tushare_pro"
+        if df.empty:
+            sys.stderr.write(
+                f"⚠️  Tushare Pro daily 返回空 for {ts_code} (可能积分不足或代码异常), "
+                "尝试新浪免费 K 线 fallback...\n"
+            )
+            from . import legacy_quote
+            datalen = max(years * 250, 250)  # 250 交易日/年
+            legacy_df = legacy_quote.get_daily_history_legacy(ts_code, datalen=datalen)
+            if not legacy_df.empty:
+                df = legacy_quote.filter_by_date_range(
+                    legacy_df,
+                    start_date=start.strftime("%Y%m%d"),
+                    end_date=end.strftime("%Y%m%d"),
+                )
+                source = "sina_legacy"
+                sys.stderr.write(
+                    f"✅ 新浪免费 K 线 fallback 命中 for {ts_code}: {len(df)} 行 "
+                    "(注: amount 字段为 close × volume 估算值, "
+                    "vs Pro 的真实成交额可能有 ±5% 偏差)\n"
+                )
+
+        data_cache.put(key, df, extra={"api": "daily", "source": source})
         return df
 
     # ---- 分业务 / 行业 ----

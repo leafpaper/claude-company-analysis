@@ -68,6 +68,8 @@ python3 -m scripts.tushare_collector {ticker} --name {company}
 
 **北交所代码自动迁移（v4.6 起）**：北交所 2025 年把许多股票从 8XXXXX 迁至 9XXXXX。如果用户输入旧代码（如 `832522.BJ`），`tushare_collector` 内部 `resolve_ticker` 会自动尝试 9-prefix（→ `920522.BJ`）并打印迁移提示。如果代码完全不识别，还可加 `--name 公司名` 用名称作为最后 fallback。无须手动转换。
 
+**免费 K 线 fallback（v4.7.2 起）**：`tushare_collector.daily()` 在 Tushare Pro 返回空时（常见于北交所低积分账户），自动 fallback 到新浪免费 K 线 JSON。字段名 / 单位已适配到 Pro 风格（`vol` 手 / `amount` 千元），下游 `technical_analysis.py` / `derived_metrics.py` 无感知。命中 fallback 时 stderr 会打印 `✅ 新浪免费 K 线 fallback 命中 ...` 提示;**注意 amount 字段是 close × volume 估算值,vs Pro 真实成交额可能有 ±5% 偏差**(对技术指标 / 趋势分析无影响,对精确成交额对账请用 Pro)。
+
 这会在 `output/{company}/raw_data/` 下生成：
 - `stock_basic.parquet` — 公司基本信息（name/行业/上市日期/交易所）
 - `income.parquet` — 利润表（多年，默认从 2022 起）
