@@ -80,6 +80,7 @@ ARTIFACTS = [
     "peer_analysis.md",
     "technical_analysis.md",
     "audit_report.md",
+    "data_snapshot.md",  # v4.8 新增 — 一劳永逸修复 Phase 3 漏读最新季度 / 十大股东省略
 ]
 COVERAGE_OVERALL_MIN = 0.40
 COVERAGE_PER_ARTIFACT_MIN = 0.20

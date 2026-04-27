@@ -212,6 +212,45 @@ python3 -m scripts.technical_analysis {ticker} \
 
 ---
 
+## Step 1.5: 数据快照 (★ v4.8 新增 — 一劳永逸修复 Phase 3 漏读)
+
+**痛点**: 此前 Phase 3 写主报告时反复出现"漏掉最新季度数据 / 用业绩预告替代实际年报 / 十大股东表简化省略",根因是 Phase 3 LLM 只读 `phase1-data.md` (LLM 摘要),不读 `raw_data/*.parquet` 源头。
+
+**解决方案**: `data_snapshot.py` 用纯 Python 从 parquet 读取并拼装结构化 markdown,**完全确定性**(LLM 不参与),保证最新期 + 完整十大股东数据 always 落地。
+
+```bash
+python3 -m scripts.data_snapshot \
+    --bundle output/{company}/raw_data \
+    --out output/{company}/data_snapshot.md
+```
+
+**生成文件结构** (`data_snapshot.md`,8 节):
+- §1 数据完整度 — 每张表行数 / end_date 区间 / **最新期(★Phase 3 必含)**
+- §2 最新期完整快照 — income/balance/cashflow/fina_indicator 最新行所有关键字段(含同比)
+- §3 多年趋势完整表 — 每个 distinct end_date 一行,含 营收/YoY/毛利率/净利率/归母/ROE/资负率/OCF
+- §4 业绩预告 vs 实际兑现对比 — forecast_vip 每条 vs 同期 income, **强制 LLM 用 actual 而非预告**
+- §5 完整十大股东表 — 最近 4 期 × 10 行
+- §6 完整十大流通股东表 — 最近 4 期 × 10 行
+- §7 质押 / 冻结明细 — pledge_detail (active 状态)
+- §8 股东户数变化时序 — stk_holdernumber 完整历史
+
+**质量门控**:
+- ✅ §1 数据完整度表 ≥ 4 个核心表(income / balance / cashflow / fina_indicator)
+- ✅ §3 多年趋势 ≥ 4 行
+- ✅ §5 完整十大股东表 ≥ 30 行(3 期 × 10 行)
+- ✅ 头部 "★ Phase 3 必读规则" 强约束存在
+
+**Phase 3 联动**(★ 强制): Phase 3 重构为 3a/3b/3c 三步:
+- **3a 全量预加载**: 必读 data_snapshot.md + 4 artifact + phase1/2 → 输出 phase3-data-dump.md
+- **3b 分章按需写入**: 5 个 part 各自专注少量章节,每个 part LLM 读 dump
+- **3c 拼接**: scripts/assemble_report.py 合并 5 part → 最终主报告
+
+详见 phases/phase3-analysis-report.md。
+
+**降级**: 美股/港股的 raw_data 也可以跑(只要存在 income/balance/cashflow parquet),但部分 §如十大股东表可能为空。
+
+---
+
 ## Step 2: PDF 原文抓取
 
 ### 2.1 定位最新年报+季报的 PDF URL

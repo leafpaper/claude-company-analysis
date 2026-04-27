@@ -118,6 +118,10 @@
 
 ### 财务趋势表（近 3-5 年 + 最新季度）
 
+<!-- ★ v4.8 强制规则: 来源 data_snapshot.md §3 多年趋势完整表 -->
+<!-- ★ 必含 data_snapshot.md §1 中标注的"最新期"end_date 行 (例如 20260331); 严禁省略最新季度 -->
+<!-- ★ 严禁用 forecast_vip 预告口径替代 income.parquet 已有实际数据 (查 data_snapshot.md §4 forecast vs actual 对比) -->
+
 | 期末 | 营收 | YoY | 毛利率 | 净利率 | 归母净利 | ROE | 资产负债率 | 来源 |
 |------|-----:|----:|-----:|-----:|-------:|----:|----:|------|
 {{financial_trend_rows}}
@@ -126,7 +130,12 @@
 
 {{forecast_signal_analysis}}
 
-### 主力控盘与筹码分析（v4.4 — Read `capital_flow.md`）
+### 主力控盘与筹码分析（v4.4 — Read `capital_flow.md`; v4.8 — 同时 Read `data_snapshot.md` §5/§6/§7）
+
+<!-- ★ v4.8 强制规则: 来源 capital_flow.md + data_snapshot.md §5/§6/§7 -->
+<!-- ★ 必含: 十大股东 ≥ 9 行 (data_snapshot.md §5) + 十大流通股东 ≥ 9 行 (data_snapshot.md §6) -->
+<!-- ★ 若 data_snapshot.md §7 质押表非空, 必须 inline 完整质押明细 -->
+<!-- ★ 推荐 2 期对比展示股东持股变动 -->
 
 {{capital_flow_summary_table}}
 

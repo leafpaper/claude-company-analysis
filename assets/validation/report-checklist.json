@@ -178,6 +178,24 @@
         "source": "Phase 3 Step 1.5 financial_audit.py",
         "consumed_by_sections": ["§一 三大风险", "§三 快筛第 6 项 (Audit ≥2 🔴)", "§十一 定性判断(会计红旗引用)"],
         "applies_to_markets": ["A股", "美股", "港股"]
+      },
+      {
+        "file": "output/{company}/data_snapshot.md",
+        "source": "Phase 1 Step 1.5 data_snapshot.py (v4.8 新增)",
+        "consumed_by_sections": [
+          "§四 公司基本面(财务趋势表 from data_snapshot.md §3)",
+          "§四 公司基本面(十大股东 from data_snapshot.md §5)",
+          "§四 公司基本面(十大流通股东 from data_snapshot.md §6)",
+          "§四 公司基本面(质押明细 from data_snapshot.md §7)",
+          "§九 估值(forecast vs actual 兑现度 from data_snapshot.md §4)"
+        ],
+        "applies_to_markets": ["A股", "美股", "港股"],
+        "min_inline_constraints": {
+          "财务趋势表必含最新期": "data_snapshot.md §1 中标注的最新 end_date 必须出现在主报告 §四 财务趋势表",
+          "十大股东最少行数": 9,
+          "十大流通股东最少行数": 9,
+          "禁止用预告替代实际": "data_snapshot.md §4 中状态为 ✅ 落入区间 / ⬇️ / ⬆️ 的实际值必须用于主报告; 仅状态为'未发布'时才用预告口径"
+        }
       }
     ],
     "enforcement": "若 artifact 存在但未在对应章节被引用/搬运 → Phase 6 审核 #23 不通过"

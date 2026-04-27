@@ -31,8 +31,9 @@
 
 1. `output/{company}/phase1-data.md` **必须存在**
 2. `output/{company}/phase2-documents.md` 应存在（不存在时标注"无文档数据，置信度降低"）
-3. *（v4 变更）* Phase 3 **不再依赖** `phase5-variant-perception.md`——差异化洞察在 Phase 5（后移到 Phase 4 后）生成并回写到主报告 §十二。Phase 3 生成主报告时，§十二 和 §十三 章节留白带注释即可
-4. 协调器提供 `{type}` (startup/public)、`{market}`、`{amount}`
+3. **★ v4.8 新增必读**: `output/{company}/data_snapshot.md` 必须存在(Phase 1 Step 1.5 自动产出)。这是 Phase 3 财务和股东数据的**唯一权威源**, **禁止只读 phase1-data.md** (LLM 摘要可能漏最新季度 / 用预告替代实际)
+4. *（v4 变更）* Phase 3 **不再依赖** `phase5-variant-perception.md`——差异化洞察在 Phase 5（后移到 Phase 4 后）生成并回写到主报告 §十二。Phase 3 生成主报告时，§十二 和 §十三 章节留白带注释即可
+5. 协调器提供 `{type}` (startup/public)、`{market}`、`{amount}`
 
 ---
 
@@ -58,36 +59,70 @@ Read assets/templates/exec-summary-schema.md
 
 ---
 
-## ⚠️ 关键执行模式：分段写入（禁止一次性生成）
+## ⚠️ 关键执行模式：3a 预加载 + 3b 分章 + 3c 拼接（v4.8 重构,禁止单文件 Edit 追加）
 
-**本阶段禁止一次性写入完整报告。必须分 5 批写入，每批填充骨架对应章节的 `{{placeholder}}`（v4.3 改造）：**
+**本阶段重构为 3 步**(取代 v4.3 的 "5 批 Edit 追加" 模式 — 旧模式因为单一文件 Edit context 累积易丢内容):
 
+### Step 3a: 全量预加载(1 次 LLM 调用 → 写 phase3-data-dump.md)
+
+**输入(必读, 全部)**:
+1. ★ `data_snapshot.md` — 最新期完整快照 + 多年趋势 + 完整十大股东 + forecast vs actual
+2. `peer_analysis.md` / `capital_flow.md` / `technical_analysis.md` / `audit_report.md`
+3. `phase1-data.md`(辅助参考, **不可作唯一数据源**)
+4. `phase2-documents.md` — PDF 精读要点
+5. `metrics.json`
+
+**输出 `phase3-data-dump.md`** — 标准化中间数据视图,结构:
+- §A 数据时效性 — 从 data_snapshot.md §1 摘抄各表最新 end_date,凸显 "Phase 3 必含"
+- §B 财务核心 — 完整 inline data_snapshot.md §2 最新期快照 + §3 多年趋势完整表 (★ 不可省略最新期)
+- §C 股东与控盘 — data_snapshot.md §5 + §6 + §7 + capital_flow.md §1-§8 整合
+- §D Peer / 估值 / 技术 — peer/audit/technical artifact 关键摘要
+- §E PDF 精读要点 — phase2-documents.md §2 利润表变动 + §8 锚点
+- §F 审计红旗 — audit_report.md 红旗按严重度排序
+- §G 风险与机会 — LLM 整合 §A-§F 提炼的关键看多/看空信号
+
+**dump 的目的**: Phase 3b 各 part 写作时直接 Read 这一个文件就能获得完整数据视图,**无需回头翻 phase1-data.md 或 raw_data**.
+
+### Step 3b: 分章按需写入(5 次独立 LLM 调用 → 每个 part 一个独立 .md 文件)
+
+**关键**: 5 个 part 是**独立文件**, 不是同一文件的 5 次 Edit。这避免了 v4.3 旧模式的 context 累积问题。
+
+| Part | 输出文件 | 章节 | 必读 |
+|:---:|------|------|------|
+| 3b-1 | `phase3-part1.md` | §一 §二 §三 (执行摘要 / 评分 / 快筛) | dump.md §A §B §F §G + audit_report.md §3 |
+| 3b-2 | `phase3-part2.md` ★ | §四 §五 (公司基本面 / 行业) | dump.md §B §C + capital_flow.md + ★ data_snapshot.md §3 §5 §6 §7 |
+| 3b-3 | `phase3-part3.md` | §六 §七 §八 (10 维度 / 舆情 / Peer) | dump.md §B §D + peer_analysis.md |
+| 3b-4 | `phase3-part4.md` | §九 §十 §十一 (估值 / 回报 / 定性) | dump.md §B §D §F + technical_analysis.md + audit |
+| 3b-5 | `phase3-part5.md` | §十二-§十五 (洞察占位 / 角色占位 / 缺口 / 来源) | dump.md 全部 + 4 artifact |
+
+**Part 2 是关键关注点**: 包含财务趋势表 + 十大股东表, 必须严格按 data_snapshot.md §3/§5/§6 完整 inline:
+- ★ 财务趋势表必须 inline data_snapshot.md §3 全部行(包括最新季报)
+- ★ 十大股东表 inline data_snapshot.md §5 ≥ 9 行(推荐 2 期对比)
+- ★ 十大流通股东表 inline data_snapshot.md §6 ≥ 9 行
+- ★ 质押表来自 data_snapshot.md §7, 若非空必含
+- ★ **禁止用业绩预告替代 data_snapshot.md §4 中已有 actual 的数据**
+
+**Part 1 必含 metadata 注释块**: 在文件头部插入 RATING_TRIO_DATA / KEY_METRICS_SIDEBAR / CARD_METADATA 三个 HTML 注释块(供 Phase 6 update_index.py 解析).
+
+### Step 3c: 拼接(1 次脚本调用)
+
+```bash
+python3 -m scripts.assemble_report \
+    --company {company} \
+    --date {YYYY-MM-DD} \
+    --parts-dir output/{company}/ \
+    --out output/{company}/{company}-analysis-{date}.md
 ```
-批次 1: Write 工具创建报告文件
-  → 骨架 header + §一 执行摘要 + §二 评分总览 + §三 快筛
-  → 替换 {{company_name}} / {{composite_score}} / {{score_1..10}} 等
-  → 保存
 
-批次 2: Edit 工具追加
-  → §四 公司基本面（含剩余资产清单若触发 Step 9.5）+ §五 行业与竞争格局
-  → 保存
+脚本验证:
+- ✅ 5 个 part 文件均存在
+- ✅ 每个 part 含其预期章节标题(§一-§三 in part1, §四-§五 in part2, ...)
+- ✅ part1 含 RATING/METRICS/CARD metadata 注释块
+- ✅ 拼接后 `## §` 计数 ≥ 15
 
-批次 3: Edit 工具追加
-  → §六 10 维度详细证据（全部 10 维度）+ §七 网络舆情 + §八 可比公司对标
-  → 保存
+若失败, 回到对应 part 文件用 Edit 修补再重跑 assemble.
 
-批次 4: Edit 工具追加
-  → §九 估值与回报模拟（4 情景 DCF + 交叉验证）+ §十 投资回报（与 §九 共用情景）
-  → 保存
-
-批次 5: Edit 工具追加
-  → §十一 定性判断（3 框架） + §十二 差异化洞察（**留白** "Phase 5 回写"）+ §十三 多角色（**留白** "Phase 4 回写"）+ §十四 信息缺口 + §十五 数据可审计性
-  → 保存
-```
-
-**每批保存后必须通过 Read 验证上一批内容未丢失。如果丢失 → 重新写入该批次。**
-
-**批次完成后必须跑自检**: `grep -c '^## §' output/{company}/*-analysis-*.md` 应 = 15。
+**自检**: 拼接完成后跑 `python3 -m scripts.anti_lazy_lint --md output/{company}/{company}-analysis-{date}.md` 验证 4 项规则全过.
 
 ---
 
@@ -95,17 +130,25 @@ Read assets/templates/exec-summary-schema.md
 
 ---
 
-### Step 1: 数据合并与缺口识别
+### Step 1: 数据合并与缺口识别(★ v4.8 更新 — 数据源含 data_snapshot.md)
 
-读取 Phase 1 和 Phase 2 检查点文件，交叉验证：
-- 一致 → `[确认]`
-- 仅Phase 1有 → `[仅公开]`
-- 仅Phase 2有 → `[仅文档]`
-- 冲突 → `⚠️ 冲突`，采信更可靠来源
+读取以下 4 类源, 交叉验证:
+1. **★ `data_snapshot.md`**(必读, 数据权威源 — 最新期 + 完整十大股东 + forecast vs actual)
+2. `phase1-data.md` (LLM 摘要, 仅作辅助参考)
+3. `phase2-documents.md` (PDF 精读要点)
+4. 4 个 artifact (`peer_analysis.md` / `capital_flow.md` / `technical_analysis.md` / `audit_report.md`)
 
-按10维度整理证据清单，标记数据充分/不足的维度。
+**冲突处理优先级**:
+- `data_snapshot.md` > `phase1-data.md` (后者是 LLM 摘要, 前者是 Python 确定性产出)
+- 4 个 artifact 与 phase1-data.md 不一致 → 采信 artifact
+- PDF 与 Tushare 不一致 → 标 ⚠️ 冲突, 采信更新数据
 
-**→ 写入报告：数据来源和置信度说明**
+**关键反漏读检查**:
+- ✅ 验证 data_snapshot.md §1 各表最新 end_date 已被 §3/§5/§6 等表的最新行覆盖
+- ✅ 验证 forecast_vip 中如有 actual 已存在(data_snapshot.md §4 状态非"待披露"), 主报告必须用 actual 数据
+- ✅ 按 10 维度整理证据清单, 标记数据充分/不足的维度
+
+**→ 写入 phase3-data-dump.md (Step 3a 输出),作为后续 Step 3b 各 part 写作的唯一数据源**
 
 ---
 
