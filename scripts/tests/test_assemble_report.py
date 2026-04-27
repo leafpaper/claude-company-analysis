@@ -36,17 +36,35 @@ class TestValidatePart(unittest.TestCase):
         self.assertIn("§五", issues[0])
 
     def test_part4_section_十_with_space(self):
-        """§十 后面有空格区分 §十/§十一/§十二/...; 测试边界"""
+        """§十 后跟空格 + 标题, 应通过"""
         content = _make_part(4, ["## §九 估值与回报模拟", "## §十 投资回报测算", "## §十一 定性判断"])
         issues = assemble_report.validate_part(4, content)
         self.assertEqual(issues, [])
 
     def test_part4_only_十一_should_fail(self):
-        """如果只有 §十一 没有 §十, 应报错"""
+        """如果只有 §十一 没有 §十, 应报错 (v4.8.1: 用正则边界匹配, §十一 不再假阳性命中 §十)"""
         content = "## §九 估值与回报模拟\n\n## §十一 定性判断\n"
         issues = assemble_report.validate_part(4, content)
-        # 期望报缺 §十 (由于 PART_EXPECTED_SECTIONS 中是 "## §十 " 含空格, §十一 不会匹配)
-        self.assertTrue(any("§十 " in i for i in issues))
+        self.assertTrue(any("§十" in i and "§十一" not in i for i in issues),
+                        f"应报缺 §十 但实际 issues={issues}")
+
+    def test_part4_with_tab_after_section(self):
+        """v4.8.1 修 Bug 3: §十 后用 tab 代替空格也应识别 (原版硬编码尾部空格会失败)"""
+        content = "## §九 估值\n\n## §十\t投资回报测算\n\n## §十一 定性\n"
+        issues = assemble_report.validate_part(4, content)
+        self.assertEqual(issues, [], "§十 后跟 tab 应被正则识别")
+
+    def test_part4_with_multiple_spaces(self):
+        """v4.8.1: §十 后多个空格(常见手抖)也应识别"""
+        content = "## §九 估值\n\n## §十   投资回报\n\n## §十一 定性\n"
+        issues = assemble_report.validate_part(4, content)
+        self.assertEqual(issues, [], "§十 后多空格应被正则识别")
+
+    def test_section_十_at_end_of_line_no_title(self):
+        """§十 后无标题(行末)也应识别(罕见但合法)"""
+        content = "## §九 估值\n\n## §十\n\n内容\n\n## §十一 定性\n"
+        issues = assemble_report.validate_part(4, content)
+        self.assertEqual(issues, [])
 
 
 class TestExtractMetadataBlocks(unittest.TestCase):

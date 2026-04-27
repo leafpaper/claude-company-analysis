@@ -26,14 +26,27 @@ import re
 import sys
 from pathlib import Path
 
-# part 名 → 期望含的章节标题前缀 (Rule 4 anti_lazy_lint 已强制章节标题与 skeleton 字节一致)
+# part 名 → 期望含的章节号 (Rule 4 anti_lazy_lint 已强制章节标题与 skeleton 字节一致)
+# v4.8.1: 用正则边界匹配 (\s|$) 取代字符串 startswith,
+# 修 Bug 3 — §十 vs §十一/§十二 等的脆弱区分(原版用尾部空格硬编码,
+# 容错性差: 任何 tab / 多空格都会误报缺章节)
 PART_EXPECTED_SECTIONS = {
-    1: ["## §一", "## §二", "## §三"],
-    2: ["## §四", "## §五"],
-    3: ["## §六", "## §七", "## §八"],
-    4: ["## §九", "## §十 ", "## §十一"],  # 注意 §十 后面有空格区分 §十/§十一/§十二/...
-    5: ["## §十二", "## §十三", "## §十四", "## §十五"],
+    1: ["§一", "§二", "§三"],
+    2: ["§四", "§五"],
+    3: ["§六", "§七", "§八"],
+    4: ["§九", "§十", "§十一"],
+    5: ["§十二", "§十三", "§十四", "§十五"],
 }
+
+
+def _has_section(content: str, section: str) -> bool:
+    """检查 markdown content 是否含 ## {section} 章节标题, 用正则保证 §十 不被 §十一/§十二 假阳性命中.
+
+    匹配规则: 行首 ## (允许前后任意空白), 然后 {section}, 后面必须是空白或行尾.
+    例如 _has_section(text, '§十') 不会匹配 '## §十一 投资回报'.
+    """
+    pattern = rf"^\s*##\s+{re.escape(section)}(?=\s|$)"
+    return bool(re.search(pattern, content, re.MULTILINE))
 
 
 def validate_part(idx: int, content: str) -> list[str]:
@@ -41,8 +54,8 @@ def validate_part(idx: int, content: str) -> list[str]:
     issues = []
     expected = PART_EXPECTED_SECTIONS.get(idx, [])
     for sec in expected:
-        if sec not in content:
-            issues.append(f"part{idx}: 缺章节标题 '{sec}'")
+        if not _has_section(content, sec):
+            issues.append(f"part{idx}: 缺章节标题 '## {sec}'")
     return issues
 
 

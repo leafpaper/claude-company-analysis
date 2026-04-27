@@ -416,8 +416,14 @@ def _render_section_4(bundle_dir: Path, out: StringIO):
 
     forecast = forecast.drop_duplicates(subset=["ann_date", "end_date"]).sort_values("ann_date", ascending=False).head(15)
 
+    # ★ Bug 1 修复 (v4.8.1): income.parquet 同 end_date 可能有多行 (年报修正/原始稿/中报误重复),
+    # 必须按 ann_date 倒序 + drop_duplicates 取最新披露版本, 避免 _render_section_4 取到未修正的旧值
+    # 导致兑现状态判断错误 (如把"✅落入区间"误判为"⬇️低于下沿")
     if not income.empty and "end_date" in income.columns:
-        income_idx = income.set_index("end_date")
+        income_clean = income.copy()
+        if "ann_date" in income_clean.columns:
+            income_clean = income_clean.sort_values("ann_date", ascending=False)
+        income_idx = income_clean.drop_duplicates(subset="end_date").set_index("end_date")
     else:
         income_idx = pd.DataFrame()
 
@@ -455,8 +461,39 @@ def _render_section_4(bundle_dir: Path, out: StringIO):
     out.write('\n*★ 强制规则: 若某期 income.parquet 已有 actual 数据(上表实际栏非 "待披露"), 主报告 §四 财务趋势表 + §一 执行摘要 必须用 actual 而非预告区间。*\n\n')
 
 
+def _fmt_cell(value, fmt: str = "{}", scale: float = 1.0, na: str = "–") -> str:
+    """格式化单元格: NaN/None → na; 否则按 fmt 格式化(value * scale).
+
+    用于 §5/§6/§7 表格生成, 避免 v4.8 原版字符串拼接 + 三元嵌套的可读性灾难。
+
+    Args:
+        value: 原始数值 (可能是 NaN / None / 数字 / 字符串)
+        fmt: 格式字符串 (如 '{:,.2f}' / '{:+,.2f}' / '{}')
+        scale: 缩放系数 (如 1/1e4 把元转万)
+        na: NaN 时显示的占位符
+    """
+    if value is None or pd.isna(value):
+        return na
+    if isinstance(value, str):
+        return value
+    try:
+        return fmt.format(value * scale)
+    except (ValueError, TypeError):
+        return str(value)
+
+
+def _md_table_row(cells: list[str]) -> str:
+    """把单元格 list 转 markdown 表格行, 自动转义 |"""
+    escaped = [str(c).replace("|", "\\|") for c in cells]
+    return "| " + " | ".join(escaped) + " |\n"
+
+
 def _render_section_5_or_6(bundle_dir: Path, out: StringIO, parquet_name: str, title: str, n_periods: int = 4):
-    """§5 / §6 完整十大股东表 (最近 N 期, 各 10 行)"""
+    """§5 / §6 完整十大股东表 (最近 N 期, 各 10 行).
+
+    v4.8.1 重写: 用 _fmt_cell + _md_table_row 辅助函数, 修复原版字符串拼接 + 三元嵌套
+    在 NaN 边界时可能列对不齐的隐患 (Bug 2)。
+    """
     out.write(f"## {title}\n\n")
     df = _read_parquet_safe(bundle_dir / f"{parquet_name}.parquet")
     if df.empty:
@@ -468,35 +505,30 @@ def _render_section_5_or_6(bundle_dir: Path, out: StringIO, parquet_name: str, t
         out.write("(无可用 end_date)\n\n")
         return
 
+    headers = ["#", "股东", "持股数(万股)", "持股比例(%)", "占流通比例(%)", "期间变动(万股)", "股东类型"]
+    aligns = ["---", "---", "---:", "---:", "---:", "---:", ":---:"]
+
     for period in periods:
         out.write(f"### 报告期: {period}\n\n")
         sub = df[df["end_date"] == period].sort_values("hold_ratio", ascending=False).head(10)
         if sub.empty:
             out.write("(本期无数据)\n\n")
             continue
-        out.write("| # | 股东 | 持股数(万股) | 持股比例(%) | 占流通比例(%) | 期间变动(万股) | 股东类型 |\n")
-        out.write("|---|---|---:|---:|---:|---:|:---:|\n")
+
+        out.write(_md_table_row(headers))
+        out.write("|" + "|".join(aligns) + "|\n")
+
         for i, (_, r) in enumerate(sub.iterrows(), 1):
-            name = str(r.get("holder_name", "–"))
-            amt = r.get("hold_amount")
-            ratio = r.get("hold_ratio")
-            float_ratio = r.get("hold_float_ratio")
-            chg = r.get("hold_change")
-            htype = r.get("holder_type", "–")
-            out.write(
-                f"| {i} | {name} | "
-                f"{amt/1e4:,.2f} | " if pd.notna(amt) else f"| {i} | {name} | – | "
-            )
-            out.write(
-                f"{ratio:.2f} | " if pd.notna(ratio) else "– | "
-            )
-            out.write(
-                f"{float_ratio:.2f} | " if pd.notna(float_ratio) else "– | "
-            )
-            out.write(
-                f"{chg/1e4:+,.2f} | " if pd.notna(chg) else "– | "
-            )
-            out.write(f"{htype} |\n")
+            cells = [
+                str(i),
+                str(r.get("holder_name", "–")) if r.get("holder_name") is not None else "–",
+                _fmt_cell(r.get("hold_amount"), "{:,.2f}", scale=1 / 1e4),
+                _fmt_cell(r.get("hold_ratio"), "{:.2f}"),
+                _fmt_cell(r.get("hold_float_ratio"), "{:.2f}"),
+                _fmt_cell(r.get("hold_change"), "{:+,.2f}", scale=1 / 1e4),
+                str(r.get("holder_type") or "–"),
+            ]
+            out.write(_md_table_row(cells))
         out.write("\n")
     out.write(f"*共 {len(periods)} 期 × ≤10 行/期。主报告 §四 主力控盘 / 十大股东子节必须 inline ≥ 1 期 ≥ 9 行 (推荐至少 2 期对比展示变动)。*\n\n")
 
@@ -519,26 +551,26 @@ def _render_section_7(bundle_dir: Path, out: StringIO):
 
     active = active.sort_values("start_date", ascending=False).head(30)
     out.write(f"**总记录: {len(df)} 条; 显示 active / 最近 {len(active)} 条**\n\n")
-    out.write("| 公告日 | 股东 | 质押方 | 起始日 | 期末日 | 质押数(万股) | 占持股% | 占总股本% | 状态 |\n")
+
+    # v4.8.1: 用 _md_table_row + _fmt_cell 取代字符串拼接 (修 Bug 2 同一模式)
+    out.write(_md_table_row(["公告日", "股东", "质押方", "起始日", "期末日",
+                              "质押数(万股)", "占持股%", "占总股本%", "状态"]))
     out.write("|:---:|---|---|:---:|:---:|---:|---:|---:|:---:|\n")
     for _, r in active.iterrows():
-        ann = r.get("ann_date", "–")
-        name = r.get("holder_name", "–")
-        pledgor = r.get("pledgor", "–")
-        start = r.get("start_date", "–")
-        end = r.get("end_date", "–")
-        amt = r.get("pledge_amount")
-        ptotal = r.get("p_total_ratio")
-        htotal = r.get("h_total_ratio")
-        is_rel = r.get("is_release", "–")
+        is_rel = r.get("is_release")
         status = "已解除" if is_rel in ("Y", "1", 1, True, "是") else "active"
-        out.write(
-            f"| {ann} | {name} | {pledgor} | {start} | {end} | "
-            f"{amt/1e4:,.2f} | " if pd.notna(amt) else f"| {ann} | {name} | {pledgor} | {start} | {end} | – | "
-        )
-        out.write(f"{ptotal:.2f} | " if pd.notna(ptotal) else "– | ")
-        out.write(f"{htotal:.2f} | " if pd.notna(htotal) else "– | ")
-        out.write(f"{status} |\n")
+        cells = [
+            str(r.get("ann_date") or "–"),
+            str(r.get("holder_name") or "–"),
+            str(r.get("pledgor") or "–"),
+            str(r.get("start_date") or "–"),
+            str(r.get("end_date") or "–"),
+            _fmt_cell(r.get("pledge_amount"), "{:,.2f}", scale=1 / 1e4),
+            _fmt_cell(r.get("p_total_ratio"), "{:.2f}"),
+            _fmt_cell(r.get("h_total_ratio"), "{:.2f}"),
+            status,
+        ]
+        out.write(_md_table_row(cells))
     out.write("\n*★ 主报告 §四 主力控盘子节必须引用此表 (若 active 记录非空); §三 致命看空快筛 #3 大股东累计质押 > 50% 检查源头。*\n\n")
 
 
