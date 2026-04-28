@@ -7,6 +7,7 @@ description: |
   - SKILL.md Step 3 Phase 1 调用
   - 任何 "重新采集 {company} 数据" 指令
 tools: Read, Write, Bash, Glob, Grep, WebSearch, WebFetch
+disallowedTools: Edit
 model: inherit
 ---
 
@@ -89,39 +90,36 @@ PDF 失败 → 备用 URL → 仍失败标"已尝试: {urls}",继续。
 - §2 财务数据小节用一句话指向 data_snapshot.md §3 多年趋势完整表
 - §11 信息缺口必须 ≥ 3 条,即使全部已解决也要列出已尝试的查询
 
-## 输出格式(★ 严格遵守,主 agent 只读这个)
+## 输出格式(★ 严格遵守 v5.1 协议,主 agent 只 grep 关键字段)
 
-完成后,你的最终消息必须是以下结构(不要写其他内容):
+完成后,你的最终消息必须以下面结构结尾(其他内容可在前面,但末尾结构固定):
 
 ```markdown
 ### Phase 1 完成报告
-
+**判定**: PASS / FAIL / 部分降级
 **ticker_input**: {主 agent 传入的原始 ticker}
 **ticker_resolved**: {resolve_ticker 自动迁移后的代码}
 **company**: {company}
 **market**: A股 / 美股 / 港股
-
-**artifacts** (12 个):
-- output/{company}/raw_data/_manifest.json (核心 bundle: income {N}行 / balance {N}行 / cashflow {N}行 / fina_indicator {N}行)
+**artifacts**:
+- output/{company}/raw_data/_manifest.json (income {N}行 / balance {N}行 / cashflow {N}行 / fina_indicator {N}行)
 - output/{company}/data_snapshot.md (8 节齐全 ✅)
 - output/{company}/peer_analysis.md (5 家 peer)
 - output/{company}/capital_flow.md
 - output/{company}/technical_analysis.md
-- output/{company}/audit_report.md ({N} 个红旗: {N} 高 / {N} 中 / {N} 低)
+- output/{company}/audit_report.md ({N} 红旗: {N} 高 / {N} 中 / {N} 低)
 - output/{company}/metrics.json
 - output/{company}/raw_data/pdfs/*.pdf ({N} 份)
 - output/{company}/raw_data/pdf_sections_*.json
 - output/{company}/phase1-data.md
-
-**降级标注**:
-- (无 / "北交所 hk_hold 0 行 - 数据不全" / "美股 跳过 peer/capital/technical" 等)
-
-**质量门控**: 
+**降级标注**: 无 / "北交所 hk_hold 0 行 - 数据不全" / "美股 跳过 peer/capital/technical" 等
+**质量门控**:
 - 核心 4 bundle 非空: ✅ / ❌
 - PDF ≥ 1 份: ✅ / ❌
 - §11 缺口 ≥ 3 条: ✅ / ❌
-- 总判定: 全部通过 ✅ / 部分降级 ⚠️ / 失败 ❌
 ```
+
+★ v5.1 协议: `**判定**:` 字段必须单独一行,主 agent 用 `grep "^\\*\\*判定\\*\\*:"` 提取。
 
 ## 严禁事项
 

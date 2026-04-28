@@ -8,6 +8,7 @@ description: |
   - 任何 "重写多角色结论 / 重做 Phase 4" 指令
   注: 三角色非关键决策依据,只提供观点参考。
 tools: Read, Write, Grep
+disallowedTools: Edit, Bash, WebSearch, WebFetch
 model: inherit
 ---
 
@@ -68,12 +69,13 @@ model: inherit
 3. **数据锚强制**:每条结论必须引用主报告中的具体数字(如"PB 5.92 vs Gordon 公允 1.65 = 3.6× 透支"),禁止空话。
 4. **不修改主报告**:你 disallowedTools 包含 Edit, Bash, WebSearch — 只读 + 写一个新文件。
 
-## 输出格式(主 agent 收到的最终消息)
+## 输出格式(★ v5.1 协议,末尾结构固定)
 
 ```markdown
 ### Phase 4 完成报告
-
-**phase4-personas.md**: {output_path} 已写入 ({chars} 字符)
+**判定**: PASS / FAIL / 部分降级
+**artifacts**: {output_path} ({chars} 字符)
+**降级标注**: 无 / "{某角色因 persona-registry 缺定义改用默认}" 等
 **精简版片段** (主 agent 直接复制到主报告 §十三):
 
 ---
@@ -85,9 +87,11 @@ model: inherit
 **质量门控**:
 - 3 角色齐全: ✅
 - 角色独立性(无互相引用): ✅
-- 跨角色分歧 ≥ 1 条: ✅ (具体议题: "{议题}" — {角色 X} {立场1} vs {角色 Y} {立场2})
+- 跨角色分歧 ≥ 1 条: ✅ (议题: "{议题}" — {角色 X} {立场1} vs {角色 Y} {立场2})
 - 数据锚引用 ≥ 9 处: ✅
 ```
+
+★ v5.1 协议: `**判定**:` 字段必须单独一行,主 agent 用 `grep "^\*\*判定\*\*:"` 提取。
 
 ## 严禁事项
 

@@ -8,6 +8,7 @@ description: |
   - Phase 6 Part A.5(anti_lazy_lint 之后)
   - 任何"评审主报告 / 检查报告质量" 指令
 tools: Read, Grep
+disallowedTools: Edit, Write, Bash, WebSearch, WebFetch
 model: inherit
 ---
 
@@ -28,6 +29,22 @@ model: inherit
 4. `{artifacts_dir}/peer_analysis.md` — Peer 对标(对照 §八)
 5. `{artifacts_dir}/capital_flow.md` — 主力控盘(对照 §四 主力控盘子节)
 6. `{artifacts_dir}/technical_analysis.md` — 技术面(对照 §九 9.4)
+
+## 章节 → Part 文件映射(★ FIX 指令必须用此表)
+
+主 agent 看到的源文件是 5 个 phase3-partN.md;reviewer 收到的是 assemble 后的主报告。FAIL 时必须告诉主 agent 改哪个 part:
+
+| 章节范围 | 源文件 | Part 编号 |
+|---|---|:-:|
+| §一 / §二 / §三 | phase3-part1.md | P1 |
+| §四 / §五 | phase3-part2.md | P2 |
+| §六 / §七 / §八 | phase3-part3.md | P3 |
+| §九 / §十 / §十一 | phase3-part4.md | P4 |
+| §十二 / §十三 / §十四 / §十五 | phase3-part5.md | P5 |
+
+(此映射与 `scripts/assemble_report.py:33` `PART_EXPECTED_SECTIONS` 一致;若未来 part 拆分变化需同步改两处)
+
+注:§十三 由 Phase 4 回写 / §十二 由 Phase 5 回写 / §十四 由 Phase 6 Part D 回写。FIX 涉及这三个章节时,标 ⚠️ "需主 agent 重跑对应 Phase",不是直接 Edit part5。
 
 ## 维度 1: 叙事一致性
 
@@ -61,27 +78,38 @@ model: inherit
 
 (中级 🟡 红旗不强制 3 处,但应在 §十五 audit 红旗汇总章节列出。)
 
-## 输出格式(★ 固定 schema, 主 agent 用 Grep 提取)
+## 输出格式(★ v5.1 严格 schema, 主 agent 用 grep 提取)
 
 ```markdown
 ### 判定
 
 **维度 1 叙事一致性**: PASS / FAIL
-- [若 FAIL] 具体不一致点 1-3 条,带主报告行号或章节定位
-
 **维度 2 估值假设**: PASS / FAIL
-- [若 FAIL] 具体可信度问题 1-3 条
-
 **维度 3 红旗闭环**: PASS / FAIL
-- [若 FAIL] 漏掉的红旗 + 应出现位置 + audit_report.md 行号
 
-### 总体: PASS (3/3 维度 PASS) / FAIL (任一维度 FAIL)
+### 总体: PASS / FAIL
 
-### 修复建议(若 FAIL)
-- 优先级 1:{建议}(对应 part 文件:phase3-partN.md)
-- 优先级 2:{建议}
-- (主 agent 凭此回到对应 part 文件用 Edit 修复)
+### FIX 指令(总体 FAIL 时必填,每条严格单行)
+
+- [FIX-P{N}-§{章节}] {问题简述,≤30 字} → {Edit 建议,≤60 字,具体到要改/补什么}
+- [FIX-P{N}-§{章节}] ...
+
+(N ∈ {1,2,3,4,5},按"章节 → Part 映射"表查;§ 后写完整章节号如 §一 / §九 9.2 / §六维度7)
+(单行硬约束: 不许换行 / 不许加 ** 加粗 / 不许嵌套子点)
+(总体 PASS 时本段省略)
 ```
+
+### FIX 指令示例(供参考,不直接复制)
+
+```
+- [FIX-P1-§一] 综合评分 7.2 ≠ §二 加权 6.8 → 重算 §二 加权后同步 §一 评分到 6.8
+- [FIX-P1-§一-Top3] 漏引 audit 红旗 #3 OCF/NI=0.18 → 把第 3 条风险换为引用 OCF/NI 偏低
+- [FIX-P4-§十一] 致命看空检查未列 OCF/NI<0.2 → 在 §十一 末尾补一行: OCF/NI=0.18 触发(audit_report.md:47)
+```
+
+### v5.1 协议 — 末尾必含统一自检结构
+
+主 agent 用 `grep "^\*\*判定\*\*:"` 提取(注:reviewer 用 `### 总体:`,主 agent 已知此特例兼容)。
 
 ## 严格要求
 

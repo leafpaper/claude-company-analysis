@@ -1,4 +1,8 @@
-# Phase 3: 综合分析与报告（v4.7）
+# Phase 3: 综合分析与报告（v4.7 → v5.1 5 sub-agent 串行）
+
+> **⚠️ v5.1 起**: 本文件由 5 个 `agents/phase3-part{1-5}.md` sub-agent 串行执行 (顺序 part2 → part3 → part4 → part5 → part1)。主 agent **不直接读本文件指令**;主 agent 通过 `Agent(subagent_type="phase3-partN")` 调用 5 次。每个 sub-agent 自己 Read 本文件了解自己 part 的章节边界 / 评分标准 / DCF 逻辑等。
+>
+> 协议: `references/agent-protocol.md`(Agent ID 收集 / Resume 修正循环 / 双层日志 / 防死锁)
 
 > **🧭 你在这里**：[SKILL.md 协调器](../SKILL.md) → Phase 2 → **Phase 3 综合分析** → Phase 4 多角色
 >
