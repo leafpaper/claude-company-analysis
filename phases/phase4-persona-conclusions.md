@@ -1,5 +1,7 @@
 # Phase 4: 多角色投资结论（v4.1）
 
+> **⚠️ v5.0 起**: 本文件由 `agents/persona-agent.md` sub-agent 执行(单 agent 内完成 3 角色),主 agent 不直接读;只通过 `Agent(subagent_type: "persona-agent")` 调用。三角色作为观点参考非关键决策依据。
+
 > **🧭 你在这里**：[SKILL.md 协调器](../SKILL.md) → Phase 3 → **Phase 4 多角色投资结论** → Phase 5 差异化洞察
 >
 > **接收自**: Phase 3 主报告（完整画像） + `audit_report.md`（11 框架红旗）

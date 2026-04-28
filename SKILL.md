@@ -191,43 +191,65 @@ mkdir -p output/{company}/raw_data/pdfs
 
 ---
 
-## Step 3: 执行 6 阶段流水线（v4 新顺序）
+## Step 3: 执行 6 阶段流水线（v5.0 — 关键 phase 改 sub-agent 化）
 
-依次加载并执行各 phase 的指令文件。
+**v5.0 关键变化**:Phase 1 / Phase 4 / Phase 6 改为通过 `Agent(subagent_type)` 调用独立 sub-agent,主 agent 只做调度,不直接处理原始数据 / 长 LLM 输出。Phase 2 / 3 / 5 仍由主 agent 自己执行(已基于文件机制充分隔离)。
 
-### 🔵 Phase 1: 数据采集
-**加载**: `phases/phase1-data-collection.md`
-**质量门控**: `_manifest.json` 核心 4 bundle 不空；`pdfs/` ≥1；`§11` 缺口 ≥3 条
+### 🔵 Phase 1: 数据采集 (v5.0 sub-agent 化)
+**调用**:
+```python
+Agent(
+  subagent_type: "data-collector",
+  prompt: f"采集 {company} ({ticker}) 全部数据,输出至 output/{company}/。市场: {market}。"
+)
+```
+**主 agent 收到**:仅"Phase 1 完成报告"(artifact 路径列表 + 各 bundle 行数 + 质量门控判定),**不接触** Bash stdout / Tushare DataFrame / WebSearch 完整结果。
+**质量门控**:主 agent 用 Grep `### Phase 1 完成报告` 后 `质量门控: 全部通过 ✅`,失败则中止 + 报错。
 
-### 🔵 Phase 2: 文档精析
+### 🔵 Phase 2: 文档精析(主 agent 自己执行)
 **加载**: `phases/phase2-document-analysis.md`
-**质量门控**: `§2` 利润表变动 ≥3 行原文引用；每份 PDF 都被列出
+**质量门控**: `§2` 利润表变动 ≥3 行原文引用;每份 PDF 都被列出
 
-### 🟢 Phase 3: 综合分析与报告（v4.1 精简）
+### 🟢 Phase 3: 综合分析与报告(v4.8.1 流程,主 agent 自己执行)
 **加载**: `phases/phase3-analysis-report.md`
-**参考**: `references/scoring-rubric.md` / `qualitative-frameworks.md`（**v4.1 — 3 框架**，砍估值判断）/ `valuation-frameworks.md` / `report-template.md`
-**v4 自动化审计**: Step 1.5 自动跑 `scripts/financial_audit.py`（11 个大师框架：Piotroski / Beneish / Altman / DuPont / Buffett / Sloan / Governance / Shareholder Flow / Forward Guidance / **Valuation (含 PB 历史分位 + PB vs ROE Gordon 错配)** / Related-Party）→ 生成 `audit_report.md` + JSON，红旗进入 Exec Summary 风险 Top
-**v4.1 精简**: §二 评分表删"关键理由"列；§十一 定性 4→3 框架；§四.5/§六.2 改正常子节；§十五 按 3 类分组来源
-**质量门控**: **15 章节齐全**（§十二/十三 可留白带注释）；10 维度评分完整；**Audit 🔴/🟠 红旗全部在主报告被引用**
+**参考**: `references/scoring-rubric.md` / `qualitative-frameworks.md`(**v4.1 — 3 框架**) / `valuation-frameworks.md` / `assets/templates/report-skeleton.md`
+**v4.8.1 流程**: 3a 全量预加载 → dump → 3b 5 个 part → 3c assemble_report 拼接
+**质量门控**: **15 章节齐全**(§十二/十三 可留白带注释);10 维度评分完整;**Audit 🔴/🟠 红旗全部在主报告被引用**
 
-### 🟡 Phase 4: 多角色投资结论（v4.1 精简）
-**加载**: `phases/phase4-persona-conclusions.md`
-**参考**: `references/persona-registry.md`
-**v4.1 结构**: 3 角色保留 × 每角色固定 3 段（核心结论 / 最担忧风险 / 对 1 条洞察回应）≤ 900 字
-**输出分离**: 主报告 §十三 = 精简版；独立 `phase4-personas.md` = 深度版（完整论述 + 哲学分歧解读）
-**质量门控**: 3 角色齐全；每角色 3 段；至少 1 条跨角色相反立场洞察
+### 🟡 Phase 4: 多角色投资结论 (v5.0 sub-agent 化, 单 agent 内 3 角色)
+**调用**:
+```python
+Agent(
+  subagent_type: "persona-agent",
+  prompt: f"读 output/{company}/{company}-analysis-{date}.md, 产 phase4-personas.md。3 角色: 巴菲特 / 拐点交易者 / ARK 长期主义。"
+)
+```
+**主 agent 收到**:phase4-personas.md 路径 + 精简版回写片段(直接拼到主报告 §十三) + 质量门控判定。
+**注**:三角色非关键决策依据,只提供观点参考。
+**质量门控**:跨角色分歧 ≥ 1 条;角色独立性自检通过。
 
-### 🟣 Phase 5: 差异化洞察（v4 后移，v4.1 字段精简）
+### 🟣 Phase 5: 差异化洞察(主 agent 自己执行)
 **加载**: `phases/phase5-variant-perception.md`
-**参考**: 输入 4 源（P1 数据 + P2 PDF + P3 画像 + P4 分歧）
-**v4.1 字段**: 9 字段卡片（从 13 精简），含 ★数学推导 + ★信号强度（Level/置信度/时间窗 三合一）
-**输出分离**: 主报告 §十二 = 9 字段卡片；独立 `phase5-variant-perception.md` = 深度附件（Level C 附录 / 议题感知 / 共识映射 / 被拒候选），**不重复**主报告
-**质量门控**: 9 字段齐全；数学推导反例库扫描；Level A/B ∈ [3,7]；回写主报告 §十二 + Exec Summary Top 3
+**参考**: 输入 4 源(P1 数据 + P2 PDF + P3 画像 + P4 分歧)
+**v4.1 字段**: 9 字段卡片(★数学推导 + ★信号强度 Level/置信度/时间窗 三合一)
+**质量门控**: 9 字段齐全;Level A/B ∈ [3,7];回写主报告 §十二 + §一 Top 3
 
-### 🔴 Phase 6: 审核与发布
-**加载**: `phases/phase6-review-publish.md`
-**参考**: `references/html-template-guide.md`
-**质量门控**: 18 项审核清单（含 Part D 缺口补查闭环、禁词扫描）；HTML section 数 ≥ MD "## " × 0.8
+### 🔴 Phase 6: 审核与发布 (v5.0 加 reviewer-agent sub-agent)
+**Part A**: 主 agent 跑 18 项审核清单 + Part D 缺口补查
+**Part A.5 (v5.0 新)**: anti_lazy_lint 通过后调用 reviewer-agent
+```python
+Agent(
+  subagent_type: "reviewer-agent",
+  prompt: f"评审 output/{company}/{company}-analysis-{date}.md, artifacts_dir = output/{company}/"
+)
+```
+主 agent Grep `### 总体: (PASS|FAIL)`:
+- PASS → 进 Part B(HTML 生成)
+- FAIL → 看修复建议, 回 Phase 3 修对应 part 文件
+
+**Part B**: build_html.py 生成 HTML
+**Part C**: 推送 GitHub Pages (Inves-Report)
+**质量门控**: anti_lazy_lint 4 项 PASS + reviewer-agent 3 维度 PASS = 7/7;HTML section 数 = 15
 
 ---
 
