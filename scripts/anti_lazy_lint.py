@@ -84,6 +84,18 @@ ARTIFACTS = [
 ]
 COVERAGE_OVERALL_MIN = 0.40
 COVERAGE_PER_ARTIFACT_MIN = 0.20
+
+# v4.8.2 新: data_snapshot.md 是百科全书式的全数据 dump (含 ~150-200 个独特数字短语,
+# 含子公司股东持股 / 户数时序 / 质押日期 / 4 位小数等), 主报告不需要全部 inline。
+# 给它设单独的宽松阈值 (5%, 即 ~10 个高优先级短语命中即可)。
+PER_ARTIFACT_MIN_OVERRIDE = {
+    "data_snapshot.md": 0.05,
+}
+
+# v4.8.2 新: 不计入 overall 覆盖率分母的 artifact (因短语集太大会稀释 overall)
+EXCLUDE_FROM_OVERALL = {
+    "data_snapshot.md",
+}
 KEY_PHRASE_PATTERN = re.compile(
     r"(?:\d+(?:[\.,]\d+)?\s*(?:%|亿元|亿|万元|万|元|x|倍|个|台|名|股|月|日|年|σ))"
 )
@@ -275,18 +287,23 @@ def rule_3_artifact_coverage(md_path: Path, md_text: str) -> RuleResult:
         if not phrases:
             continue
         hit = sum(1 for p in phrases if p in md_norm)
-        artifact_total += len(phrases)
-        artifact_hit += hit
+        # v4.8.2: data_snapshot.md 等百科 artifact 不计入 overall, 避免稀释
+        if art_name not in EXCLUDE_FROM_OVERALL:
+            artifact_total += len(phrases)
+            artifact_hit += hit
         ratio = hit / len(phrases)
-        if ratio < COVERAGE_PER_ARTIFACT_MIN:
+        # v4.8.2: 部分 artifact 用 override 阈值 (data_snapshot.md 5% 因短语过多)
+        per_min = PER_ARTIFACT_MIN_OVERRIDE.get(art_name, COVERAGE_PER_ARTIFACT_MIN)
+        if ratio < per_min:
             status = "❌"
             failing_artifacts.append(art_name)
         elif ratio < 0.5:
             status = "⚠️"
         else:
             status = "✅"
+        excl_tag = " [不计 overall]" if art_name in EXCLUDE_FROM_OVERALL else ""
         per_artifact.append(
-            f"{status} {art_name}: {hit}/{len(phrases)} = {ratio*100:.1f}%"
+            f"{status} {art_name}: {hit}/{len(phrases)} = {ratio*100:.1f}% (阈值 {per_min*100:.0f}%){excl_tag}"
         )
 
     if artifact_total == 0:
