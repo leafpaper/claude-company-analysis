@@ -45,12 +45,12 @@ ls -lt ~/.claude/projects/*/*/subagents/agent-*.meta.json 2>/dev/null \
 
 ```python
 # ❌ 错误 — 新启动,sub-agent 丢失上次上下文
-Agent(subagent_type="reviewer-agent",
+Agent(subagent_type="reviewer-narrative",   # v5.1.1 拆 3 并行,这里仅举一例
       prompt="重审 ...")
 
 # ✅ 正确 — Resume 同一 ID,sub-agent 还记得上轮判定
 Agent(resume="<REVIEWER_ID>",
-      subagent_type="reviewer-agent",   # Resume 必须仍然指定 type
+      subagent_type="reviewer-narrative",   # Resume 必须仍然指定 type,与初次一致
       prompt="主 agent 已按你上轮 FIX 修了 part1 的评分,请重审")
 ```
 
@@ -127,8 +127,9 @@ while round < 3 and not reviewer_pass:
     # Step 4: 重 assemble + 重跑 lint + Resume reviewer
     bash("python3 -m scripts.assemble_report ...")
     bash("python3 -m scripts.anti_lazy_lint ...")
+    # v5.1.1: 实际跑时这里是 3 个 reviewer 并行 Resume(narrative/valuation/redflag),此处简化为 1 个
     Agent(resume=REVIEWER_ID,
-          subagent_type="reviewer-agent",
+          subagent_type="reviewer-narrative",
           prompt=f"已应用第 {round} 轮 FIX,请重审")
 
 if round == 3 and not reviewer_pass:
@@ -160,12 +161,91 @@ if round == 3 and not reviewer_pass:
 
 ---
 
-## 6. 版本演进
+## 6. lessons-learned 跨任务经验库 (v5.1.1)
+
+### 目的
+
+主 agent 在每次 sub-agent 完成后,从其自检报告里抽取 **lessons** 字段,追加到全局经验库。下次同类 sub-agent 启动时,主 agent 读经验库**最近 30 天**条目注入到 prompt,防止重复踩坑。
+
+### 文件位置
+
+`output/_global/lessons-learned.md` — 跨公司共享,**不在某家公司的 output/ 下**。首次写入时主 agent 自动创建文件 + 头部。
+
+### 文件格式
+
+```markdown
+# Company Analysis 全局经验库 (lessons-learned, v5.1.1)
+
+## 类别: data-collector
+- [{yymmdd} {company}] {经验,≤ 100 字}
+- [260424 实丰文化] 北交所代码已迁移 832522→920522,resolve_ticker 命中保住数据
+- [260415 闻泰科技] PDF 缺新一期年报, 备用 sina 源补救成功
+
+## 类别: phase3-part2 (基本面+行业)
+- [{yymmdd} {company}] {经验}
+
+## 类别: phase3-part4 (估值+回报+定性)
+- [260429 盛美上海] DCF 假设营收+30% 但历史下滑, reviewer FAIL → 调整到+12%
+
+## 类别: persona-agent
+- ...
+
+## 类别: reviewer (合并 narrative/valuation/redflag)
+- ...
+```
+
+类别用 sub-agent 名,新类别由主 agent 自动新建段。
+
+### Sub-agent 输出协议(可选字段)
+
+每个 sub-agent 自检报告**末尾可选**追加:
+
+```markdown
+**lessons (≥0 条,可选)**:
+- {本次任务踩到的非显然坑或验证的关键思路,≤ 100 字 / 条}
+- {若无新经验,本字段可省略,不要写"无"}
+```
+
+判断"是否值得记":
+- ✅ 值得记: 数据降级触发条件 / API 怪异行为 / 反偷懒红线 / 验证过的判断框架
+- ❌ 不值得记: 显然信息(已在 protocol/skeleton 里) / 临时调试笔记 / 公司特定细节(下家公司用不上)
+
+### 主 agent 处理协议
+
+**完成 sub-agent 后**:
+```python
+# 1. 提取 lessons
+lessons = bash(f"grep -A 100 '\\*\\*lessons' sub_agent_response | grep '^-'")
+if lessons:
+    # 2. 追加到全局文件(若类别段不存在则新建)
+    bash(f"python3 -m scripts.lessons_append --category {sub_agent_name} "
+         f"--company {company} --date {yymmdd} --lines '{lessons}'")
+```
+
+**启动 sub-agent 前**:
+```python
+# 注入近 30 天该类别 lessons
+recent_lessons = bash(f"python3 -m scripts.lessons_recent --category {sub_agent_name} --days 30")
+if recent_lessons:
+    sub_agent_prompt = f"## 近 30 天经验提示\n{recent_lessons}\n\n## 任务\n{原 prompt}"
+```
+
+(scripts/lessons_append.py + lessons_recent.py 是 v5.1.1 配套实现的小脚本,见下方协议)
+
+### 经验库限制
+
+- 每类别上限 100 条,超过则按时间最旧 5 条被脚本归档到 `output/_global/lessons-archive-{YYYY-MM}.md`
+- 单条上限 200 字符;脚本 lessons_append.py 强制截断
+- 重复检测:新条目与近 30 天任意一条 cosine similarity > 0.85 时跳过(简单实现:先用 fuzzy match 或直接字串包含)
+
+---
+
+## 7. 版本演进
 
 | 版本 | 范围 |
 |:-:|---|
 | v5.0 | sub-agent 模板存在 + Agent() 调用方式(形状层) |
-| **v5.1** | **Agent ID 收集 + Resume + 日志 + 防死锁(本协议)** |
-| v5.1.1 (规划) | lessons-learned 跨任务经验库 + reviewer 拆 3 维度并行 |
+| **v5.1** | Agent ID 收集 + Resume + 日志 + 防死锁(§1-§5) |
+| **v5.1.1** | **lessons-learned 经验库(§6) + SKILL.md 调度规范风格 + reviewer 拆 3 维度并行** |
 | v5.2 (规划) | Phase 2 / Phase 5 sub-agent 化 |
 | v5.3 (规划) | 真量化系统(因子模型 / 线性回归 / IC 检验) |

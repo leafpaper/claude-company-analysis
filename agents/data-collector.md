@@ -113,6 +113,9 @@ PDF 失败 → 备用 URL → 仍失败标"已尝试: {urls}",继续。
 - output/{company}/raw_data/pdf_sections_*.json
 - output/{company}/phase1-data.md
 **降级标注**: 无 / "北交所 hk_hold 0 行 - 数据不全" / "美股 跳过 peer/capital/technical" 等
+**lessons (≥0 条,可选)**: 本次任务踩到的非显然坑(API 怪异 / 数据降级触发 / 反偷懒红线等,每条 ≤ 100 字),由主 agent 提取 append 到全局经验库。无新经验时本段整段省略。
+- (具体 lessons 在此列出,如 "北交所代码已迁移 832522→920522,resolve_ticker 命中保住数据")
+
 **质量门控**:
 - 核心 4 bundle 非空: ✅ / ❌
 - PDF ≥ 1 份: ✅ / ❌

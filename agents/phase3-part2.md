@@ -49,6 +49,9 @@ model: inherit
 **artifacts**: {output_dir}/phase3-part2.md ({chars} 字符)
 **章节**: §四 ({字数}) / §五 ({字数})
 **降级标注**: 无 / "data_snapshot §7 质押为空,跳过质押表"
+**lessons (≥0 条,可选)**: 本次写 §四/§五 时踩到的非显然坑(如 data_snapshot 某节缺数据降级 / 北交所/科创板表头特殊处理 / 行业数据缺口补救等),由主 agent append。无则省略。
+- (如有,具体经验在此列出)
+
 **质量门控**:
 - §四 财务趋势表 inline ≥ 5 期: ✅ / ❌
 - §四 十大股东表 ≥ 9 行: ✅ / ❌

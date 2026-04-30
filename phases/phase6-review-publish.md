@@ -1,6 +1,6 @@
-# Phase 6: 审核与发布（v4.3 + v5.0 reviewer-agent）
+# Phase 6: 审核与发布（v4.3 + v5.1.1 reviewer 3 并行)
 
-> **⚠️ v5.0 起**: anti_lazy_lint 4 项机械规则通过后, **新增 Part A.5** 调用 `agents/reviewer-agent.md` sub-agent 跑 LLM 级别 3 维度评审(叙事一致性 / 估值假设 / 红旗闭环), 主 agent Grep `### 总体: PASS/FAIL` 提取判定, FAIL 则回 Phase 3 修对应 part 后重跑 Part A + A.5。详见 SKILL.md Step 3 Phase 6 章节。
+> **⚠️ v5.1.1 起**: anti_lazy_lint 4 项机械规则通过后, **Part A.5** 改为调用 3 个并行 sub-agent: `agents/reviewer-narrative.md`(维度 1 叙事一致)+ `agents/reviewer-valuation.md`(维度 2 估值假设)+ `agents/reviewer-redflag.md`(维度 3 红旗闭环)。主 agent 用 `Agent(run_in_background=True)` 同时启动 3 个,合并 FIX 列表后做修正循环 (最多 3 轮 + diff 对抗检测,详见 `references/agent-protocol.md`)。详细伪代码见 SKILL.md Step 3 Phase 6 Part A.5。
 
 > **🧭 你在这里**：[SKILL.md 协调器](../SKILL.md) → Phase 5 → **Phase 6 审核与发布**（终点）
 >

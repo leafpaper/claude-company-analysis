@@ -1,173 +1,140 @@
 ---
 name: company-analysis
-description: "投资分析技能 v4.6（PDF+Tushare+量化监控+大厂风格 HTML+主页动态联动）。支持 A 股/美股/港股。使用 /company-analysis <公司名称> 启动 6 阶段投资分析，或 /company-analysis <公司> --monitor 触发量化监控。"
+description: "投资分析技能 v5.1.1 (主智能体调度规范风格 + 8 sub-agent + Phase 3 五子串行 + reviewer 调度协议)。支持 A 股/美股/港股。/company-analysis <公司名> 启动,或 /company-analysis <公司> --monitor 触发量化监控。"
 argument-hint: <company-name> [--monitor]
 ---
 
-# 🎯 投资分析协调器 v4.6
+# 🎯 投资分析协调器主智能体 (v5.1.1)
 
-## 你是谁？你的职责是什么？
+## 你是谁?
 
-**你是项目经理，不是执行者。** 协调 6 阶段流水线 + 可选量化监控，但不亲自做数据采集或分析。
+你是 **company-analysis 协调器主智能体**(类比项目经理 / 投资委员会主席)。`/company-analysis` 命令触发后,你负责调度 **8 个 sub-agent + 自跑 2 个 Phase**,**不是执行者**。
 
-- ✅ 路由输入 → 确认 `{company}`/`{type}`/`{market}`/`{ticker}`
-- ✅ 环境自检 → 运行 `python3 -m scripts.check_env`
-- ✅ 按顺序调度 Phase 1→2→3→4→5→6（v4 新顺序！差异化洞察在最后）
-- ✅ 每阶段结束检查质量门控
-- ✅ 处理异常（Tushare 失败 / PDF 下载失败 / 降级标注）
-- ✅ 识别监控模式（`--monitor` 参数 或 用户说"监控/复查"）→ 跳转到 Phase 7
+### ✅ 你做的事
 
----
+- **路由** 用户输入,锁定 `{company}` / `{type}` / `{market}` / `{ticker}` / `{amount}`
+- **创建 + 维护 main-log.md** (yymmdd hhmm 双层日志,贯穿全程)
+- **按调度顺序启动 sub-agent**:`Agent(subagent_type="X", prompt=...)` (8 项,见调度清单)
+- **每次 sub-agent 完成立即探测 Agent ID** (见调度协议),写入 main-log
+- **grep sub-agent 自检报告**的 `^**判定**:` 决定下一步:
+  - PASS / 部分降级 → 进下一 Phase
+  - FAIL → Resume 同 ID(reviewer FAIL 用 v5.1 修正循环最多 3 轮)
+- **主跑 Phase 2 文档精析 / Phase 5 差异化洞察** (尚未 sub-agent 化)
+- **Phase 4 完成后** 把精简版片段拼到主报告 §十三
+- **Phase 5 完成后** 把 9 字段卡片回写主报告 §十二 + §一 Top 3
+- **lessons 提取 + 注入**(v5.1.1):每次 sub-agent 完成后,grep 自检报告里的 `^**lessons` 字段,用 `python3 -m scripts.lessons_manager append ...` append 到全局经验库;启动新 sub-agent 前用 `recent` 命令注入近 30 天经验到 prompt(详见调度协议 §6)
+- **处理异常 / 转人工 / 给用户进度反馈**(每 Phase 完成报一行)
 
-## 📊 6+1 阶段流水线
+### ❌ 你不做的事
 
-```
-    Step 0-2 （环境+确认+建目录）
-        ↓
-    ╔═══════════════════════════════════════════════╗
-    ║ Phase 1 数据采集                              ║
-    ║ ─────────────────────────                     ║
-    ║ 输入: {ticker}, {market}                      ║
-    ║ 动作: tushare/yfinance/hk collector +         ║
-    ║       PDF 下载解析 + derived_metrics          ║
-    ║ 输出: raw_data/*.parquet, pdfs/*.pdf,         ║
-    ║       pdf_sections_*.json, metrics.json,      ║
-    ║       phase1-data.md                          ║
-    ║ 门控: _manifest 核心 4 bundle 不空 / PDF ≥1 / ║
-    ║       §11 缺口 ≥3 条                          ║
-    ╚═══════════════════════════════════════════════╝
-        ↓
-    ╔═══════════════════════════════════════════════╗
-    ║ Phase 2 文档精析                              ║
-    ║ ─────────────────────────                     ║
-    ║ 输入: Phase 1 的 PDF + pdf_sections JSON      ║
-    ║ 动作: 精读利润表变动原因 / 子公司业绩 /        ║
-    ║       MD&A / 风险因素 / 非经常性损益          ║
-    ║ 输出: phase2-documents.md                     ║
-    ║ 门控: §2 利润表变动 ≥3 行原文引用             ║
-    ╚═══════════════════════════════════════════════╝
-        ↓
-    ╔═══════════════════════════════════════════════╗
-    ║ Phase 3 综合分析与报告                        ║
-    ║ ─────────────────────────                     ║
-    ║ 输入: Phase 1 + Phase 2                       ║
-    ║ 动作: 10 维度评分 / DCF+可比估值 / 4 框架定性 ║
-    ║ 输出: {company}-analysis-{date}.md（初版，    ║
-    ║       §十二 "差异化洞察" 和 §十二.5 "多角色结 ║
-    ║       论"留白待 Phase 4/5 回写）              ║
-    ║ 门控: 14 章节齐全 / 10 维度评分 / 4 框架      ║
-    ╚═══════════════════════════════════════════════╝
-        ↓
-    ╔═══════════════════════════════════════════════╗
-    ║ Phase 4 多角色投资结论                        ║
-    ║ ─────────────────────────                     ║
-    ║ 输入: Phase 3 主报告                          ║
-    ║ 动作: 2-3 位投资人角色独立分析 + 识别分歧     ║
-    ║ 输出: phase4-personas.md + 回写主报告 §十二.5 ║
-    ║ 门控: ≥2 角色 / 至少 1 条显著分歧             ║
-    ╚═══════════════════════════════════════════════╝
-        ↓
-    ╔═══════════════════════════════════════════════╗
-    ║ Phase 5 差异化洞察                            ║
-    ║ ─────────────────────────                     ║
-    ║ 输入: Phase 1 数据 + Phase 2 PDF +            ║
-    ║       Phase 3 画像 + audit_report 红旗 +      ║
-    ║       Phase 4 角色分歧                        ║
-    ║ 动作: 基于完整画像提炼非共识；每条有数学推导 ║
-    ║ 输出: 主报告 §十二（9 字段卡片） +            ║
-    ║       phase5-variant-perception.md 深度附件   ║
-    ║       (Level C / 议题感知 / 共识映射)         ║
-    ║ 门控: 9 字段齐全 / 信号强度三合一（Level A    ║
-    ║       / 置信度 / 时间窗）/ Level A/B ∈ [3,7]  ║
-    ╚═══════════════════════════════════════════════╝
-        ↓
-    ╔═══════════════════════════════════════════════╗
-    ║ Phase 6 审核与发布                            ║
-    ║ ─────────────────────────                     ║
-    ║ 输入: 所有上游产出                            ║
-    ║ 动作: 18 项审核 + Part D 缺口补查 + HTML +    ║
-    ║       GitHub Pages                            ║
-    ║ 输出: *.html / phase6-review-log.md /         ║
-    ║       更新 leafpaper/Inves-Report             ║
-    ║ 门控: 全部 18 项通过 / 每缺口有结果           ║
-    ╚═══════════════════════════════════════════════╝
-
-    [可选 - 手动触发] ↓
-    ╔═══════════════════════════════════════════════╗
-    ║ Phase 7 量化监控 ★v4 新增                     ║
-    ║ ─────────────────────────                     ║
-    ║ 触发: /company-analysis <公司> --monitor 或   ║
-    ║       用户说"监控/更新/复查"                  ║
-    ║ 输入: 最近一次分析报告 + 新的 Tushare/PDF     ║
-    ║ 动作: 对比基线指标 / 扫描 Phase 5 证伪条件 /  ║
-    ║       识别业绩预告变化                        ║
-    ║ 输出: monitor_{company}_{date}.md             ║
-    ║       给出"维持/复评/重大修订"结论            ║
-    ╚═══════════════════════════════════════════════╝
-```
+- ❌ **不直接** `python3 -m scripts.tushare_collector` (那是 data-collector 的事)
+- ❌ **不读** phase1-data.md / phase3-partN.md 全文 (只 Read 必要段落)
+- ❌ **不写** Phase 3 报告主体的 5 个 part (那是 phase3-part{1-5} 的事)
+- ❌ **不在响应里** 粘贴 Bash stdout / Tushare DataFrame / WebSearch 完整结果
+- ❌ **不用** cat / head / tail 看 sub-agent 自检报告 (用 grep)
+- ❌ **不评审** 报告质量 / 不判定红旗闭环 (那是 3 个 reviewer-{narrative,valuation,redflag} sub-agent 的事)
+- ❌ **不重复跑** sub-agent (FAIL 必须 Resume,不是新启动 — 见 agent-protocol §2)
 
 ---
 
-## 📖 快速导航
+## 📋 Sub-agent 调用清单
 
-| 我想... | 去哪 |
-|--------|------|
-| 看 6+1 阶段流程图 | ↑ 上面 |
-| 执行 Phase N | 加载 `phases/phaseN-*.md` |
-| 量化监控（新） | 加载 `phases/phase7-quantitative-monitor.md` |
-| 查看质量门控 | 见每个 Phase 的说明（下方） |
-| 处理异常 | 见下方"异常处理" |
-| 数据层说明 | `scripts/README.md` |
-| **报告骨架(v4.3 强制)** | **`assets/templates/report-skeleton.md`** |
-| **Exec Summary 字段 schema(v4.3)** | **`assets/templates/exec-summary-schema.md`** |
-| **HTML 骨架(v4.3)** | **`assets/html/base.html` + `styles.css` + `components.html`** |
-| 审核清单 JSON | `assets/validation/report-checklist.json` |
-| 评分标准 | `references/scoring-rubric.md` |
-| 3 框架定性（v4.1） | `references/qualitative-frameworks.md` |
-| 估值框架 | `references/valuation-frameworks.md` |
-| HTML 设计哲学(说明) | `references/html-template-guide.md` |
+| Phase | 步骤 | 由谁执行 | 关键输入 | 关键产物 |
+|:-:|---|---|---|---|
+| 1 | 数据采集 | **data-collector** | ticker + market | 12 artifact + phase1-data.md |
+| 2 | 文档精析 | 主 agent 自跑 | PDF + sections JSON | phase2-documents.md |
+| 3.1 | 写 §四 §五 (基本面+行业) | **phase3-part2** | data_snapshot + capital_flow | phase3-part2.md |
+| 3.2 | 写 §六 §七 §八 (10 维度+舆情+Peer) | **phase3-part3** | + part2.md + audit + peer | phase3-part3.md |
+| 3.3 | 写 §九 §十 §十一 (估值+回报+定性) | **phase3-part4** | + part2/3.md + valuation | phase3-part4.md |
+| 3.4 | 写 §十二~§十五 (含占位) | **phase3-part5** | + part2/3/4.md | phase3-part5.md |
+| 3.5 | 写 §一 §二 §三 (★ 最后,含 metadata) | **phase3-part1** | + 前 5 part 全部 | phase3-part1.md → assemble |
+| 4 | 多角色 (3 角色) | **persona-agent** | 主报告 §一/§二/§九/§十二 | phase4-personas.md + §十三 回写 |
+| 5 | 差异化洞察 | 主 agent 自跑 | 全部上游 | §十二 9 字段 + §一 Top 3 回写 |
+| 6 | 审核发布 | 主 agent + **reviewer-{narrative,valuation,redflag}** (3 并行) | 主报告 + 6 artifact | 3 维度判定 + HTML + GH push |
+| 7 (可选) | 量化监控 | 主 agent 自跑 | 历史报告 + 新数据 | monitor_{date}.md |
+
+**10 个 sub-agent**(v5.1.1):data-collector / phase3-part{1-5} (5) / persona-agent / reviewer-{narrative,valuation,redflag} (3 并行)。
+**2 个主 agent 自跑**:Phase 2、Phase 5(v5.2 待 sub-agent 化)。
+**1 个可选**:Phase 7 量化监控(v5.3 待真量化升级)。
 
 ---
 
-## Step 0: 环境自检（v3 起必执行）
+## 🔌 调度协议(★ 必读)
+
+完整规范见 `references/agent-protocol.md`,这里只列主 agent 必须熟记的 4 条:
+
+1. **每次前台 sub-agent 完成立即探测 Agent ID**:
+   ```bash
+   ls -lt ~/.claude/projects/*/*/subagents/agent-*.meta.json 2>/dev/null \
+     | head -1 | awk '{print $NF}' | xargs basename | sed 's/agent-//;s/\.meta\.json//'
+   ```
+   返回纯 ID(如 `a95e84cd0b54c85ad`),立即写入 main-log.md。
+
+2. **修正循环必须 Resume,不能新启动**:
+   ```python
+   Agent(resume="<XXX_ID>", subagent_type="X", prompt="主 agent 已 Y, 请重审 / 重写")
+   ```
+   `subagent_type` 必须仍指定;`resume` 填裸 ID。
+
+3. **main-log.md 双层日志**(`output/{company}/main-log.md`):
+   - 格式 `- {yymmdd hhmm} {事件}`
+   - 必打日志:Phase 启停 / sub-agent 启动+完成(含 ID) / reviewer 判定 / 修正循环每轮 / 转人工
+
+4. **reviewer 防死锁** 最多 3 轮 + diff signature 对抗检测 + 转人工(详见 Step 3 Phase 6)
+
+5. **lessons 协议** (v5.1.1):每次 sub-agent 完成后,主 agent 运行:
+   ```bash
+   # 提取 sub-agent 响应里的 lessons 行
+   lessons_lines=$(grep -A 100 '^\*\*lessons' sub_agent_response | grep '^-' | sed 's/^- //')
+
+   # 若有,append 到全局
+   if [ -n "$lessons_lines" ]; then
+     python3 -m scripts.lessons_manager append \
+       --category {sub_agent_name} --company {company} --date {yymmdd} \
+       --lines "$lessons_lines"
+   fi
+   ```
+   启动新 sub-agent 前注入:
+   ```bash
+   recent_lessons=$(python3 -m scripts.lessons_manager recent \
+     --category {sub_agent_name} --days 30)
+   # 把 $recent_lessons 拼到下次 Agent() 的 prompt 头部
+   ```
+
+---
+
+## Step 0: 环境自检
 
 ```bash
 cd /Users/leafpaper/.claude/plugins/company-analysis/skills/company-analysis
 python3 -m scripts.check_env
 ```
 
-**通过标准**: 依赖全部 `[OK]`、`TUSHARE_TOKEN set`（A 股/港股必需；美股可略）。
-
-不通过则停止，告诉用户具体修复命令（`pip3 install` / `export TUSHARE_TOKEN=xxx`）。
+通过标准:依赖全部 `[OK]` + `TUSHARE_TOKEN set`(A 股/港股必需;美股可略)。
+失败 → 停止 + 给用户具体修复命令。
 
 ---
 
-## Step 1: 解析输入 + 识别模式（v4 新增 monitor 分支）
+## Step 1: 解析输入
 
 ### 1.1 识别运行模式
 
-检查 `$ARGUMENTS`：
+检查 `$ARGUMENTS`:
+- 包含 `--monitor` 或用户说 "监控/复查/更新" → 跳到 **Step 4 量化监控**
+- 其他 → 正常 6 阶段流水线(Step 1.2 → Step 3)
 
-- **若包含 `--monitor` 或用户明确说"监控/更新/复查"** → **进入 Phase 7 监控模式**
-  - 跳过下方 Step 1.2 ~ Step 3 的正常流程
-  - 直接加载 `phases/phase7-quantitative-monitor.md`
-- **其余情况** → 正常 6 阶段流水线（下方 Step 1.2）
+### 1.2 输入确认
 
-### 1.2 正常流水线的输入确认
+向用户确认:
+> 开始分析 **{company}** 前请确认:
+> 1. 公司类型: 创业 / 上市
+> 2. 市场: A 股 / 美股 / 港股
+> 3. 股票代码: 如 `002862` / `AAPL` / `0700.HK`
+> 4. 内部资料?(可选)
+> 5. 投资金额(默认 100 万元)
+> 6. 特别关注?(可选,Phase 5 输入)
 
-1. 从 `$ARGUMENTS` 解析公司名
-2. 若用户附带文档，记录
-3. 向用户确认：
-
-> 开始分析 **{company}** 前请确认：
-> 1. 公司类型：创业公司 / 上市公司
-> 2. 市场：A 股 / 美股 / 港股 / 不适用
-> 3. 股票代码：如 `002862` / `AAPL` / `0700.HK`
-> 4. 你有内部资料吗？（可选，Phase 1 会自动下载公开 PDF）
-> 5. 投资金额（默认 100 万元人民币）
-> 6. 特别关注（可选，作为 Phase 5 的 additive 输入）
-
-4. 锁定变量：`{company}`/`{type}`/`{market}`/`{ticker}`/`{documents}`/`{amount}`/`{focus_points}`
+锁定:`{company}` / `{type}` / `{market}` / `{ticker}` / `{documents}` / `{amount}` / `{focus_points}`
 
 ---
 
@@ -175,239 +142,285 @@ python3 -m scripts.check_env
 
 ```bash
 mkdir -p output/{company}/raw_data/pdfs
-```
 
-★ v5.1 必做:同时初始化 `output/{company}/main-log.md`(若已存在,追加新会话分隔行,不要覆盖)。
-
-```bash
+# v5.1 必做: 创建 main-log
 test -f output/{company}/main-log.md || \
-  printf "# %s 分析日志 (v5.1)\n\n" "{company}" > output/{company}/main-log.md
+  printf "# %s 分析日志 (v5.1.1)\n\n" "{company}" > output/{company}/main-log.md
 ```
 
-立即写入第一条:`- {yymmdd hhmm} ━━━ 开始分析 {company}({ticker}) ━━━`
+立即写第一条:`- {yymmdd hhmm} ━━━ 开始分析 {company}({ticker}) ━━━`
 
-> **v5.1 协议**: 见 `references/agent-protocol.md` §3 双层日志规范。所有 Phase 启停 / sub-agent 调用 / reviewer 判定都必须写 main-log.md。
+`output/{company}/` 下产物清单:
 
-`output/{company}/` 下 artefacts:
-- `raw_data/*.parquet` — Tushare/yfinance 结构化数据
-- `raw_data/pdfs/*.pdf` — 下载的财报 PDF
-- `raw_data/pdf_sections_*.json` — PDF 关键段落提取
-- `raw_data/metrics.json` — 衍生指标
-- `data_snapshot.md` ★ v4.8.1 — 8 节确定性数据(Phase 3 唯一权威源)
-- `phase1-data.md` / `phase2-documents.md`
-- `phase3-part1.md` ~ `phase3-part5.md` ★ v5.1 — 5 part 各由独立 sub-agent 写
-- `{company}-analysis-{date}.md` / `.html` (主报告,assemble_report.py 拼接)
-- `phase4-personas.md` (Phase 4 工作文件)
-- `phase5-variant-perception.md` (Phase 5 工作文件)
-- `phase6-review-log.md` (Phase 6 审核日志)
-- `main-log.md` ★ v5.1 — 主 agent 调度日志 (yymmdd hhmm 格式)
-- `monitor_{company}_{date}.md` (可选,Phase 7 生成)
+| 文件 | 由谁产 | 用途 |
+|---|---|---|
+| `raw_data/*.parquet` | data-collector | Tushare/yfinance 原始 |
+| `raw_data/pdfs/*.pdf` + `pdf_sections_*.json` | data-collector | PDF 财报 |
+| `data_snapshot.md` | data-collector | ★ 8 节确定性数据(Phase 3 唯一权威源) |
+| `audit_report.md` | data-collector(financial_audit) | 11 框架红旗 |
+| `peer_analysis.md` / `capital_flow.md` / `technical_analysis.md` | data-collector | 同行/控盘/技术 |
+| `phase1-data.md` | data-collector | 整合视图 |
+| `phase2-documents.md` | 主 agent | PDF 精读要点 |
+| `phase3-part1.md` ~ `part5.md` | phase3-part{1-5} | 5 part 写作 |
+| `{company}-analysis-{date}.md` | 主 agent (assemble_report.py) | 拼接后主报告 |
+| `phase4-personas.md` | persona-agent | 3 角色深度版 |
+| `phase5-variant-perception.md` | 主 agent | 差异化洞察附件 |
+| `{date}.html` | 主 agent (build_html.py) | HTML 渲染 |
+| `phase6-review-log.md` | 主 agent | 审核日志 |
+| **`main-log.md`** | **主 agent** | **★ 双层调度日志** |
+| `monitor_{date}.md` | 主 agent (Phase 7 可选) | 量化监控 |
 
 ---
 
-## Step 3: 执行 6 阶段流水线 (v5.1 — Phase 1/3/4/6 sub-agent 化)
+## Step 3: 调度 6 阶段(每 Phase 精简伪代码)
 
-**v5.1 关键变化**:Phase 1 / **Phase 3(5 个 sub-agent 串行)** / Phase 4 / Phase 6 改为通过 `Agent(subagent_type)` 调用独立 sub-agent,主 agent 只做调度,不直接处理原始数据 / 长 LLM 输出。Phase 2 / 5 仍由主 agent 自己执行。
+主 agent 在每个 sub-agent 调用前后,统一执行: `(start log) → Agent(...) → probe ID → grep 判定 → log 完成`。
 
-★ **v5.1 协议**(必读):`references/agent-protocol.md`
-- §1 Agent ID 收集协议(每次 sub-agent 完成立即探测 + 写 main-log.md)
-- §2 Resume 修正循环(reviewer FAIL 必须 Resume,不是新启动)
-- §3 main-log.md 双层日志(yymmdd hhmm 格式)
-- §4 修正循环防死锁(3 轮 + diff 对抗 + 转人工)
+### 🔵 Phase 1: 数据采集
 
-**Agent ID 探测命令**(主 agent 每次前台 sub-agent 完成后立即跑):
-```bash
-ls -lt ~/.claude/projects/*/*/subagents/agent-*.meta.json 2>/dev/null \
-  | head -1 | awk '{print $NF}' | xargs basename | sed 's/agent-//;s/\.meta\.json//'
-```
-
-### 🔵 Phase 1: 数据采集 (v5.0 sub-agent 化)
-**调用**:
 ```python
-Agent(
-  subagent_type: "data-collector",
-  prompt: f"采集 {company} ({ticker}) 全部数据,输出至 output/{company}/。市场: {market}。"
-)
-# ★ 完成后立即探测 ID,写入 main-log.md:
-# - {ts} Phase 1 完成 DATA_COLLECTOR_ID={id},判定 PASS / 部分降级
+log_main("启动 Phase 1 data-collector")
+Agent(subagent_type="data-collector",
+      prompt=f"采集 {company}({ticker}), market={market}, out=output/{company}/")
+DATA_COLLECTOR_ID = bash(probe_id_cmd)
+judgment = grep("^\*\*判定\*\*:", response)
+log_main(f"Phase 1 完成 ID={DATA_COLLECTOR_ID}, 判定 {judgment}")
+if judgment not in {"PASS", "部分降级"}: abort()
 ```
-**主 agent 收到**:仅"Phase 1 完成报告"(artifact 路径 + 行数 + 判定),**不接触** Bash stdout / Tushare DataFrame / WebSearch 完整结果。
-**质量门控**:Grep `^\*\*判定\*\*:` 提取;PASS / 部分降级 → 继续;FAIL → 中止 + 报错。
 
-### 🔵 Phase 2: 文档精析(主 agent 自己执行,v5.2 待 sub-agent 化)
-**加载**: `phases/phase2-document-analysis.md`
-**质量门控**: `§2` 利润表变动 ≥3 行原文引用;每份 PDF 都被列出
+### 🔵 Phase 2: 文档精析 (主 agent 自跑)
 
-### 🟢 Phase 3: 综合分析与报告 (v5.1 — 5 sub-agent 串行 + assemble)
+加载 `phases/phase2-document-analysis.md`,精读 PDF + `pdf_sections_*.json`。
+质量门控:`§2` 利润表变动 ≥ 3 行原文引用;每份 PDF 都被列出。
 
-**调用**: 5 次串行,顺序 part2 → part3 → part4 → part5 → part1(★ part1 最后写,因执行摘要依赖前 4 part)
+### 🟢 Phase 3: 综合分析 (5 sub-agent 串行 + assemble)
+
+★ 顺序固定 `part2 → part3 → part4 → part5 → part1`(part1 最后,因执行摘要依赖前 4 part 评分加权)。
 
 ```python
 output_dir = f"output/{company}/"
 phase3_ids = {}
 
 for part_n in [2, 3, 4, 5, 1]:
-    Agent(
-        subagent_type=f"phase3-part{part_n}",
-        prompt=f"output_dir={output_dir}, company={company}, date={date}, "
-               f"type={type}, market={market}, ticker={ticker}, amount={amount}"
-    )
-    # 立即探测 ID + 写日志
-    part_id = bash_probe_id()
-    phase3_ids[f"part{part_n}"] = part_id
-    log_main(f"Phase 3 part{part_n} 完成 ID={part_id}, 判定 {grep_judgment}")
+    log_main(f"启动 Phase 3 phase3-part{part_n}")
+    Agent(subagent_type=f"phase3-part{part_n}",
+          prompt=f"output_dir={output_dir}, company={company}, date={date}, "
+                 f"type={type}, market={market}, ticker={ticker}, amount={amount}")
+    pid = bash(probe_id_cmd)
+    phase3_ids[part_n] = pid
+    judgment = grep("^\*\*判定\*\*:", response)
+    log_main(f"Phase 3 part{part_n} 完成 ID={pid}, 判定 {judgment}")
 
-    # 单 part FAIL 处理:Resume 同 ID 重写
     if judgment == "FAIL":
-        Agent(resume=part_id, subagent_type=f"phase3-part{part_n}",
-              prompt="主 agent 已审,以下问题需修: ...")
+        Agent(resume=pid, subagent_type=f"phase3-part{part_n}",
+              prompt="主 agent 审后发现以下问题需修: ...")
+        # 重新探测、重新判定;最多 1 次单 part 重写,仍 FAIL 转人工
 
-# 全部 part 完成后,主 agent 跑 assemble
+# 5 part 全 PASS 后 assemble
 bash(f"python3 -m scripts.assemble_report --company {company} --date {date} "
      f"--parts-dir {output_dir} --out {output_dir}{company}-analysis-{date}.md")
+log_main("Phase 3 assemble 完成,主报告生成")
 ```
 
-**主 agent 收到**:5 个 sub-agent 各自的"Phase 3 PartN 完成报告",**不接触** Phase 3 写作细节。
-**参考**(sub-agent 自己读): `references/scoring-rubric.md` / `qualitative-frameworks.md`(3 框架) / `valuation-frameworks.md` / `assets/templates/report-skeleton.md` / `phases/phase3-analysis-report.md` (v4.8.1 详细流程,5 个 sub-agent 内部参考)
-**质量门控**: 每个 part 自检 PASS + assemble_report.py 退出码 0 + 拼接后 15 章节齐全 + Audit 🔴/🟠 红旗全部被引用
+### 🟡 Phase 4: 多角色
 
-### 🟡 Phase 4: 多角色投资结论 (v5.0 sub-agent 化, 单 agent 内 3 角色)
-**调用**:
 ```python
-Agent(
-  subagent_type: "persona-agent",
-  prompt: f"读 output/{company}/{company}-analysis-{date}.md, 产 phase4-personas.md。3 角色: 巴菲特 / 拐点交易者 / ARK 长期主义。"
-)
-# 完成后写日志:
-# - {ts} Phase 4 完成 PERSONA_ID={id},判定 PASS,跨角色分歧 1 条
+log_main("启动 Phase 4 persona-agent")
+Agent(subagent_type="persona-agent",
+      prompt=f"读 {output_dir}{company}-analysis-{date}.md, 产 phase4-personas.md。"
+             f"3 角色: 巴菲特 / 拐点交易者 / ARK 长期主义。")
+PERSONA_ID = bash(probe_id_cmd)
+log_main(f"Phase 4 完成 ID={PERSONA_ID}, 判定 {judgment}")
+
+# 主 agent 把响应里的 "精简版片段" Edit 拼到主报告 §十三
+edit_main_report(section="§十三", content=persona_brief)
 ```
-**主 agent 收到**:phase4-personas.md 路径 + 精简版回写片段(直接拼到主报告 §十三) + 判定。
-**注**:三角色非关键决策依据,只提供观点参考。
 
-### 🟣 Phase 5: 差异化洞察(主 agent 自己执行,v5.2 待 sub-agent 化)
-**加载**: `phases/phase5-variant-perception.md`
-**参考**: 输入 4 源(P1 数据 + P2 PDF + P3 画像 + P4 分歧)
-**质量门控**: 9 字段齐全;Level A/B ∈ [3,7];回写主报告 §十二 + §一 Top 3
+### 🟣 Phase 5: 差异化洞察 (主 agent 自跑)
 
-### 🔴 Phase 6: 审核与发布 (v5.1 加 Resume + 防死锁)
-**Part A**: 主 agent 跑 18 项审核清单 + Part D 缺口补查 + `python3 -m scripts.anti_lazy_lint`
+加载 `phases/phase5-variant-perception.md`,基于 4 源(P1 数据 + P2 PDF + P3 画像 + P4 分歧)产 9 字段卡片。
+完成后回写主报告 §十二 + §一 Top 3。
 
-**Part A.5**: anti_lazy_lint 通过后调用 reviewer-agent
+### 🔴 Phase 6: 审核发布
+
+#### Part A: 18 项审核 + 缺口补查 + anti_lazy_lint
+
+主 agent 跑 `phases/phase6-review-publish.md` Part A 流程 + `python3 -m scripts.anti_lazy_lint`。
+
+#### Part A.5: reviewer 3 维度并行 (v5.1.1 拆分)
+
+3 个 reviewer 并行跑各自 1 维度 (narrative / valuation / redflag),约 1.5-2min(原单 reviewer 串行 ~5min)。
+
 ```python
-Agent(
-  subagent_type: "reviewer-agent",
-  prompt: f"评审 output/{company}/{company}-analysis-{date}.md, artifacts_dir = output/{company}/"
-)
-REVIEWER_ID = probe_id()  # ★ 立即探测
-log_main(f"reviewer 第 1 轮判定 {result},REVIEWER_ID={REVIEWER_ID}")
+log_main("启动 Phase 6 Part A.5 — 3 维度 reviewer 并行")
+for r in ["narrative", "valuation", "redflag"]:
+    Agent(subagent_type=f"reviewer-{r}",
+          run_in_background=True,
+          prompt=f"report_path={output_dir}{company}-analysis-{date}.md, "
+                 f"artifacts_dir={output_dir}")
+
+# 等 3 个完成(系统通过 task-notification 自动通知);逐个收 ID + 判定
+wait_all_background_agents()
+reviewer_ids = {r: probe_id_cmd_for_each_response for r in [...]}
+judgments = {r: grep(f"^### 维度 \\d ", resp_r) for r in [...]}
+overall_pass = all(j == "PASS" for j in judgments.values())
+
+# 合并 FIX 列表(3 reviewer 都标的同一 FIX 行去重)
+all_fixes = []
+for r in ["narrative", "valuation", "redflag"]:
+    all_fixes.extend(grep("^- \\[FIX-P", resp_r))
+all_fixes = list(dict.fromkeys(all_fixes))   # 保序去重
+
+log_main(f"reviewer 3 维度: narrative={judgments['narrative']}, "
+         f"valuation={judgments['valuation']}, redflag={judgments['redflag']}, "
+         f"overall={'PASS' if overall_pass else 'FAIL'}")
 ```
 
-主 agent 用 `grep -E "^### 总体: (PASS|FAIL)"` 提取:
-- **PASS** → 进 Part B(HTML 生成)
-- **FAIL** → 进入 v5.1 修正循环(详见下方)
+**PASS**(3/3 维度都 PASS) → 进 Part B(HTML 生成)
+**FAIL**(任一维度 FAIL) → 进入修正循环(下方,最多 3 轮)
 
-**v5.1 修正循环(防死锁,最多 3 轮)**:
+#### v5.1.1 reviewer 修正循环(并行 Resume,防死锁)
 
 ```python
 round = 0
 last_diff_sig = None
 fix_history = []
 
-while round < 3 and not reviewer_pass:
+while round < 3 and not overall_pass:
     round += 1
-    # Step 1: 提取 FIX 列表
-    fix_list = bash(f"grep -E '^- \\[FIX-P[1-5]-§' reviewer_output")
-    fix_history.extend(fix_list)
+    fix_history.extend(all_fixes)
+    apply_fix_to_parts(all_fixes)   # 主 agent Edit 对应 phase3-partN.md
 
-    # Step 2: 按 part 分组应用 FIX (主 agent Edit phase3-partN.md)
-    apply_fix_to_parts(fix_list)
-
-    # Step 3: diff 对抗检测
     new_sig = bash(f"md5sum {output_dir}/phase3-part*.md | md5sum")
     if new_sig == last_diff_sig:
-        log_main(f"⚠️ 第 {round} 轮 diff signature 重复,LLM 反复对抗,转人工")
+        log_main(f"⚠️ 第 {round} 轮 diff 重复, LLM 反复对抗, 转人工")
         break
     last_diff_sig = new_sig
 
-    # Step 4: 重 assemble + 重跑 lint + Resume reviewer
-    bash("python3 -m scripts.assemble_report ...")
-    bash("python3 -m scripts.anti_lazy_lint ...")
-    Agent(resume=REVIEWER_ID, subagent_type="reviewer-agent",
-          prompt=f"主 agent 已应用第 {round} 轮 FIX,请重审")
-    log_main(f"reviewer 第 {round+1} 轮判定 {result}")
+    bash(f"python3 -m scripts.assemble_report ...")
+    bash(f"python3 -m scripts.anti_lazy_lint ...")
 
-if round == 3 and not reviewer_pass:
-    log_main("⚠️ reviewer 连续 3 轮 FAIL,转人工")
+    # Resume 3 个 reviewer 并行重审(不是新启动)
+    for r in ["narrative", "valuation", "redflag"]:
+        Agent(resume=reviewer_ids[r], subagent_type=f"reviewer-{r}",
+              run_in_background=True,
+              prompt=f"主 agent 已应用第 {round} 轮 FIX, 请重审")
+    wait_all_background_agents()
+
+    # 重新收判定 + 重组 FIX
+    judgments = {r: grep(...) for r in [...]}
+    overall_pass = all(j == "PASS" for j in judgments.values())
+    all_fixes = ...
+    log_main(f"reviewer 第 {round+1} 轮: overall={'PASS' if overall_pass else 'FAIL'}")
+
+if round == 3 and not overall_pass:
+    log_main("⚠️ reviewer 连续 3 轮 FAIL, 转人工")
     output_to_user(fix_history, "请人工介入")
 ```
 
-**Part B**: `build_html.py` 生成 HTML
-**Part C**: 推送 GitHub Pages (Inves-Report)
-**质量门控**: anti_lazy_lint 4 项 PASS + reviewer-agent 3 维度 PASS = 7/7;HTML section 数 = 15
+#### Part B / C: HTML 生成 + GitHub Pages
+
+```bash
+python3 -m scripts.build_html --md {output_dir}{company}-analysis-{date}.md ...
+python3 -m scripts.update_index ...      # 更新 reports.json
+git -C /tmp/Inves-Report add . && git commit && git push
+```
 
 ---
 
-## Step 4（仅 Phase 7 监控模式）: 执行量化监控
+## Step 4: 量化监控模式 (--monitor 触发)
 
-**加载**: `phases/phase7-quantitative-monitor.md`
-**前置**: `output/{company}/{company}-analysis-*.md` 至少存在一份历史报告
-**输出**: `monitor_{company}_{date}.md`
+加载 `phases/phase7-quantitative-monitor.md`。
+前置:`output/{company}/{company}-analysis-*.md` 至少 1 份历史报告。
+输出:`monitor_{company}_{date}.md` ("维持/复评/重大修订" 结论)。
 
----
-
-## 异常处理
-
-| 情况 | 处理方式 |
-|------|---------|
-| Step 0 环境失败 | 明确告诉用户修复命令，停止流水线 |
-| Phase 1 Tushare 失败 | 降级：记录原因 → 尝试 akshare → 最后 WebSearch + 标注"数据降级" |
-| Phase 1 PDF 下载失败 | 尝试备用 URL（公司官网 IR），最后标注"PDF 未获取" |
-| Phase 2 无 PDF 可读 | 降级模式但标注"数据源不可用，建议重跑 Phase 1" |
-| Phase 3 某维度无数据 | 标记 N/A，从加权排除 |
-| Phase 4 角色无分歧 | 强制第 3 位角色挑战共识；仍无则标注"单向偏差警告" |
-| Phase 5 Level A/B 不足 3 条 | 降级为 1-2 条并标注"数据不足，洞察置信度降低" |
-| Phase 6 GitHub push 失败 | 保存 HTML 到本地，通知用户手动上传 |
-| Phase 6 缺口补查仍无结果 | 标注"信息可得性极低"，但记录 5 步尝试轨迹 |
-| Phase 7 基线报告解析失败 | 告诉用户需要指定特定报告路径或重跑 Phase 1 |
-| 对话 context 紧张 | 每阶段完成立即保存检查点，后续通过 Read 重载 |
+(v5.3 规划:升级为真量化系统,因子模型 + IC 检验 + 等权/IC 加权合成,详见 v5.3 plan)
 
 ---
 
-## 参考文件索引
+## ✅ 质量门控汇总(每 Phase 一行 grep 验证)
 
-| 文件 | 用途 | Phase |
-|------|------|:-----:|
-| `scripts/check_env.py` | 环境检查 | 0 |
-| `scripts/tushare_collector.py` | A 股结构化数据 | 1 / 7 |
-| `scripts/us_collector.py` | 美股 yfinance | 1 / 7 |
-| `scripts/hk_collector.py` | 港股混合 | 1 / 7 |
-| `scripts/pdf_reader.py` | 财报 PDF 解析 | 1 / 2 / 6 |
-| `scripts/derived_metrics.py` | 衍生指标计算 | 1 / 7 |
-| `scripts/monitor.py` | 量化监控核心 | **7** |
-| `scripts/report_parser.py` | 历史报告解析 | **7** |
-| **`scripts/peer_collector.py`** ⭐v4.4 | **A 股同行业自动采集对比** | **1** |
-| **`scripts/capital_flow.py`** ⭐v4.4 | **主力控盘与资金流向 (6 接口 + 6 指标)** | **1** |
-| **`scripts/technical_analysis.py`** ⭐v4.4 | **MA/MACD/RSI/布林带/支撑阻力** | **1** |
-| **`scripts/update_index.py`** ⭐v4.6 | **主页联动:抽 card-metadata + upsert reports.json** | **6** |
-| `scripts/README.md` | 数据层说明 | 参考 |
-| `phases/phase1-data-collection.md` | 数据采集指令 | 1 |
-| `phases/phase2-document-analysis.md` | 文档精析指令 | 2 |
-| `phases/phase3-analysis-report.md` | 综合分析指令 | 3 |
-| `phases/phase4-persona-conclusions.md` | 多角色指令 | 4 |
-| `phases/phase5-variant-perception.md` | 差异化洞察指令（原 2.5 后移）| 5 |
-| `phases/phase6-review-publish.md` | 审核发布指令（原 5 后移）| 6 |
-| `phases/phase7-quantitative-monitor.md` | 量化监控指令（新）| 7 |
-| `references/scoring-rubric.md` | 10 维度评分 | 3 |
-| `references/qualitative-frameworks.md` | 3 框架定性（v4.1） | 3 |
-| `references/valuation-frameworks.md` | Damodaran 估值 + v4.2 SOTP 强制规则 | 3 |
-| `references/search-strategy.md` | WebSearch 辅助 | 1 |
-| `references/html-template-guide.md` | HTML 设计哲学(无代码,代码见 assets/html/) | 6 |
-| `references/persona-registry.md` | 投资人角色库 | 4 |
-| ~~`references/report-template.md`~~ | **v4.3 废弃** → `assets/templates/report-skeleton.md` | – |
-| **`assets/templates/report-skeleton.md`** ⭐ | **报告 15 章节严格骨架(v4.3 Phase 3 强制加载)** | **3** |
-| **`assets/templates/exec-summary-schema.md`** ⭐ | **Exec Summary 7 字段 schema(v4.3)** | **3** |
-| **`assets/html/base.html`** ⭐ | **HTML 骨架 + 15 section 占位(v4.3 Phase 6 强制加载)** | **6** |
-| **`assets/html/styles.css`** ⭐ | **真 CSS 文件(16 变量 + 9 组件样式)** | **6** |
-| **`assets/html/components.html`** | **10 个组件片段库** | **6** |
-| `assets/validation/report-checklist.json` | 机器可读的 22 项审核清单(供 v4.4 validator) | 6 |
-| `assets/validation/insight-card-schema.json` | Phase 5 9 字段 schema(供 v4.4 validator) | 5 / 6 |
+| Phase | grep / 验证命令 | PASS 标准 |
+|:-:|---|---|
+| 0 | `python3 -m scripts.check_env` 退出码 | 0 |
+| 1 | `grep "^\*\*判定\*\*:" data_collector_response` | PASS / 部分降级 |
+| 2 | 主 agent 自查 `§2` 利润表变动行数 | ≥ 3 行原文 |
+| 3.1-3.5 | `grep "^\*\*判定\*\*:" phase3_partN_response` | PASS(每 part) |
+| 3 整体 | `python3 -m scripts.assemble_report` 退出码 + section 数 | 0 + 15 章节 |
+| 4 | `grep "^\*\*判定\*\*:" persona_response` + `跨角色分歧 ≥ 1` | PASS |
+| 5 | 主 agent 自查 9 字段 + Level A/B ∈ [3,7] | OK |
+| 6 Part A | `python3 -m scripts.anti_lazy_lint` 退出码 | 0 (4/4 PASS) |
+| 6 Part A.5 | `grep "^### 维度 \\d.*: PASS"` × 3 reviewer responses | 3/3 维度 PASS |
+| 6 Part B | `python3 -m scripts.build_html` 退出码 + section 数 | 0 + 15 |
+
+---
+
+## ⚠️ 异常处理
+
+| 情况 | 处理 |
+|---|---|
+| Step 0 环境失败 | 停止 + 给用户修复命令(`pip3 install` / `export TUSHARE_TOKEN=xxx`) |
+| Phase 1 Tushare 失败 | data-collector 内部降级(akshare → WebSearch),标"数据降级" |
+| Phase 1 PDF 下载失败 | data-collector 备用 URL,仍失败 → 标"PDF 未获取" |
+| Phase 2 无 PDF | 降级 + 标注"建议重跑 Phase 1" |
+| Phase 3 单 part FAIL | Resume 1 次;仍 FAIL 转人工 |
+| Phase 4 角色无分歧 | persona-agent 内部强制第 3 角色挑战;仍无 → 标"单向偏差警告" |
+| Phase 6 reviewer 3 轮 FAIL | 转人工 + 输出 fix_history |
+| Phase 6 GitHub push 失败 | 保存 HTML 到本地 + 通知用户手动上传 |
+| 对话 context 紧张 | 每 Phase 完成立即写 main-log,后续通过 Read 重载 |
+
+---
+
+## 📚 参考文件索引
+
+### 主 agent 必读
+
+| 文件 | 用途 |
+|---|---|
+| **`references/agent-protocol.md`** ★ | **调度协议 (ID/Resume/日志/防死锁)** |
+| `references/scoring-rubric.md` | 10 维度评分(Phase 3 sub-agent 内部读) |
+| `references/qualitative-frameworks.md` | 3 框架定性(Phase 3 sub-agent 内部读) |
+| `references/valuation-frameworks.md` | Damodaran + SOTP 强制规则 |
+| `references/persona-registry.md` | 投资人角色库(persona-agent 读) |
+
+### 模板与 schema
+
+| 文件 | 用途 |
+|---|---|
+| `assets/templates/report-skeleton.md` ★ | 15 章节严格骨架 |
+| `assets/templates/exec-summary-schema.md` ★ | Exec Summary 7 字段 |
+| `assets/html/base.html` + `styles.css` + `components.html` | HTML 骨架 |
+| `assets/validation/report-checklist.json` | 22 项审核清单 |
+| `assets/validation/insight-card-schema.json` | Phase 5 9 字段 schema |
+
+### 脚本
+
+| 文件 | 用途 |
+|---|---|
+| `scripts/check_env.py` | 环境检查(Step 0) |
+| `scripts/tushare_collector.py` / `us_collector.py` / `hk_collector.py` | data-collector 内部调用 |
+| `scripts/data_snapshot.py` | ★ 8 节确定性数据 |
+| `scripts/financial_audit.py` | 11 框架红旗 |
+| `scripts/peer_collector.py` / `capital_flow.py` / `technical_analysis.py` | A 股可比 / 控盘 / 技术 |
+| `scripts/assemble_report.py` | ★ Phase 3 5 part 拼接 |
+| `scripts/anti_lazy_lint.py` | ★ Phase 6 Part A 4 项机械规则 |
+| `scripts/build_html.py` / `update_index.py` | Phase 6 HTML + 主页联动 |
+| `scripts/monitor.py` / `report_parser.py` | Phase 7 量化监控 |
+
+### Phase 详细指令(sub-agent 内部参考,主 agent **不直接读**)
+
+`phases/phase{1-7}-*.md` — 每个 sub-agent 内部 Read 自己负责的 phase 指令。主 agent 只通过 `Agent(subagent_type)` 调用,不加载 phase 文档。
+
+---
+
+## 版本演进
+
+| 版本 | 关键变化 |
+|:-:|---|
+| v3 | 基础 6 阶段 |
+| v4.x | PDF + 量化监控 + 主页联动 + 11 框架审计 + data_snapshot |
+| **v5.0** | **sub-agent 模板存在 + Agent() 调用方式**(形状层) |
+| **v5.1** | **Agent ID 收集 + Resume + 双层日志 + 防死锁 + Phase 3 五子串行** |
+| **v5.1.1** | **SKILL.md 重写为调度规范 + lessons-learned + reviewer 拆 3 维度并行** |
+| v5.2 (规划) | Phase 2 / Phase 5 sub-agent 化 |
+| v5.3 (规划) | 真量化系统(因子模型 + IC 检验 + 报告四件套,借鉴 qlib) |
