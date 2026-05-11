@@ -36,7 +36,9 @@
 ### Step 0: 环境自检
 
 ```bash
-cd /Users/leafpaper/.claude/plugins/company-analysis/skills/company-analysis
+cd ./skills/company-analysis 2>/dev/null || \
+  cd "$HOME/.claude/plugins/company-analysis/skills/company-analysis" 2>/dev/null || \
+  { echo "❌ 无法定位 skill 根"; exit 1; }
 python3 -m scripts.check_env
 ```
 

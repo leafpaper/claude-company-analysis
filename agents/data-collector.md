@@ -15,7 +15,7 @@ model: inherit
 
 ## 工作目录
 
-`/Users/leafpaper/.claude/plugins/company-analysis/skills/company-analysis/` (用 cd 切到这里再跑 python -m)
+Skill 根目录: `<plugin-root>/skills/company-analysis/`。可用以下命令自适应定位(优先相对路径,fallback 到 `$HOME` 风格,避免硬编码用户名):
 
 输出目录由主 agent 通过 prompt 指定,默认: `output/{company}/`。
 
@@ -24,7 +24,11 @@ model: inherit
 ### Step 0: 环境自检
 
 ```bash
-cd /Users/leafpaper/.claude/plugins/company-analysis/skills/company-analysis
+# 自适应定位 skill 根(相对优先,$HOME 兜底,不硬编码用户名)
+cd ./skills/company-analysis 2>/dev/null || \
+  cd "$HOME/.claude/plugins/company-analysis/skills/company-analysis" 2>/dev/null || \
+  { echo "❌ 无法定位 skill 根,请检查 plugin 安装位置"; exit 1; }
+
 python3 -m scripts.check_env 2>&1 | tail -10
 ```
 

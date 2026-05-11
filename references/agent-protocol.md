@@ -1,64 +1,67 @@
-# Agent 调度协议 (v5.1)
+# Agent 调度协议 (v5.1.3)
 
-主智能体(SKILL.md)与所有 sub-agent 之间的统一调度规范。本文件由主 agent 在 Step 0 加载,作为协议层真理来源。
-
----
-
-## 1. Agent ID 收集协议
-
-**目的**: sub-agent 完成后获取其裸 ID,用于后续 Resume(修正循环)。
-
-### 探测命令(macOS / Linux 通用)
-
-```bash
-ls -lt ~/.claude/projects/*/*/subagents/agent-*.meta.json 2>/dev/null \
-  | head -1 | awk '{print $NF}' | xargs basename | sed 's/agent-//;s/\.meta\.json//'
-```
-
-返回纯 ID(如 `a95e84cd0b54c85ad`),不含 `agent-` 前缀和 `.meta.json` 后缀。
-
-> 备注: macOS BSD `find` 不支持 `-printf`,故不用 `find -printf`。`ls -lt` 按修改时间倒序,`head -1` 取最近,`awk '{print $NF}'` 取最后一列(路径)。
-
-### 何时探测
-
-每次 `Agent(subagent_type=X)` **前台**(非 background)调用完成的**第一时间**:
-
-1. 立刻跑探测命令拿到 ID
-2. 把 ID 写进 `output/{company}/main-log.md`(见 §3)
-3. 把 ID 存进当前 phase 上下文变量(如 `DATA_COLLECTOR_ID` / `PERSONA_ID` / `REVIEWER_ID` / `PHASE3_PART1_ID` 等)
-
-> background 调用不适用 — Resume 当前架构只对前台 agent 设计。
-
-### ID 失效规则
-
-- **Phase 切换** → 老 ID 立即作废,新 Phase 重新探测
-- **同一 Phase 修正循环内** → 复用同一 ID,严禁启动新 agent(否则丢上下文)
-- **跨次分析** → ID 完全失效,即使是同一公司
+主智能体(SKILL.md)与所有 sub-agent 之间的统一调度规范。**已对照 Claude Code 真实工具 schema 修订** — v5.1.0 ~ v5.1.2 的 `Agent(resume=...)` / ID 探测 / 伪函数协议**已删除**,因为 Agent 工具实际不支持。
 
 ---
 
-## 2. Resume 修正循环协议
+## 1. Agent 工具真实 Schema(必读)
 
-**核心原则**: 当 reviewer FAIL / Phase 3 某 part 需要重写,**必须 Resume 同一个 sub-agent**,而不是新启动。
+`Agent` 工具的合法参数(来源: 当前 Claude Code 实际 schema):
 
-### 调用规范
+| 参数 | 类型 | 说明 |
+|---|---|---|
+| `description` | string | 短描述(3-5 词),给 UI 显示 |
+| `prompt` | string | 给 sub-agent 的任务 prompt(必填) |
+| `subagent_type` | string | sub-agent 类型(如 `data-collector`)(必填) |
+| `run_in_background` | bool | 后台跑(true)/ 前台等(false) |
+| `isolation` | string (可选) | `"worktree"` 创建临时 git worktree |
+| `model` | string (可选) | 覆盖 sub-agent 模型 |
+
+**⚠️ `Agent` 工具没有以下参数**(v5.1.0-v5.1.2 错误地引用过它们):
+- ❌ `resume` — 不存在。每次 `Agent()` 调用都启动 fresh sub-agent
+- ❌ `agent_id` — 不存在
+
+文档原话:**"A new Agent call starts a fresh agent with no memory of prior runs."**
+
+---
+
+## 2. Fresh-Restart with Context Injection 协议
+
+由于没有 Resume 能力,修正循环用**"启动新 sub-agent + prompt 注入历史"**实现。
+
+### 原则
+
+1. 状态持久化到**文件**(`output/{company}/reviewer_responses/round_N_*.md` 等),不靠 sub-agent context 记忆
+2. 修正时启动**同 subagent_type** 的全新 sub-agent
+3. prompt 必须包含:
+   - 任务描述(同首次,从 sub-agent 模板)
+   - 关键上下文输入路径(主报告 / artifacts dir)
+   - 上轮历史摘要(判定 + FIX 列表 / 已修改文件路径)
+
+### 示例: Phase 6 reviewer Round 2
 
 ```python
-# ❌ 错误 — 新启动,sub-agent 丢失上次上下文
-Agent(subagent_type="reviewer-narrative",   # v5.1.1 拆 3 并行,这里仅举一例
-      prompt="重审 ...")
+# 主 agent 已存好 round_1 响应到文件 + 应用过 FIX + 重 assemble 完成
+prev_fix_md = bash("cat output/{company}/reviewer_responses/round_1_merged_fix.md")
 
-# ✅ 正确 — Resume 同一 ID,sub-agent 还记得上轮判定
-Agent(resume="<REVIEWER_ID>",
-      subagent_type="reviewer-narrative",   # Resume 必须仍然指定 type,与初次一致
-      prompt="主 agent 已按你上轮 FIX 修了 part1 的评分,请重审")
+Agent(
+    subagent_type="reviewer-narrative",
+    run_in_background=True,
+    description="reviewer-narrative round 2",
+    prompt=f"""评审 output/{company}/{company}-analysis-{date}.md 维度 1 叙事一致性。
+artifacts_dir = output/{company}/
+
+★ 这是 Round 2 重审。上一轮判定 FAIL,主 agent 已按以下 FIX 修过 phase3-partN.md 并重 assemble:
+
+{prev_fix_md}
+
+请只看当前文件状态(忽略上轮原报告),重新独立评审本维度 5 项检查。"""
+)
 ```
 
-### 关键点
+### 多花的 token 是值得的
 
-1. `resume` 参数填**裸 ID**,不带 `agent-` 前缀或 `.meta.json` 后缀
-2. `subagent_type` 必须仍然指定,且与初次调用时一致
-3. prompt 不重复 sub-agent 自己已知的内容(它还记得),只说"主 agent 做了 X 改动,请验证"
+Fresh-restart 每次重传完整任务描述 + 上轮 FIX(~500-2000 token),换来**确定性能跑** — 比 Resume 协议(不存在)更可靠。
 
 ---
 
@@ -66,186 +69,158 @@ Agent(resume="<REVIEWER_ID>",
 
 ### 位置
 
-`output/{company}/main-log.md`,主 agent 在 Step 2(创建输出目录)同时创建,初始内容仅一行:
-
-```
-# {company} 分析日志 (v5.1)
-```
+`output/{company}/main-log.md`,主 agent 在 Step 2(创建输出目录)立即创建。
 
 ### 格式
 
-每行 `- {yymmdd hhmm} {事件}`,时间精确到分,例如 `260429 1430`。
+每行 `- {yymmdd hhmm} {事件}`,时间精确到分,例如 `260504 1430`。
 
 ### 强制日志事件清单
 
-主 agent 在以下时点必须写日志:
+主 agent 在以下时点必须用 `Edit` 工具追加日志:
 
 | 时点 | 日志条目 |
 |---|---|
 | 分析启动 | `- {ts} ━━━ 开始分析 {company}({ticker}) ━━━` |
-| Phase N 启动 | `- {ts} 启动 Phase N {sub-agent 名 / "主 agent 自跑"}` |
-| sub-agent 完成 | `- {ts} Phase N 完成 {AGENT}_ID={裸 ID},判定 {PASS/FAIL/降级}` |
-| reviewer 判定 | `- {ts} reviewer 第 {N} 轮判定 {PASS/FAIL},REVIEWER_ID={ID}` |
-| 修正循环每轮 | `- {ts} 第 {N} 轮 FIX 应用 {part 列表},重 assemble 完成` |
-| 转人工 | `- {ts} ⚠️ {原因},转人工 + 输出累计 FIX` |
+| Phase N 启动 | `- {ts} 启动 Phase N <由谁执行>` |
+| sub-agent 完成 | `- {ts} Phase N <sub-agent 名> 完成,判定 <PASS/FAIL/降级>` |
+| reviewer 每轮 | `- {ts} reviewer Round N 综合判定 <PASS/FAIL>,FIX 数 M` |
+| 修正循环每轮 | `- {ts} Round N FIX 应用完成,重 assemble 完成` |
+| 转人工 | `- {ts} ⚠️ <原因>,转人工` |
 | 分析完成 | `- {ts} ━━━ 完成 {company} 分析 ━━━` |
 
-### 子 agent 内部日志
+### 未来增强(v5.2 规划)
 
-sub-agent 内部不强制写文件日志,但响应末尾必含**自检报告**结构(见 §5)。主 agent 用 Grep 提取关键字段写入 main-log.md。
+`~/.claude/settings.json` 配置 `SubagentStop` hook 自动追加 main-log.md,消除主 agent 漏写风险。
+配置示例(待 verify 环境变量):
+
+```json
+{
+  "hooks": {
+    "SubagentStop": [{
+      "matcher": "*",
+      "hooks": [{
+        "type": "command",
+        "command": "test -n \"$CLAUDE_COMPANY\" && echo \"- $(date +'%y%m%d %H%M') subagent stopped\" >> \"output/$CLAUDE_COMPANY/main-log.md\" || true"
+      }]
+    }]
+  }
+}
+```
 
 ---
 
-## 4. 修正循环防死锁协议
+## 4. reviewer 修正循环协议(v5.1.3 新)
 
-适用于 Phase 6 Part A.5 reviewer FAIL 场景。
+完整步骤见 `references/phase-orchestration.md` §Phase 6 Part A.5。本节只列**关键不变量**。
 
-### 伪代码
+### 不变量
 
-```python
-round = 0
-last_diff_sig = None
-fix_history = []   # 累计 FIX 列表,转人工时一并输出
+1. **3 个 reviewer 并行**(`run_in_background=True`),不是串行
+2. 主 agent **必须保存** 3 份响应到 `output/{company}/reviewer_responses/round_N_{reviewer}.md`(不依赖 context)
+3. **判定 + FIX 合并** 由 `scripts/review_loop.py` 处理,主 agent 只看 JSON 输出
+4. **FIX 应用** 由主 agent 用 `Edit` 工具做(脚本不改 part 文件,因为需要 LLM 语义理解)
+5. **diff signature 对抗检测**:Round N+1 的 5 个 part md5 拼接 == Round N → 自动转人工
 
-while round < 3 and not reviewer_pass:
-    round += 1
+### round 上限
 
-    # Step 1: 提取 FIX 列表
-    fix_list = grep("^- \\[FIX-P[1-5]-§", reviewer_output)
-    fix_history.extend(fix_list)
-
-    # Step 2: 按 part 分组应用 FIX
-    apply_fix_to_parts(fix_list)
-
-    # Step 3: diff 对抗检测
-    new_sig = md5(read part1.md + part2.md + ... + part5.md)
-    if new_sig == last_diff_sig:
-        log(f"⚠️ 第 {round} 轮 diff signature 重复,LLM 在反复对抗,转人工")
-        break
-    last_diff_sig = new_sig
-
-    # Step 4: 重 assemble + 重跑 lint + Resume reviewer
-    bash("python3 -m scripts.assemble_report ...")
-    bash("python3 -m scripts.anti_lazy_lint ...")
-    # v5.1.1: 实际跑时这里是 3 个 reviewer 并行 Resume(narrative/valuation/redflag),此处简化为 1 个
-    Agent(resume=REVIEWER_ID,
-          subagent_type="reviewer-narrative",
-          prompt=f"已应用第 {round} 轮 FIX,请重审")
-
-if round == 3 and not reviewer_pass:
-    log("⚠️ reviewer 连续 3 轮 FAIL,转人工")
-    output_to_user(fix_history, "请人工介入修复,主 agent 已停止自动重试")
-```
-
-### 边界
-
-- **3 轮上限**: 含初次判定共 4 次 reviewer 调用(1 初判 + 3 重审)
-- **diff signature**: `md5sum` 拼接 5 个 part 文件内容,简单可靠
-- **§十三 / §十四 涉及 FIX**: 不能直接改 part5,标 ❌ 转人工(留 v5.1.x 处理 Phase 4 重跑)
+3 轮(初次 + 2 次重审)。round 3 仍 FAIL 或 diff_repeat → 转人工 + 输出累计 FIX。
 
 ---
 
 ## 5. Sub-agent 自检报告统一结构
 
-所有 sub-agent 响应**末尾**必含以下结构,主 agent 用 Grep 提取,不 Read 完整响应:
+所有 sub-agent 响应**末尾**必含:
 
 ```markdown
 ### {Phase N / Part N} 完成报告
 **判定**: PASS / FAIL / 部分降级
 **artifacts**: {路径 1}, {路径 2}, ...
-**降级标注**: {若有,说明哪些数据/步骤降级;若无写"无"}
-**(可选)精简版片段**: {若 sub-agent 需要主 agent 拼到主报告某处,直接给可复制的 markdown 片段}
+**降级标注**: {若有 / 否则"无"}
+**(可选)精简版片段**: {若 sub-agent 需要主 agent 拼到主报告某处,直接给可复制 markdown}
 ```
 
-主 agent 用 `grep "^\\*\\*判定\\*\\*:"` 提取判定结果。
+主 agent 用 `grep "^\*\*判定\*\*:"` 提取判定。
+
+**reviewer 特例**(3 个 reviewer 用不同 schema):
+```markdown
+### 维度 {N} {名称}: PASS / FAIL
+
+### FIX 指令(FAIL 时必填,每条单行)
+- [FIX-P{1-5}-§{X}] {问题} → {建议}
+```
+
+`review_loop.py` 已经处理两种 schema(grep `^### 维度` 或 `^### 总体`)。
 
 ---
 
-## 6. lessons-learned 跨任务经验库 (v5.1.1)
+## 6. lessons-learned 跨任务经验库
 
 ### 目的
 
-主 agent 在每次 sub-agent 完成后,从其自检报告里抽取 **lessons** 字段,追加到全局经验库。下次同类 sub-agent 启动时,主 agent 读经验库**最近 30 天**条目注入到 prompt,防止重复踩坑。
+sub-agent 完成后,主 agent 提取 `**lessons**` 字段追加到全局经验库;下次同类 sub-agent 启动前注入近 30 天 lessons。
 
-### 文件位置
+### 位置
 
-`output/_global/lessons-learned.md` — 跨公司共享,**不在某家公司的 output/ 下**。首次写入时主 agent 自动创建文件 + 头部。
-
-### 文件格式
-
-```markdown
-# Company Analysis 全局经验库 (lessons-learned, v5.1.1)
-
-## 类别: data-collector
-- [{yymmdd} {company}] {经验,≤ 100 字}
-- [260424 实丰文化] 北交所代码已迁移 832522→920522,resolve_ticker 命中保住数据
-- [260415 闻泰科技] PDF 缺新一期年报, 备用 sina 源补救成功
-
-## 类别: phase3-part2 (基本面+行业)
-- [{yymmdd} {company}] {经验}
-
-## 类别: phase3-part4 (估值+回报+定性)
-- [260429 盛美上海] DCF 假设营收+30% 但历史下滑, reviewer FAIL → 调整到+12%
-
-## 类别: persona-agent
-- ...
-
-## 类别: reviewer (合并 narrative/valuation/redflag)
-- ...
-```
-
-类别用 sub-agent 名,新类别由主 agent 自动新建段。
-
-### Sub-agent 输出协议(可选字段)
-
-每个 sub-agent 自检报告**末尾可选**追加:
-
-```markdown
-**lessons (≥0 条,可选)**:
-- {本次任务踩到的非显然坑或验证的关键思路,≤ 100 字 / 条}
-- {若无新经验,本字段可省略,不要写"无"}
-```
-
-判断"是否值得记":
-- ✅ 值得记: 数据降级触发条件 / API 怪异行为 / 反偷懒红线 / 验证过的判断框架
-- ❌ 不值得记: 显然信息(已在 protocol/skeleton 里) / 临时调试笔记 / 公司特定细节(下家公司用不上)
+`output/_global/lessons-learned.md`(跨公司共享)
 
 ### 主 agent 处理协议
 
-**完成 sub-agent 后**:
-```python
-# 1. 提取 lessons
-lessons = bash(f"grep -A 100 '\\*\\*lessons' sub_agent_response | grep '^-'")
-if lessons:
-    # 2. 追加到全局文件(若类别段不存在则新建)
-    bash(f"python3 -m scripts.lessons_append --category {sub_agent_name} "
-         f"--company {company} --date {yymmdd} --lines '{lessons}'")
+完成 sub-agent 后:
+```bash
+# 1. 提取 lessons (用 grep 在 sub-agent 响应文件里)
+lessons=$(grep -A 100 '^\*\*lessons' sub_agent_response.md | grep '^-' | sed 's/^- //')
+
+# 2. 追加到全局(如有)
+test -n "$lessons" && python3 -m scripts.lessons_manager append \
+    --category <sub_agent_name> --company <company> --date <yymmdd> \
+    --lines "$lessons"
 ```
 
-**启动 sub-agent 前**:
-```python
-# 注入近 30 天该类别 lessons
-recent_lessons = bash(f"python3 -m scripts.lessons_recent --category {sub_agent_name} --days 30")
-if recent_lessons:
-    sub_agent_prompt = f"## 近 30 天经验提示\n{recent_lessons}\n\n## 任务\n{原 prompt}"
+启动新 sub-agent 前:
+```bash
+# 注入近 30 天 lessons
+recent=$(python3 -m scripts.lessons_manager recent --category <sub_agent_name> --days 30)
+# 把 $recent 拼到下次 Agent() 的 prompt 头部
 ```
-
-(scripts/lessons_append.py + lessons_recent.py 是 v5.1.1 配套实现的小脚本,见下方协议)
-
-### 经验库限制
-
-- 每类别上限 100 条,超过则按时间最旧 5 条被脚本归档到 `output/_global/lessons-archive-{YYYY-MM}.md`
-- 单条上限 200 字符;脚本 lessons_append.py 强制截断
-- 重复检测:新条目与近 30 天任意一条 cosine similarity > 0.85 时跳过(简单实现:先用 fuzzy match 或直接字串包含)
 
 ---
 
-## 7. 版本演进
+## 7. 失败处理协议
+
+### Sub-agent 单点失败
+
+- **首次启动 FAIL** → fresh-restart 1 次(prompt 注入"上轮 FAIL 原因"),仍失败 → 转人工
+- **reviewer 修正循环 FAIL** → 见 §4 round 上限规则
+- **assemble_report.py / anti_lazy_lint 退出码非 0** → 主 agent 看 stderr 决定是 Edit 修复还是转人工
+
+### 转人工触发
+
+主 agent 用 `PushNotification` 通知用户 + 保存累计上下文到 `output/{company}/_failure_report.md`:
+- 累计 FIX 列表
+- 各 sub-agent 响应路径
+- 当前 main-log.md tail 30 行
+- 建议下一步(由用户决定继续 / 重启 / 放弃)
+
+---
+
+## 8. 工具不可用 fallback
+
+| 期望工具 | 当前 schema | Fallback |
+|---|---|---|
+| `Agent(resume=...)` | ❌ 不存在 | Fresh-restart + 注入历史 |
+| `SendMessage(to=, message=)` | ❌ ToolSearch 未发现 | 同上 |
+| SubagentStop hook | ⚠️ 待 verify 环境变量 | 主 agent Edit 工具手动写 main-log.md |
+| `find -printf` | ❌ macOS BSD find 不支持 | 用 `ls -lt` + `awk`(若需要时间排序) |
+
+---
+
+## 9. 版本演进
 
 | 版本 | 范围 |
 |:-:|---|
-| v5.0 | sub-agent 模板存在 + Agent() 调用方式(形状层) |
-| **v5.1** | Agent ID 收集 + Resume + 日志 + 防死锁(§1-§5) |
-| **v5.1.1** | **lessons-learned 经验库(§6) + SKILL.md 调度规范风格 + reviewer 拆 3 维度并行** |
-| v5.2 (规划) | Phase 2 / Phase 5 sub-agent 化 |
-| v5.3 (规划) | 真量化系统(因子模型 / 线性回归 / IC 检验) |
+| v5.0 | sub-agent 模板 + Agent() 调用方式 |
+| v5.1.0-1 | (失败)假设 Resume / ID 探测 / 伪函数协议 — 实际 API 不支持 |
+| **v5.1.3** | **删除不存在的 API,改 Fresh-Restart + Context Injection + 真脚本 review_loop.py** |
+| v5.2 (规划) | SubagentStop hook 自动写日志 / Phase 2-5 sub-agent 化 |
+| v5.3 (规划) | 真量化系统(因子模型 + IC 检验) |

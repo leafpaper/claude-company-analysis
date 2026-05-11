@@ -4,6 +4,99 @@
 
 ---
 
+## [v5.1.3] — 2026-05-04 — 紧急修复:删除不存在的 Agent API
+
+> **主题**: 代码 review 发现 v5.1.0-1 整套调度协议建立在**不存在的 Agent 工具参数**之上,实际跑会立刻失败。原因:照搬外部参考"主智能体提示词.md"里的 `Agent(resume=ID, ...)` 写法,**未验证** Claude Code 实际工具 schema(`resume` 参数不存在)。
+
+### Fixed (致命)
+
+- **`Agent(resume=...)` 协议全删除** — Claude Code Agent 工具真实 schema 只有 description/isolation/model/prompt/run_in_background/subagent_type,**无 `resume`**。改为 **Fresh-Restart with Context Injection**:启动全新 sub-agent + prompt 注入上轮 FIX 列表
+- **Agent ID 探测命令删除** — `ls -lt ~/.claude/projects/*/*/subagents/agent-*.meta.json` 读 Claude Code 内部目录(未公开 API) + 并行场景下竞态。Fresh-restart 不需要 ID
+- **伪代码不存在函数清理** — `apply_fix_to_parts()` / `wait_all_background_agents()` / `output_to_user()` / `log_main()` 等都是空想 API。改为真脚本 `scripts/review_loop.py` + 自然语言 checklist
+
+### Added
+
+- **`scripts/review_loop.py`** (~250 行) — Phase 6 Part A.5 辅助:解析 3 reviewer 响应 / 合并 FIX 列表(P1-P5 分组去重) / 计算 phase3-part md5 diff signature / 输出 JSON 给主 agent 决策
+- **`references/phase-orchestration.md`** — 每 Phase 详细 checklist(从 SKILL.md Step 3 拆出) + reviewer 修正循环步骤
+
+### Changed
+
+- **`SKILL.md`** 427 → 234 行(45% 压缩),遵守 Anthropic 渐进披露原则:保留路由必需 + Sub-agent 调用清单 + 调度协议总览;详细 checklist defer 到 `references/phase-orchestration.md`
+- **`references/agent-protocol.md`** 重写 §1-§9:Agent 真实 schema / Fresh-Restart 协议 / 双层日志 / 修正循环不变量 / 自检结构 / lessons / 失败处理 / 工具不可用 fallback
+- **frontmatter `description`** 简化为纯路由信号(去版本号 + 实现细节,从"v5.1.1 主智能体调度规范风格..."改为"分析单个上市公司...生成投资分析报告...")
+- **4 处硬编码 `/Users/leafpaper/` 路径** 改为自适应定位(`./skills/company-analysis` → `$HOME/.claude/plugins/...` fallback,不硬编码用户名):`agents/data-collector.md` / `phases/phase1-data-collection.md` / `phases/phase7-quantitative-monitor.md`
+
+### Deferred to v5.2
+
+- SubagentStop hook 自动追加 main-log.md(需先 verify `$CLAUDE_COMPANY` / `$SUBAGENT_TYPE` 等 hook 环境变量)
+- Phase 2 / Phase 5 sub-agent 化
+
+---
+
+## [v5.1.2] — 2026-05-04 — 数据采集扩展(5 项新覆盖)
+
+### Added
+
+**Tier 1 高价值**:
+- `tushare_collector.py` 新增 3 方法 + `collect_all` 自动调用:
+  - `share_float`(限售解禁,未来 365 天)— 减持窗口预警
+  - `block_trade`(大宗交易,近 90 天)— 机构建仓/清仓真实时点
+  - `anns`(公告摘要,近 90 天,接口名 fallback `anns/ann_d/anns_d`)
+- `data_snapshot.md` §9 限售解禁日历(30 天 🔴 / 90 天 ⚠️),节数 8 → 9
+
+**中等价值**:
+- `capital_flow.md` §8 大宗交易段(成交次数 / 累计金额 / 折溢价信号 / 近 5 笔明细)
+- `capital_flow.md` §9 北向资金加权建仓成本推导(净增仓 × 当日收盘价加权,输出浮盈/浮亏 + 信号)
+- `peer_analysis.md` §4 行业全员 PE/PB 分布(全行业 min/p25/中位/p75/max + 目标分位 + 信号)
+- `capital_flow.md` §10 综合警示加 2 规则:大宗交易折价 / 外资浮亏-浮盈
+
+---
+
+## [v5.1.1] — 2026-04-30 — SKILL.md 调度规范风格 + lessons-learned + reviewer 拆 3 并行
+
+### Changed
+
+- SKILL.md 414 → 379 行,重写为主 agent 视角调度规范(去 6+1 阶段流水线 ASCII 图)
+- 删除旧 `agents/reviewer-agent.md`,新建 `reviewer-narrative.md` / `reviewer-valuation.md` / `reviewer-redflag.md`(3 并行)
+- SKILL.md Phase 6 Part A.5 改为 `run_in_background=True` 3 并行(注:v5.1.0-1 Resume 协议在 v5.1.3 已删,实际仍 fresh-restart)
+
+### Added
+
+- `references/agent-protocol.md` §6 lessons 协议
+- `scripts/lessons_manager.py` — append + recent 子命令(单条 200 字截断 / 类别上限 100 条超限归档 / 简单去重)
+- 7 个 sub-agent 模板加可选 `**lessons**` 字段
+
+---
+
+## [v5.1] — 2026-04-29 — 主智能体调度协议层 + Phase 3 五子串行
+
+### Added
+
+- 5 个新 sub-agent `agents/phase3-part{1-5}.md` — 串行 part2→part3→part4→part5→part1(part1 最后写,执行摘要依赖前 4 part 评分加权)
+- `references/agent-protocol.md` 首版
+
+### Changed
+
+- 三个老 sub-agent 补 YAML disallowedTools + 自检报告统一末尾(`**判定**:` 字段)
+- reviewer 加章节→Part 映射 + FIX 单行 schema
+- SKILL.md Step 2 创建 `main-log.md`
+- ⚠️ **此版本写入的 Agent ID 探测 + Resume 协议在 v5.1.3 已全删**(API 不存在)
+
+---
+
+## [v5.0] — 2026-04-28 — sub-agent 大架构改造
+
+### Added
+
+- 新增 `agents/` 目录,首批 3 个 sub-agent:`data-collector.md` / `persona-agent.md` / `reviewer-agent.md`
+
+### Changed
+
+- SKILL.md Step 3 — Phase 1 / 4 / 6 改为 `Agent(subagent_type)` 调用
+- 主 agent 不再直接采集数据 / 不再扮演 3 角色 / 不再评审
+
+---
+
 ## [v4.6.2] — 2026-04-25 — 补 v4.6.1 的 preamble 丢失 + 内容命中率 ≥99% 自检
 
 > **用户追问**: "你确定 MD→HTML 不会有任何缺失了吗?" — 经严格验证发现 v4.6.1 还有一层丢失。
