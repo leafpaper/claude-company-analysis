@@ -17,7 +17,6 @@ argument-hint: <company-name> [--monitor]
 - **启动 sub-agent**:用 `Agent` 工具,详见 `references/phase-orchestration.md`
 - **接收 sub-agent 响应**:用 `Bash grep` 提取关键字段(`^**判定**:` / `^### 维度` / `^- \[FIX-P`),**不读响应全文**
 - **应用 FIX**:Phase 6 修正循环里,主 agent 用 `Edit` 工具按 `scripts/review_loop.py` 输出的 FIX 列表 改 `phase3-partN.md`
-- **回写主报告**:Phase 4 完成后 Edit §十三;Phase 5 完成后 Edit §十二 + §一 Top 3
 - **处理异常 / 转人工 / 给用户进度反馈**(每 Phase 完成报一行)
 
 ### ❌ 你不做的事
@@ -67,15 +66,15 @@ prompt = f"""[正常评审任务...]
 |:-:|---|---|---|
 | 1 | 数据采集 | **data-collector** | 12 artifact + phase1-data.md |
 | 2 | 文档精析 | 主 agent 自跑 | phase2-documents.md |
-| 3.1-5 | 写 5 part | **phase3-part2 → part3 → part4 → part5 → part1** | phase3-partN.md → assemble |
-| 4 | 多角色 | **persona-agent** | phase4-personas.md + §十三 回写 |
-| 5 | 差异化洞察 | 主 agent 自跑 | §十二 + §一 Top 3 回写 |
+| 3.1-5 | 写 5 part | **phase3-part2 → part3 → part4 → part5 → part1** | phase3-partN.md → assemble (13 章节) |
 | 6 Part A | anti_lazy_lint 4 项 | 主 agent + Bash | 退出码 0 |
 | 6 Part A.5 | reviewer 3 维度 | **reviewer-narrative / valuation / redflag** (3 并行) | 3 维度判定 + FIX 列表 |
 | 6 Part B/C | HTML + push | 主 agent + Bash | 发布 GitHub Pages |
 | 7 (可选) | 量化监控 | 主 agent 自跑 | monitor_{date}.md |
 
-**9 个 sub-agent**: data-collector / phase3-part{1-5} / persona-agent / reviewer-{narrative,valuation,redflag}。
+**8 个 sub-agent**: data-collector / phase3-part{1-5} (5) / reviewer-{narrative,valuation,redflag} (3 并行)。
+
+**v5.1.4 删除**: Phase 4 多角色(persona-agent)+ Phase 5 差异化洞察 — 9 字段卡片产出云里雾里,3 角色独立分析对决策低价值。主报告 15 章节 → 13(删原 §十二 §十三,§十四→§十二, §十五→§十三)。
 
 ---
 
@@ -126,9 +125,7 @@ test -f output/{company}/main-log.md || \
 | `data_snapshot.md` (9 节) / `audit_report.md` / `peer_analysis.md` / `capital_flow.md` / `technical_analysis.md` | data-collector | 整合视图 |
 | `phase1-data.md` / `phase2-documents.md` | data-collector / 主 agent | Phase 1/2 输出 |
 | `phase3-part{1-5}.md` | phase3-part{1-5} | 5 part 写作 |
-| `{company}-analysis-{date}.md` | assemble_report.py | 拼接后主报告 |
-| `phase4-personas.md` | persona-agent | 3 角色深度版 |
-| `phase5-variant-perception.md` | 主 agent | 差异化洞察附件 |
+| `{company}-analysis-{date}.md` | assemble_report.py | 拼接后主报告 (13 章节) |
 | `reviewer_responses/round_N_*.md` | 主 agent (Phase 6) | reviewer 响应存档 |
 | `{date}.html` + `phase6-review-log.md` | 主 agent | 渲染 + 审核日志 |
 | `main-log.md` | **主 agent** | **双层调度日志** |
@@ -144,7 +141,7 @@ test -f output/{company}/main-log.md || \
 
 ```
 Phase 1 (data-collector) → Phase 2 (主 agent) → Phase 3 (5 sub-agent 串行 + assemble)
-  → Phase 4 (persona-agent) → Phase 5 (主 agent) → Phase 6 (主 agent + 3 reviewer 并行 + 修正循环 + HTML + push)
+  → Phase 6 (主 agent + 3 reviewer 并行 + 修正循环 + HTML + push)
 ```
 
 **关键规则**:
@@ -171,8 +168,6 @@ Phase 1 (data-collector) → Phase 2 (主 agent) → Phase 3 (5 sub-agent 串行
 | 2 | 主 agent 自查 §2 利润表变动行数 | ≥ 3 行原文 |
 | 3.1-5 | `grep "^\*\*判定\*\*:" phase3_partN_response` | 每 part PASS |
 | 3 整体 | `assemble_report.py` 退出码 + section 数 | 0 + 15 章节 |
-| 4 | `grep "^\*\*判定\*\*:" persona_response` + 跨角色分歧 ≥ 1 | PASS |
-| 5 | 主 agent 自查 9 字段 + Level A/B ∈ [3,7] | OK |
 | 6 Part A | `anti_lazy_lint` 退出码 | 0 |
 | 6 Part A.5 | `review_loop.py` 输出 JSON `overall_pass: true` | 3/3 维度 PASS |
 | 6 Part B | `build_html.py` 退出码 + section 数 | 0 + 15 |
@@ -202,7 +197,6 @@ Phase 1 (data-collector) → Phase 2 (主 agent) → Phase 3 (5 sub-agent 串行
 | `references/scoring-rubric.md` | 10 维度评分(phase3-part3 内部读) |
 | `references/qualitative-frameworks.md` | 3 框架定性(phase3-part4 读) |
 | `references/valuation-frameworks.md` | Damodaran + SOTP(phase3-part4 读) |
-| `references/persona-registry.md` | 3 角色定义(persona-agent 读) |
 
 ### 模板与 schema
 

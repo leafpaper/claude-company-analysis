@@ -41,7 +41,9 @@ model: inherit
 
 按 phase3-analysis-report.md Step 3b-2 指令,Write `{output_dir}/phase3-part2.md`,内容仅含 §四 / §五 两章,不含其他章节标题。
 
-## 自检后输出(★ v5.1 协议固定 schema)
+## 自检后输出(★ v5.1.4 — 仅在响应里,**严禁写进 phase3-part2.md 文件**)
+
+★ 自检报告**只在响应正文末尾**给主 agent grep,**不要**写进 .md 文件末尾。
 
 ```markdown
 ### Phase 3 Part2 完成报告

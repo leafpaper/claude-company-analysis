@@ -43,7 +43,9 @@ model: inherit
 
 按 phase3-analysis-report.md Step 3b-4 指令,Write `{output_dir}/phase3-part4.md`,仅含 §九/§十/§十一。
 
-## 自检后输出
+## 自检后输出(★ v5.1.4 — 仅在响应里,**严禁写进 phase3-part4.md 文件**)
+
+★ 自检报告**只在响应正文末尾**给主 agent grep,**不要**写进 .md 文件末尾。
 
 ```markdown
 ### Phase 3 Part4 完成报告

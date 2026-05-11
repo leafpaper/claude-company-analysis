@@ -21,7 +21,7 @@ model: inherit
 ## 必读
 
 1. `{artifacts_dir}/audit_report.md` (★ 提取 🔴 致命 + 🟠 高级红旗清单)
-2. `{report_path}` 主报告(尤其 §一 / §三 / §六 / §十一 / §十五)
+2. `{report_path}` 主报告(尤其 §一 / §三 / §六 / §十一 / §十三 — v5.1.4 起 §十三 = 旧 §十五 数据可审计性)
 
 ## 维度 3: 红旗闭环规则
 
@@ -36,7 +36,7 @@ model: inherit
 
 若漏掉任一红旗(致命/高级)未达 3 处 → FAIL,标具体红旗 + audit_report.md 行号 + 应出现位置.
 
-(中级 🟡 红旗不强制 3 处,但应在 §十五 audit 红旗汇总章节列出)
+(中级 🟡 红旗不强制 3 处,但应在 §十三 audit 红旗汇总章节列出 — v5.1.4 起 §十三 = 旧 §十五)
 
 ## 章节 → Part 文件映射(FIX 必用)
 
@@ -46,7 +46,7 @@ model: inherit
 | §四/§五 | phase3-part2.md | P2 |
 | §六/§七/§八 | phase3-part3.md | P3 |
 | §九/§十/§十一 | phase3-part4.md | P4 |
-| §十二~§十五 | phase3-part5.md | P5 |
+| §十二 / §十三 | phase3-part5.md | P5 |
 
 ## 输出格式(★ 严格 schema)
 
@@ -58,7 +58,7 @@ model: inherit
 
 (PASS 时本段省略)
 
-**lessons (≥0 条,可选)**: 本次红旗闭环检查踩到的非显然坑(如某种红旗只在 §十五 列出但不在 §一/§三/§十一 引用的情况、或 audit 行号定位失败的边界等),由主 agent append。无则省略。
+**lessons (≥0 条,可选)**: 本次红旗闭环检查踩到的非显然坑(如某种红旗只在 §十三 audit 汇总列出但不在 §一/§三/§十一 引用的情况、或 audit 行号定位失败的边界等),由主 agent append。无则省略。
 - (如有)
 ```
 

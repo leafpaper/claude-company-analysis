@@ -68,35 +68,11 @@
 
 ---
 
-## Phase 4: 多角色(Agent 工具 → persona-agent)
-
-**调度 checklist**:
-
-1. 用 Agent 工具启动 `persona-agent`,prompt 含主报告路径
-2. 等响应,grep `**判定**:`
-3. 主 agent **用 Edit 工具** 把响应里的"精简版片段"拼到主报告 §十三
-4. PASS → Phase 5;FAIL → fresh-restart 1 次,仍失败 → 用户决策
-
-**质量门控**:3 角色齐全 + 跨角色分歧 ≥ 1 条
-
----
-
-## Phase 5: 差异化洞察(主 agent 自跑)
-
-**调度 checklist**:
-
-1. 主 agent 读 4 源:phase1-data + phase2-documents + 主报告 + phase4-personas
-2. 提炼 3-7 条非共识洞察,每条按 9 字段卡片格式
-3. 主 agent **用 Edit 工具**:
-   - 写 `phase5-variant-perception.md`(深度版)
-   - 回写主报告 §十二(9 字段卡片精简版)
-   - 回写主报告 §一 Top 3 风险/机会
-
-**质量门控**:9 字段齐全 + Level A/B ∈ [3,7]
-
----
-
 ## Phase 6: 审核发布
+
+> v5.1.4 删除 Phase 4(多角色)+ Phase 5(差异化洞察)。Phase 3 完成后直接进 Phase 6 审核。
+
+
 
 ### Part A: 18 项审核 + Part D 缺口补查 + anti_lazy_lint
 

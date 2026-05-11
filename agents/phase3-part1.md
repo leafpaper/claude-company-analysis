@@ -25,7 +25,7 @@ model: inherit
 1. `{output_dir}/phase3-part2.md` — §四 财务数据 → §一 量化指标侧栏
 2. `{output_dir}/phase3-part3.md` ★ — §六 10 维度评分,§二 加权计算的输入
 3. `{output_dir}/phase3-part4.md` ★ — §九 DCF 估值 / §十一 致命看空检查 → §一 verdict / §三 快筛
-4. `{output_dir}/phase3-part5.md` — §十四 缺口 / §十五 来源(part1 不引用,但要保证全报告一致)
+4. `{output_dir}/phase3-part5.md` — §十二 缺口 / §十三 来源(v5.1.4 章节重排;part1 不引用,但要保证全报告一致)
 5. `{output_dir}/audit_report.md` — §一 Top 3 风险 / §三 快筛(audit 🔴/🟠 红旗必引)
 6. `{output_dir}/data_snapshot.md` §1 数据时效性 — §一 字段
 7. `phases/phase3-analysis-report.md` Step 3b-1 详细指令
@@ -46,7 +46,9 @@ model: inherit
 
 按 phase3-analysis-report.md Step 3b-1 指令 + exec-summary-schema.md 7 字段,Write `{output_dir}/phase3-part1.md`,仅含 §一/§二/§三 + 头部 metadata 注释块。
 
-## 自检后输出
+## 自检后输出(★ v5.1.4 — 仅在响应里,**严禁写进 phase3-part1.md 文件**)
+
+★ 自检报告**只在响应正文末尾**给主 agent grep,**不要**写进 .md 文件末尾(assemble_report.py 会剥离,但还是别写,主报告会因此变干净)。
 
 ```markdown
 ### Phase 3 Part1 完成报告

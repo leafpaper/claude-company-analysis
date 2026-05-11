@@ -5,12 +5,12 @@
     本脚本把 phase3-part1.md ~ phase3-part5.md 顺序拼接为 {company}-analysis-{date}.md,
     同时验证章节齐全 / 提取 metadata 注释块到顶部。
 
-Part 章节边界 (固定):
+Part 章节边界 (v5.1.4 — 13 章节,删 §十二 §十三 原始洞察+角色,§十四→§十二, §十五→§十三):
     part1: §一 §二 §三                  (执行摘要 / 评分 / 快筛, 含报告头部 + RATING/METRICS/CARD metadata)
     part2: §四 §五                       (公司基本面 / 行业)  ★ 财务趋势 + 十大股东
     part3: §六 §七 §八                   (10 维度 / 舆情 / Peer)
     part4: §九 §十 §十一                 (估值 / 回报 / 定性)
-    part5: §十二 §十三 §十四 §十五       (洞察 / 角色 / 缺口 / 来源)
+    part5: §十二 §十三                   (缺口 / 来源)
 
 CLI:
     python3 -m scripts.assemble_report \\
@@ -35,8 +35,47 @@ PART_EXPECTED_SECTIONS = {
     2: ["§四", "§五"],
     3: ["§六", "§七", "§八"],
     4: ["§九", "§十", "§十一"],
-    5: ["§十二", "§十三", "§十四", "§十五"],
+    5: ["§十二", "§十三"],   # v5.1.4: §十二 = 缺口, §十三 = 来源 (旧 §十四 / §十五)
 }
+
+# v5.1.4 新增: phase3-partN.md 文件末尾的 sub-agent 自检报告段必须剥离, 不能拼进主报告
+# 自检段以 "### Phase X PartN 完成报告" 或 "### Phase X 完成报告" 开头
+# (sub-agent 仍可在自身响应里给这段供主 agent grep, 但写入文件时应避免;
+# assemble 这里做最后保险, 防止主报告里出现 **判定**: / **artifacts**: / **lessons**: 等内部字段)
+SELF_CHECK_HEADERS = (
+    "### Phase 3 Part",      # phase3-partN
+    "### Phase 1 完成报告",   # data-collector (理论上不会进主报告, 兜底)
+    "### Phase 2 完成报告",
+    "### Part",              # 不带 Phase 前缀的简写
+    "### 完成报告",
+)
+
+
+def strip_self_check_report(content: str) -> str:
+    """v5.1.4: 剥离 sub-agent 写在 .md 文件末尾的自检报告段。
+
+    sub-agent 模板规定自检报告**只在响应里**给主 agent grep, 不写进 .md 文件。
+    但若 sub-agent 漏抹, assemble 这里做兜底 — 从最后一个 SELF_CHECK_HEADERS 处截断。
+
+    返回剥离后的 content。若无自检段则原样返回。
+    """
+    lines = content.split("\n")
+    last_self_check_line = -1
+    for i, line in enumerate(lines):
+        for header in SELF_CHECK_HEADERS:
+            if line.strip().startswith(header):
+                last_self_check_line = i
+                break
+
+    if last_self_check_line < 0:
+        return content   # 无自检段, 原样返回
+
+    # 截断到自检段之前一行(去掉前面的空行/分割线)
+    cut = last_self_check_line
+    while cut > 0 and lines[cut - 1].strip() in ("", "---"):
+        cut -= 1
+
+    return "\n".join(lines[:cut]).rstrip() + "\n"
 
 
 def _has_section(content: str, section: str) -> bool:
@@ -78,15 +117,23 @@ def extract_metadata_blocks(part1_content: str) -> str:
 def assemble(company: str, date: str, parts_dir: Path, out_path: Path) -> int:
     """读 5 个 part, 拼接, 写 out_path. 返回 0 成功 / 1 失败."""
 
-    # 1. 读 5 个 part
+    # 1. 读 5 个 part + v5.1.4 剥离 sub-agent 自检报告段
     parts = {}
+    stripped_count = 0
     for i in range(1, 6):
         p = parts_dir / f"phase3-part{i}.md"
         if not p.exists():
             sys.stderr.write(f"❌ 缺 part {i}: {p}\n")
             return 1
-        parts[i] = p.read_text(encoding="utf-8")
+        raw = p.read_text(encoding="utf-8")
+        cleaned = strip_self_check_report(raw)
+        if len(cleaned) < len(raw):
+            stripped_count += 1
+            sys.stderr.write(f"  剥离 part{i} 自检段: {len(raw):,} → {len(cleaned):,} chars\n")
+        parts[i] = cleaned
         sys.stderr.write(f"  读取 part{i}: {len(parts[i]):,} chars\n")
+    if stripped_count > 0:
+        sys.stderr.write(f"  ★ v5.1.4 剥离 {stripped_count} 个 part 文件的自检报告段 (主报告净化)\n")
 
     # 2. 验证每个 part 含其预期章节
     all_issues = []
@@ -122,8 +169,8 @@ def assemble(company: str, date: str, parts_dir: Path, out_path: Path) -> int:
     sys.stderr.write(f"   总字符数: {len(final_content):,}\n")
     sys.stderr.write(f"   章节数 (## §): {section_count}\n")
 
-    if section_count < 15:
-        sys.stderr.write(f"⚠️  章节数 {section_count} < 15 (skeleton 期望 15 章)\n")
+    if section_count < 13:
+        sys.stderr.write(f"⚠️  章节数 {section_count} < 13 (v5.1.4 skeleton 期望 13 章)\n")
 
     return 0
 

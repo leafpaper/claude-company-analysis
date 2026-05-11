@@ -46,7 +46,7 @@ model: inherit
 | §四/§五 | phase3-part2.md | P2 |
 | §六/§七/§八 | phase3-part3.md | P3 |
 | §九/§十/§十一 | phase3-part4.md | P4 |
-| §十二~§十五 | phase3-part5.md | P5 |
+| §十二 / §十三 | phase3-part5.md | P5 |
 
 ## 输出格式(★ 严格 schema)
 

@@ -334,33 +334,7 @@
 
 ---
 
-## §十二 差异化洞察（Phase 5 回写 — 9 字段卡片）
-
-> 本章节由 Phase 5 生成并回写。详见 `phase5-variant-perception.md` 深度附件（Level C 附录 / 议题感知 / 共识映射）。
-
-{{variant_perception_cards}}
-
----
-
-## §十三 多角色投资结论（Phase 4 回写 — 3 角色 × 3 段精简版）
-
-> 深度版（完整 3 段论述 + 哲学分歧展开）见 `phase4-personas.md`。
-
-### 角色 A · {{persona_1_name}}（{{persona_1_philosophy}}）
-{{persona_1_summary}}
-
-### 角色 B · {{persona_2_name}}（{{persona_2_philosophy}}）
-{{persona_2_summary}}
-
-### 角色 C · {{persona_3_name}}（{{persona_3_philosophy}}）
-{{persona_3_summary}}
-
-### 三角色分歧总结
-{{persona_divergence_summary}}
-
----
-
-## §十四 信息缺口与尽调优先级
+## §十二 信息缺口与尽调优先级
 
 | # | 缺口 | 状态 | 可得性 | 影响的结论 |
 |---|------|:----:|:---:|------|
@@ -368,7 +342,7 @@
 
 ---
 
-## §十五 数据可审计性（时效性 + 来源 3 类分组）
+## §十三 数据可审计性（时效性 + 来源 3 类分组）
 
 **截止日期**: {{data_cutoff}}。**关键待披露**: {{pending_disclosures}}。
 
