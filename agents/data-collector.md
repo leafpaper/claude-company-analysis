@@ -102,10 +102,10 @@ PDF 失败 → 备用 URL → 仍失败标"已尝试: {urls}",继续。
 **company**: {company}
 **market**: A股 / 美股 / 港股
 **artifacts**:
-- output/{company}/raw_data/_manifest.json (income {N}行 / balance {N}行 / cashflow {N}行 / fina_indicator {N}行)
-- output/{company}/data_snapshot.md (8 节齐全 ✅)
-- output/{company}/peer_analysis.md (5 家 peer)
-- output/{company}/capital_flow.md
+- output/{company}/raw_data/_manifest.json (income {N}行 / balance {N}行 / cashflow {N}行 / fina_indicator {N}行 / share_float {N}行 / block_trade {N}行 / anns {N}行)
+- output/{company}/data_snapshot.md (★ v5.1.2: 9 节齐全 ✅,新增 §9 限售解禁日历)
+- output/{company}/peer_analysis.md (5 家 peer + ★ v5.1.2 §4 行业全员 PE/PB 分布)
+- output/{company}/capital_flow.md (★ v5.1.2: 10 段,新增 §8 大宗交易 + §9 北向资金加权成本)
 - output/{company}/technical_analysis.md
 - output/{company}/audit_report.md ({N} 红旗: {N} 高 / {N} 中 / {N} 低)
 - output/{company}/metrics.json

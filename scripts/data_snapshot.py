@@ -602,6 +602,60 @@ def _render_section_8(bundle_dir: Path, out: StringIO):
     out.write("\n*★ 户数变化是主力吸筹/出货的核心信号: 户数↓ + 户均↑ = 机构吸筹; 户数↑ + 户均↓ = 机构退出 (capital_flow.md §3 已自动判定)。*\n\n")
 
 
+def _render_section_9(bundle_dir: Path, out: StringIO):
+    """§9 v5.1.2 新增: 限售股解禁日历 (未来 12 个月)"""
+    out.write("## §9 限售股解禁日历 (未来 12 个月) ★ v5.1.2 新增\n\n")
+    df = _read_parquet_safe(bundle_dir / "share_float.parquet")
+    if df.empty:
+        out.write("(无解禁数据,可能是该公司近 12 月无解禁,或 Tushare 接口未返回)\n\n")
+        return
+
+    # 按解禁日期升序
+    if "float_date" in df.columns:
+        df = df.sort_values("float_date", ascending=True)
+    elif "ann_date" in df.columns:
+        df = df.sort_values("ann_date", ascending=True)
+
+    out.write("| 解禁日期 | 解禁数量(万股) | 占总股本% | 股东 | 限售类型 |\n")
+    out.write("|:---:|---:|---:|------|------|\n")
+
+    # 计算距今天的天数,标记 30 天内的红色高危
+    import datetime as _dt
+    today = _dt.date.today()
+    high_risk_count = 0
+    rows_to_show = df.head(15)  # 最多展示 15 条
+    for _, r in rows_to_show.iterrows():
+        fdate = str(r.get("float_date", "–"))
+        share_amount = r.get("float_share", "–")
+        share_ratio = r.get("float_ratio", "–")
+        holder = str(r.get("holder_name", "–"))[:40]
+        share_type = str(r.get("share_type", "–"))
+        # 计算距今天数 + 标红
+        risk_marker = ""
+        try:
+            if len(fdate) == 8:
+                fd = _dt.datetime.strptime(fdate, "%Y%m%d").date()
+                days_until = (fd - today).days
+                if 0 <= days_until <= 30:
+                    risk_marker = " 🔴"
+                    high_risk_count += 1
+                elif 0 <= days_until <= 90:
+                    risk_marker = " ⚠️"
+        except (ValueError, TypeError):
+            pass
+
+        # 数字格式化
+        amount_str = f"{float(share_amount):,.0f}" if pd.notna(share_amount) and isinstance(share_amount, (int, float)) else "–"
+        ratio_str = f"{float(share_ratio):.2f}%" if pd.notna(share_ratio) and isinstance(share_ratio, (int, float)) else "–"
+        out.write(f"| {fdate}{risk_marker} | {amount_str} | {ratio_str} | {holder} | {share_type} |\n")
+
+    out.write(f"\n*★ Phase 3 §四 风险段必须引用: ")
+    if high_risk_count > 0:
+        out.write(f"**未来 30 天内有 {high_risk_count} 次解禁(🔴)**,大股东解禁前 2-4 周通常是减持窗口高危期。*\n\n")
+    else:
+        out.write("近 30 天无解禁,风险较低。*\n\n")
+
+
 # ---------- 主入口 ----------
 
 def build_snapshot(bundle_dir: Path, ts_code: str = "", company: str = "") -> str:
@@ -650,6 +704,10 @@ def build_snapshot(bundle_dir: Path, ts_code: str = "", company: str = "") -> st
 
     # §8
     _render_section_8(bundle_dir, out)
+    out.write("---\n\n")
+
+    # §9 v5.1.2: 限售解禁日历
+    _render_section_9(bundle_dir, out)
 
     out.write(
         "\n---\n\n"
@@ -696,12 +754,12 @@ def main():
     # 自检: 关键章节是否都生成
     sections = ["§1 数据完整度", "§2 最新期完整快照", "§3 多年趋势完整表",
                 "§4 业绩预告 vs 实际兑现", "§5 完整十大股东表", "§6 完整十大流通股东表",
-                "§7 质押", "§8 股东户数变化"]
+                "§7 质押", "§8 股东户数变化", "§9 限售股解禁日历"]
     missing = [s for s in sections if s not in md]
     if missing:
         print(f"   ⚠️  缺失章节: {missing}")
         return 2
-    print(f"   ✅ 8 个核心章节齐全")
+    print(f"   ✅ 9 个核心章节齐全 (v5.1.2 新增 §9 限售解禁)")
     return 0
 
 

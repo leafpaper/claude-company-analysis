@@ -187,9 +187,73 @@ def collect_peers(
 
     df = pd.DataFrame(rows)
 
-    # 7. 生成 markdown
-    md = _format_markdown(df, target_code, target_name, industry, td)
+    # 7. v5.1.2 新增: 行业全员 PE/PB 分布(不只 5 家 peer)
+    industry_stats = _industry_full_distribution(merged, target_code, industry)
+
+    # 8. 生成 markdown
+    md = _format_markdown(df, target_code, target_name, industry, td, industry_stats)
     return df, md
+
+
+def _industry_full_distribution(
+    merged: pd.DataFrame, target_code: str, industry: str
+) -> dict:
+    """v5.1.2: 计算全行业(同行业全部上市公司)的 PE/PB/ROE 分布。
+    返回目标公司在行业全员中的分位。
+    """
+    import math
+    stats = {
+        "industry_total_count": int(len(merged)),
+        "industry_name": industry,
+    }
+
+    target_row_df = merged[merged["ts_code"] == target_code]
+    if target_row_df.empty:
+        return stats
+
+    for field in ("pe_ttm", "pb", "ps_ttm"):
+        if field not in merged.columns:
+            continue
+        values = merged[field].dropna()
+        # 过滤异常值(PE < 0 或 PE > 200 视为不合理)
+        if field.startswith("pe"):
+            values = values[(values > 0) & (values < 200)]
+        elif field == "pb":
+            values = values[(values > 0) & (values < 30)]
+        if len(values) < 5:
+            continue
+        sorted_vals = sorted(values.tolist())
+        target_val = target_row_df.iloc[0].get(field)
+        if target_val is None or pd.isna(target_val) or target_val <= 0:
+            continue
+
+        n = len(sorted_vals)
+        stats[f"{field}_p25"] = round(sorted_vals[n // 4], 2)
+        stats[f"{field}_median"] = round(sorted_vals[n // 2], 2)
+        stats[f"{field}_p75"] = round(sorted_vals[(3 * n) // 4], 2)
+        stats[f"{field}_min"] = round(sorted_vals[0], 2)
+        stats[f"{field}_max"] = round(sorted_vals[-1], 2)
+        stats[f"{field}_target"] = round(float(target_val), 2)
+
+        # 目标公司分位(0% = 最便宜 / 100% = 最贵,适用于估值类指标)
+        # 对 PE/PB:目标值低 = 越便宜 = 低分位 = 好(从估值角度)
+        below_target = sum(1 for v in sorted_vals if v < target_val)
+        percentile = below_target / n * 100
+        stats[f"{field}_percentile"] = round(percentile, 1)
+
+        # 信号
+        if percentile <= 20:
+            stats[f"{field}_signal"] = f"✅ {field.upper()} 在行业最便宜 20%(分位 {percentile:.0f}%)"
+        elif percentile <= 40:
+            stats[f"{field}_signal"] = f"🟢 {field.upper()} 低于行业 60%(分位 {percentile:.0f}%)"
+        elif percentile >= 80:
+            stats[f"{field}_signal"] = f"🔴 {field.upper()} 在行业最贵 20%(分位 {percentile:.0f}%)"
+        elif percentile >= 60:
+            stats[f"{field}_signal"] = f"⚠️ {field.upper()} 高于行业 60%(分位 {percentile:.0f}%)"
+        else:
+            stats[f"{field}_signal"] = f"⚪ {field.upper()} 在行业中位(分位 {percentile:.0f}%)"
+
+    return stats
 
 
 def _sf(x) -> float | None:
@@ -209,6 +273,7 @@ def _format_markdown(
     target_name: str,
     industry: str,
     trade_date: str,
+    industry_stats: dict | None = None,
 ) -> str:
     lines = [
         f"# 可比公司对标: {target_name} ({target_code})",
@@ -317,11 +382,50 @@ def _format_markdown(
         insights.append("ℹ️ 目标公司各项指标均在 peer 中位数 ±1σ 内,估值/盈利无显著偏离")
 
     lines.extend(insights)
+
+    # §4 v5.1.2 新增: 行业全员 PE/PB 分布(不只 5 家 peer)
+    if industry_stats and industry_stats.get("industry_total_count", 0) >= 5:
+        lines.extend([
+            "",
+            f"## §4 行业全员估值分布 (v5.1.2,行业 {industry} 共 {industry_stats['industry_total_count']} 家)",
+            "",
+            "对比维度从 5 家 peer 扩展到**全行业上市公司**:",
+            "",
+            "| 指标 | 行业最便宜 | 25 分位 | 中位数 | 75 分位 | 行业最贵 | 目标值 | 目标分位 |",
+            "|------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|",
+        ])
+        for field in ("pe_ttm", "pb", "ps_ttm"):
+            if f"{field}_target" not in industry_stats:
+                continue
+            lines.append(
+                f"| {field.upper()} | "
+                f"{industry_stats.get(f'{field}_min', '–')} | "
+                f"{industry_stats.get(f'{field}_p25', '–')} | "
+                f"{industry_stats.get(f'{field}_median', '–')} | "
+                f"{industry_stats.get(f'{field}_p75', '–')} | "
+                f"{industry_stats.get(f'{field}_max', '–')} | "
+                f"**{industry_stats[f'{field}_target']}** | "
+                f"**{industry_stats.get(f'{field}_percentile', '–')}%** |"
+            )
+        lines.append("")
+        lines.append("**信号判定**(行业全员分位):")
+        for field in ("pe_ttm", "pb", "ps_ttm"):
+            sig = industry_stats.get(f"{field}_signal")
+            if sig:
+                lines.append(f"- {sig}")
+
+        lines.append("")
+        lines.append(
+            "> 说明: 分位 0% = 行业最便宜(最低 PE/PB),100% = 最贵。"
+            "5 家 peer 是市值最近的同类对比,而行业全员包括所有同行业上市公司,"
+            "能识别 ‘市值偏离 peer 但仍在行业中位’ 的情况。"
+        )
+
     lines.extend([
         "",
         "---",
         "",
-        f"*由 `scripts/peer_collector.py` 自动生成,供 Phase 3 §八 可比公司对标直接引用*",
+        f"*由 `scripts/peer_collector.py` 自动生成 (v5.1.2: 加行业全员分布),供 Phase 3 §八 可比公司对标直接引用*",
         "*海外 peer (如全球同业龙头) 需 LLM 手动补充到 Phase 3 §八 末尾*",
     ])
 

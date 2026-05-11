@@ -134,6 +134,15 @@ def collect_capital_flow(
                 ti_dfs.append(df)
     raw["top_inst"] = pd.concat(ti_dfs, ignore_index=True) if ti_dfs else pd.DataFrame()
 
+    # ---------- 7. 大宗交易 (v5.1.2 新增) ----------
+    # 信号比龙虎榜更干净: 机构底部建仓 / 高位清仓的真实时点
+    raw["block_trade"] = _safe_call(
+        pro.block_trade,
+        ts_code=target_code,
+        start_date=start_date,
+        end_date=end_date,
+    )
+
     # ---------- 辅助: 拉 top10_holders(含限售) + top10_floatholders + stk_holdernumber + daily_basic ----------
     # v4.5 关键修正: 同时拉"全体前十大股东"(含限售,反映真实控盘)
     raw["top10_all"] = tc.top10_holders(target_code, start_year=dt.date.today().year - 1)
@@ -378,6 +387,95 @@ def _derive_metrics(target_code: str, raw: dict) -> dict[str, Any]:
     else:
         m["inst_signal"] = "⚪ 近 30 日无龙虎榜机构席位上榜"
 
+    # 7. 大宗交易 (v5.1.2 新增)
+    bt = raw.get("block_trade", pd.DataFrame())
+    if not bt.empty:
+        m["block_trade_count"] = len(bt)
+        # 总成交额 (price * vol 单位股, 转万元)
+        try:
+            if "amount" in bt.columns:
+                # Tushare block_trade amount 单位为万元
+                total_amount = float(bt["amount"].astype(float).sum())
+                m["block_trade_amount_wan"] = round(total_amount, 2)
+            elif "price" in bt.columns and "vol" in bt.columns:
+                total_amount = float((bt["price"].astype(float) * bt["vol"].astype(float)).sum())
+                m["block_trade_amount_wan"] = round(total_amount / 10000, 2)
+        except (ValueError, TypeError):
+            pass
+
+        # 折溢价分析: 大宗交易价 vs 当日收盘价
+        daily_df = raw.get("daily_basic", pd.DataFrame())
+        if not daily_df.empty and "trade_date" in daily_df.columns and "close" in daily_df.columns:
+            daily_close = daily_df[["trade_date", "close"]].set_index("trade_date")["close"].to_dict()
+            discount_records = []
+            for _, row in bt.iterrows():
+                try:
+                    bt_date = str(row.get("trade_date", ""))
+                    bt_price = float(row.get("price", 0))
+                    close_p = float(daily_close.get(bt_date, 0))
+                    if close_p > 0 and bt_price > 0:
+                        discount = (bt_price - close_p) / close_p * 100
+                        discount_records.append(discount)
+                except (ValueError, TypeError):
+                    continue
+            if discount_records:
+                avg_disc = sum(discount_records) / len(discount_records)
+                m["block_trade_avg_discount_pct"] = round(avg_disc, 2)
+                # 信号判定
+                if avg_disc < -5:
+                    m["block_trade_signal"] = f"🔴 大宗交易显著折价 {avg_disc:.1f}% — 抛售压力 / 机构低吸"
+                elif avg_disc > 2:
+                    m["block_trade_signal"] = f"🟢 大宗交易溢价 +{avg_disc:.1f}% — 机构追涨建仓"
+                else:
+                    m["block_trade_signal"] = f"⚪ 大宗交易接近现价 ({avg_disc:+.1f}%)"
+    else:
+        m["block_trade_count"] = 0
+
+    # 8. 北向资金加权建仓成本推导 (v5.1.2 新增)
+    # 用 hk_hold 持仓变动 + 当日 daily 收盘价 做加权 → 推导外资平均建仓成本
+    # 公式: cost = Σ (Δhold_share_i × close_i) / Σ Δhold_share_i  (只看净增仓部分)
+    hkh = raw.get("hk_hold", pd.DataFrame())
+    daily_full = raw.get("daily_basic", pd.DataFrame())
+    if not hkh.empty and not daily_full.empty and "hold_share" in hkh.columns and "close" in daily_full.columns:
+        hkh_sorted = hkh.sort_values("trade_date").reset_index(drop=True)
+        daily_close_map = daily_full[["trade_date", "close"]].set_index("trade_date")["close"].to_dict()
+
+        weighted_cost_num = 0.0
+        weighted_cost_den = 0.0
+        for i in range(1, len(hkh_sorted)):
+            try:
+                prev = float(hkh_sorted.iloc[i - 1]["hold_share"])
+                curr = float(hkh_sorted.iloc[i]["hold_share"])
+                delta = curr - prev
+                if delta <= 0:
+                    continue  # 只看净增仓
+                date_i = str(hkh_sorted.iloc[i]["trade_date"])
+                close_i = float(daily_close_map.get(date_i, 0))
+                if close_i <= 0:
+                    continue
+                weighted_cost_num += delta * close_i
+                weighted_cost_den += delta
+            except (ValueError, TypeError):
+                continue
+
+        if weighted_cost_den > 0:
+            avg_cost = weighted_cost_num / weighted_cost_den
+            m["hsgt_avg_cost"] = round(avg_cost, 2)
+            # 与当前股价对比
+            latest_close = None
+            if not daily_full.empty:
+                latest_close = float(daily_full.sort_values("trade_date", ascending=False).iloc[0]["close"])
+            if latest_close:
+                pnl_pct = (latest_close - avg_cost) / avg_cost * 100
+                m["hsgt_pnl_pct"] = round(pnl_pct, 2)
+                m["hsgt_latest_close"] = latest_close
+                if pnl_pct < -10:
+                    m["hsgt_cost_signal"] = f"🔴 外资浮亏 {pnl_pct:.1f}% (建仓均价 {avg_cost:.2f} vs 现价 {latest_close:.2f}) — 抛售风险高"
+                elif pnl_pct > 15:
+                    m["hsgt_cost_signal"] = f"🟢 外资浮盈 +{pnl_pct:.1f}% — 减仓压力 (获利了结可能)"
+                else:
+                    m["hsgt_cost_signal"] = f"⚪ 外资盈亏接近平衡 ({pnl_pct:+.1f}%)"
+
     return m
 
 
@@ -578,10 +676,64 @@ def _format_markdown(target_code: str, raw: dict, m: dict) -> str:
     else:
         lines.append("*近 30 日未上榜龙虎榜*")
 
-    # §8 综合控盘警示
+    # §8 大宗交易 (v5.1.2 新增)
     lines.extend([
         "",
-        "## §8 综合控盘警示 (供 Phase 3 §四 / §七 消费)",
+        "## §8 大宗交易 (近 60 日 — 比龙虎榜信号更干净)",
+        "",
+    ])
+    bt = raw.get("block_trade", pd.DataFrame())
+    if not bt.empty:
+        lines.append(f"**成交次数**: {m.get('block_trade_count', 0)} 笔")
+        if "block_trade_amount_wan" in m:
+            lines.append(f"**累计成交额**: {m['block_trade_amount_wan']:,} 万元")
+        if "block_trade_avg_discount_pct" in m:
+            lines.append(f"**平均折溢价**: {m['block_trade_avg_discount_pct']:+.2f}% (vs 当日收盘价)")
+        if "block_trade_signal" in m:
+            lines.append("")
+            lines.append(f"**信号**: {m['block_trade_signal']}")
+        # 列出近 5 笔大宗交易明细
+        lines.append("")
+        lines.append("**近 5 笔明细**:")
+        lines.append("")
+        lines.append("| 日期 | 价格 | 成交量(股) | 成交额(万) | 买方营业部 | 卖方营业部 |")
+        lines.append("|------|------|---------|-----------|-----------|-----------|")
+        bt_sorted = bt.sort_values("trade_date", ascending=False).head(5)
+        for _, row in bt_sorted.iterrows():
+            date_str = str(row.get("trade_date", ""))
+            price = row.get("price", "-")
+            vol = row.get("vol", "-")
+            amount = row.get("amount", "-")
+            buyer = str(row.get("buyer", "-"))[:30]
+            seller = str(row.get("seller", "-"))[:30]
+            lines.append(f"| {date_str} | {price} | {vol} | {amount} | {buyer} | {seller} |")
+    else:
+        lines.append("*近 60 日无大宗交易记录*")
+
+    # §9 北向资金加权建仓成本 (v5.1.2 新增,合并入北向资金视角)
+    lines.extend([
+        "",
+        "## §9 北向资金加权建仓成本 (v5.1.2 新增)",
+        "",
+    ])
+    if "hsgt_avg_cost" in m:
+        lines.append(f"**加权平均建仓成本**: {m['hsgt_avg_cost']:.2f} 元 (基于 hk_hold 净增仓时点 × 当日收盘价)")
+        if "hsgt_latest_close" in m:
+            lines.append(f"**当前股价**: {m['hsgt_latest_close']:.2f} 元")
+        if "hsgt_pnl_pct" in m:
+            lines.append(f"**外资浮盈/浮亏**: {m['hsgt_pnl_pct']:+.2f}%")
+        if "hsgt_cost_signal" in m:
+            lines.append("")
+            lines.append(f"**信号**: {m['hsgt_cost_signal']}")
+        lines.append("")
+        lines.append("> 用途: 浮盈过大 = 减仓压力 (获利了结);浮亏 = 抛售风险预警。")
+    else:
+        lines.append("*北向资金成本无法推导 (hk_hold 或 daily_basic 数据不足)*")
+
+    # §10 综合控盘警示
+    lines.extend([
+        "",
+        "## §10 综合控盘警示 (供 Phase 3 §四 / §七 消费)",
         "",
     ])
     warnings = []
@@ -611,6 +763,13 @@ def _format_markdown(target_code: str, raw: dict, m: dict) -> str:
         warnings.append("🟢 **主力资金吸筹** — 近 20 日超大单+大单净流入天数 ≥14 日")
     if m.get("margin_vs_median", 0) > 30:
         warnings.append(f"⚠️ **两融杠杆拥挤** — 融资余额较近 60 日中位数高 {m['margin_vs_median']:.0f}%,若股价回调可能连锁平仓")
+    # v5.1.2: 大宗交易折价 + 外资浮亏
+    if m.get("block_trade_avg_discount_pct", 0) < -5:
+        warnings.append(f"🔴 **大宗交易显著折价 {m['block_trade_avg_discount_pct']:.1f}%** — 大额持有者抛售,关注未来 1-2 周抛压")
+    if m.get("hsgt_pnl_pct", 0) < -10:
+        warnings.append(f"🔴 **外资浮亏 {m['hsgt_pnl_pct']:.1f}%** — 加权建仓成本 {m.get('hsgt_avg_cost', 0):.2f},当前 {m.get('hsgt_latest_close', 0):.2f},抛售风险高")
+    elif m.get("hsgt_pnl_pct", 0) > 15:
+        warnings.append(f"⚠️ **外资浮盈 +{m['hsgt_pnl_pct']:.1f}%** — 获利了结压力,北向若开始减仓需警惕")
 
     if warnings:
         for w in warnings:
@@ -622,8 +781,8 @@ def _format_markdown(target_code: str, raw: dict, m: dict) -> str:
         "",
         "---",
         "",
-        f"*由 `scripts/capital_flow.py` 自动生成*",
-        f"*数据源: Tushare (moneyflow / hk_hold / margin_detail / top_list / top_inst / top10_floatholders / stk_holdernumber)*",
+        f"*由 `scripts/capital_flow.py` 自动生成 (v5.1.2: 10 段)*",
+        f"*数据源: Tushare (moneyflow / hk_hold / margin_detail / top_list / top_inst / block_trade / top10_floatholders / stk_holdernumber + daily_basic)*",
         f"*供 Phase 3 §四 公司基本面的 `### 主力控盘与筹码分析` 子节 + §七 网络舆情的 `### 资金流向信号` 子节消费*",
     ])
 

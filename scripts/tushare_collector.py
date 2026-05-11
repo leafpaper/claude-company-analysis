@@ -647,6 +647,83 @@ class TushareCollector:
         data_cache.put(key, df, extra={"api": "disclosure_date"})
         return df
 
+    # ---- v5.1.2 新增: 限售解禁 / 大宗交易 / 公告摘要 ----
+
+    def share_float(self, ts_code: str, future_days: int = 365) -> pd.DataFrame:
+        """限售股解禁明细。返回未来 future_days 天内的解禁计划(start_date=今天)。
+        字段: ts_code / ann_date / float_date / float_share / float_ratio / holder_name / share_type。
+        用途: 识别大股东解禁前的减持窗口(典型在解禁前 2-4 周)。
+        """
+        key = f"tushare_share_float_{ts_code}_{future_days}d"
+        cached = data_cache.get(key)
+        if cached is not None:
+            return cached
+        self._ensure_pro()
+        today = dt.date.today()
+        end = today + dt.timedelta(days=future_days)
+        df = self._call(
+            self._pro.share_float,
+            ts_code=ts_code,
+            start_date=today.strftime("%Y%m%d"),
+            end_date=end.strftime("%Y%m%d"),
+        )
+        data_cache.put(key, df, extra={"api": "share_float"})
+        return df
+
+    def block_trade(self, ts_code: str, days: int = 90) -> pd.DataFrame:
+        """大宗交易明细。近 days 天内的大宗交易记录。
+        字段: ts_code / trade_date / price / vol / amount / buyer / seller。
+        用途: 识别机构底部建仓 / 高位清仓的真实时点(比龙虎榜信号更干净)。
+        """
+        key = f"tushare_block_trade_{ts_code}_{days}d"
+        cached = data_cache.get(key)
+        if cached is not None:
+            return cached
+        self._ensure_pro()
+        today = dt.date.today()
+        start = today - dt.timedelta(days=days)
+        df = self._call(
+            self._pro.block_trade,
+            ts_code=ts_code,
+            start_date=start.strftime("%Y%m%d"),
+            end_date=today.strftime("%Y%m%d"),
+        )
+        data_cache.put(key, df, extra={"api": "block_trade"})
+        return df
+
+    def anns(self, ts_code: str, days: int = 90) -> pd.DataFrame:
+        """公司公告摘要(近 days 天)。
+        字段: ts_code / ann_date / title / url / type。
+        用途: WebSearch 只能找 top 3-5 条,容易漏关联交易/诉讼/高管变动;ann 接口结构化拉全部公告标题。
+        注: Tushare 此接口可能需要较高积分;接口名可能是 anns / ann_d / news_anns 等,需 fallback。
+        """
+        key = f"tushare_anns_{ts_code}_{days}d"
+        cached = data_cache.get(key)
+        if cached is not None:
+            return cached
+        self._ensure_pro()
+        today = dt.date.today()
+        start = today - dt.timedelta(days=days)
+        # 尝试常见接口名,降级链
+        df = pd.DataFrame()
+        for api_name in ("anns", "ann_d", "anns_d"):
+            api = getattr(self._pro, api_name, None)
+            if api is None:
+                continue
+            try:
+                df = self._call(
+                    api,
+                    ts_code=ts_code,
+                    start_date=start.strftime("%Y%m%d"),
+                    end_date=today.strftime("%Y%m%d"),
+                )
+                if not df.empty:
+                    break
+            except Exception:  # noqa: BLE001
+                continue
+        data_cache.put(key, df, extra={"api": "anns"})
+        return df
+
     # ---- 一键采集 ----
 
     def collect_all(self, ts_code: str, start_year: int = 2022) -> dict[str, pd.DataFrame]:
@@ -706,6 +783,19 @@ class TushareCollector:
             bundle["disclosure_date"] = self.disclosure_date(ts_code)
         except Exception:  # noqa: BLE001
             bundle["disclosure_date"] = pd.DataFrame()
+        # v5.1.2: 限售解禁 / 大宗交易 / 公告摘要
+        try:
+            bundle["share_float"] = self.share_float(ts_code, future_days=365)
+        except Exception:  # noqa: BLE001
+            bundle["share_float"] = pd.DataFrame()
+        try:
+            bundle["block_trade"] = self.block_trade(ts_code, days=90)
+        except Exception:  # noqa: BLE001
+            bundle["block_trade"] = pd.DataFrame()
+        try:
+            bundle["anns"] = self.anns(ts_code, days=90)
+        except Exception:  # noqa: BLE001
+            bundle["anns"] = pd.DataFrame()
         return bundle
 
 
