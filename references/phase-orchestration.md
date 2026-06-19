@@ -1,4 +1,4 @@
-# Phase 调度详细 Checklist (v5.1.3)
+# Phase 调度详细 Checklist (v6.0)
 
 > 本文件由主智能体在 Step 3 加载,详细说明每个 Phase 的调度顺序、工具调用方式、判定标准。SKILL.md 只引用本文件不重复。
 >
@@ -38,13 +38,16 @@
 
 ---
 
-## Phase 3: 综合分析(5 个 phase3-part sub-agent 串行 + assemble)
+## Phase 3: 综合分析(4 个 phase3-part sub-agent 串行 + assemble)
 
-**串行顺序固定**:`part2 → part3 → part4 → part5 → part1`(part1 最后,执行摘要依赖前 4 part 评分加权)
+**串行顺序固定**:`part2 → part3 → part4 → part1`(part1 最后,§一 执行摘要依赖 §四 评分加权 + §五 估值 + §六 风险)
+
+**章节边界**(真理来源 `scripts/assemble_report.py:PART_EXPECTED_SECTIONS`):
+part1=§一 · part2=§二/§三 · part3=§四/§五 · part4=§六/§七/§八。
 
 **调度 checklist**:
 
-对每个 N ∈ [2, 3, 4, 5, 1] 顺序:
+对每个 N ∈ [2, 3, 4, 1] 顺序:
 
 1. 用 Agent 工具启动 `phase3-part{N}`:
    - prompt 含 `output_dir / company / date / type / market / ticker / amount`
@@ -54,7 +57,7 @@
    - 启动新 phase3-partN sub-agent
    - prompt 注入"上一轮判定 FAIL,问题点: {主 agent 审到的具体问题}, 请重写"
    - 最多 1 次 fresh-restart;仍 FAIL → 转人工
-5. 5 个 part 全部 PASS 后,用 Bash 跑 assemble_report.py:
+5. 4 个 part 全部 PASS 后,用 Bash 跑 assemble_report.py:
 
    ```bash
    python3 -m scripts.assemble_report \
@@ -62,9 +65,9 @@
        --parts-dir "output/{company}/" \
        --out "output/{company}/{company}-analysis-{date}.md"
    ```
-6. 检查脚本退出码 + 主报告 section 数 = 15
+6. 检查脚本退出码 + 主报告 section 数 = 8
 
-**质量门控**:每 part 自检 PASS + assemble 退出码 0 + 15 章节齐全 + Audit 红旗全部被引用
+**质量门控**:每 part 自检 PASS + assemble 退出码 0 + 8 章节齐全 + Audit 红旗全部被引用
 
 ---
 
@@ -116,7 +119,7 @@ python3 -m scripts.anti_lazy_lint output/{company}/{company}-analysis-{date}.md
 
    脚本会:
    - 读 round_1_*.md 提取 PASS/FAIL + FIX 列表
-   - 合并 FIX(P1-P5 分组,去重)
+   - 合并 FIX(P1-P4 分组,去重)
    - 计算 part 文件 diff signature(md5)
    - 如果是 round > 1:对比上轮 signature → 若重复标 "diff_repeat"
    - 输出 JSON: `{"overall_pass": bool, "fix_applied": int, "diff_repeat": bool, "fix_list_path": "..."}`
@@ -145,7 +148,7 @@ git -C /tmp/Inves-Report add reports/*.html reports.json index.html
 git -C /tmp/Inves-Report commit -m "..." && git -C /tmp/Inves-Report push
 ```
 
-**质量门控**:anti_lazy_lint 4 项 PASS + reviewer 3 维度 PASS + HTML section 数 = 15
+**质量门控**:anti_lazy_lint 4 项 PASS + reviewer 3 维度 PASS + HTML section 数 = 8
 
 ---
 
@@ -165,5 +168,5 @@ git -C /tmp/Inves-Report commit -m "..." && git -C /tmp/Inves-Report push
 
 - 工具 schema 真实参数:见 SKILL.md 顶部"调度协议"段(本文件不重复)
 - reviewer FIX 指令 schema:`reviewer-{narrative,valuation,redflag}.md` 各自定义
-- 章节 → Part 映射:`scripts/assemble_report.py:33` `PART_EXPECTED_SECTIONS`(真理来源)
+- 章节 → Part 映射:`scripts/assemble_report.py` 的 `PART_EXPECTED_SECTIONS`(真理来源)
 - review_loop.py 接口:见 `scripts/review_loop.py` 头部 docstring

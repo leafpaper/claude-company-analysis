@@ -4,6 +4,36 @@
 
 ---
 
+## [v6.0] — 2026-06-20 — 报告 13→8 章节精简 + 残留清理
+
+> **主题**: 报告"过于多余"。反复瘦身(v4.1 / v5.1.4)留下大量未清理残留——删了 Phase 4/5 阶段却没同步改文档/脚本/schema,报告里同一信息写两遍。本版做两层精简:**报告输出结构** + **skill 内部文件**,零信息丢失,只去重叠。
+
+### Changed (报告结构 13→8)
+
+- **章节合并**(`assets/templates/report-skeleton.md`,真理来源):
+  - 旧 §二 评分总览 + §六 10维度详细 → **§四 评分与维度证据**(每维度"分数+内联证据",取消"总览再详细"双写)
+  - 旧 §五 行业 + §八 可比对标 → **§三 行业与竞争对标**
+  - 旧 §九 估值 + §十 回报测算 → **§五 估值与回报**(共用情景,去重复情景表)
+  - 旧 §三 快筛 + 旧 §十三 audit 红旗 + 旧 §十一 致命看空 → **§六 风险与红旗审计**(集中"什么会杀死它")
+  - 旧 §十二 缺口 + 旧 §十三 来源 → **§八 数据来源与信息缺口**
+  - 旧 §十一 定性 3 框架 → 折入 §四(维度 6 护城河 / 维度 10 催化剂 / 末尾"定性综合判断")
+- **新 8 章节**: §一 执行摘要 / §二 公司基本面 / §三 行业与竞争对标 / §四 评分与维度证据 / §五 估值与回报 / §六 风险与红旗审计 / §七 舆情与市场情绪 / §八 数据来源与信息缺口
+- **phase3 写手 5→4**: `agents/phase3-part5.md` 删除;part1=§一 / part2=§二/§三 / part3=§四/§五 / part4=§六/§七/§八。sub-agent 总数 9→8。
+- 借鉴其它 skill 设计:**单一事实源**(`phase3-analysis-report.md` 不再逐章复写骨架,引用即可,~37KB→~18KB)、渐进披露(reference 按需加载)、执行摘要"决策仪表盘"优先。
+
+### Fixed (清理 Phase 4/5 删除后的残留)
+
+- **结构漂移修复**: 全仓 `15 章节 / 13 章节` → `8 章节`(`SKILL.md` 质量门控 / `phase-orchestration.md` / `assemble_report.py` / `build_html.py` / `report-checklist.json`)。`build_html.py` section 槽位改为从 `base.html` 动态发现。`anti_lazy_lint.py` MIN_SECTION_CHARS 重 calibrate 到 8 章节。
+- **功能性 bug**: `review_loop.py` 硬编码 5 个 part 文件 md5(会因缺 `phase3-part5.md` 崩)→ 改 4 part;`test_assemble_report.py` 5-part 旧章节夹具 → 4-part 新章节;`install.sh` 引用已删 `phase4/5/persona/LEGACY` 文件(404)+ **从未下载 `agents/`(8 个 sub-agent)** + 漏 6 个关键脚本 → 全部补齐。
+- **过时文档**: 重写 `README.md`(去 v4.1 角色/差异化/15章节) + `phase3-analysis-report.md` + `phase6-review-publish.md`(审核项 23→20,去 persona/variant 校验);删 `references/report-template.LEGACY.md`(20KB 死文件)+ `assets/validation/insight-card-schema.json`(Phase 5 死 schema)。
+- `exec-summary-schema.md` 字段 6 去除对已删 Phase 5 的依赖,改"核心非共识判断(可选)"。
+
+### Notes
+
+- Phase 7 量化监控仍可用,但其 Phase 5 洞察证伪解析为休眠态(`scripts/monitor.py` / `report_parser.py`),待 v5.3 规划的量化系统升级一并重做。
+
+---
+
 ## [v5.1.3] — 2026-05-04 — 紧急修复:删除不存在的 Agent API
 
 > **主题**: 代码 review 发现 v5.1.0-1 整套调度协议建立在**不存在的 Agent 工具参数**之上,实际跑会立刻失败。原因:照搬外部参考"主智能体提示词.md"里的 `Agent(resume=ID, ...)` 写法,**未验证** Claude Code 实际工具 schema(`resume` 参数不存在)。

@@ -1,9 +1,9 @@
 ---
 name: reviewer-redflag
 description: |
-  v5.1.1 拆分版 reviewer (维度 3 红旗闭环). 与 reviewer-narrative / reviewer-valuation
-  并行. 只做 1 个核心检查: audit_report 每条 🔴 致命 + 🟠 高级红旗,在主报告至少 3 处
-  出现(§一 Top 3 / §三 快筛 / §十一 致命检查 / §六 维度 7-8). 只读不改.
+  reviewer (维度 3 红旗闭环). 与 reviewer-narrative / reviewer-valuation 并行.
+  只做 1 个核心检查: audit_report 每条 🔴 致命 + 🟠 高级红旗,在主报告至少 3 处出现
+  (§一 Top 3 / §六 快筛 / §六 致命论证 / §四 维度 7-8). 只读不改.
   使用场景:
   - SKILL.md Phase 6 Part A.5 (与另两个 reviewer 并行)
 tools: Read, Grep
@@ -21,7 +21,7 @@ model: inherit
 ## 必读
 
 1. `{artifacts_dir}/audit_report.md` (★ 提取 🔴 致命 + 🟠 高级红旗清单)
-2. `{report_path}` 主报告(尤其 §一 / §三 / §六 / §十一 / §十三 — v5.1.4 起 §十三 = 旧 §十五 数据可审计性)
+2. `{report_path}` 主报告(尤其 §一 / §四 / §六 — §六 = 风险与红旗审计集中章节)
 
 ## 维度 3: 红旗闭环规则
 
@@ -30,23 +30,22 @@ model: inherit
 | 位置 | 必含/可选 | 示例 |
 |---|---|---|
 | §一 Top 3 风险 | **必含** | "OCF/NI=0.18 现金流质量隐忧" |
-| §三 致命看空快筛 | **适用时必含** | OCF/NI<0.2 / PB-ROE 错配 等条款触发 |
-| §十一 致命看空检查 | **必含** | "audit 红旗 #N: ..." |
-| §六 维度 7 财务健康 / 维度 8 估值合理性 | **可选,深度引用** | 详细论述 |
+| §六 6.1 致命看空快筛 | **适用时必含** | OCF/NI<0.2 / PB-ROE 错配 等条款触发 |
+| §六 6.3 致命看空论证 | **必含** | "audit 红旗 #N: ..." |
+| §四 维度 7 财务健康 / 维度 8 估值合理性 | **可选,深度引用** | 详细论述 |
 
 若漏掉任一红旗(致命/高级)未达 3 处 → FAIL,标具体红旗 + audit_report.md 行号 + 应出现位置.
 
-(中级 🟡 红旗不强制 3 处,但应在 §十三 audit 红旗汇总章节列出 — v5.1.4 起 §十三 = 旧 §十五)
+(中级 🟡 红旗不强制 3 处,但应在 §六 6.2 audit 红旗汇总段列出)
 
 ## 章节 → Part 文件映射(FIX 必用)
 
 | 章节 | Part 文件 | P 编号 |
 |---|---|:-:|
-| §一/§二/§三 | phase3-part1.md | P1 |
-| §四/§五 | phase3-part2.md | P2 |
-| §六/§七/§八 | phase3-part3.md | P3 |
-| §九/§十/§十一 | phase3-part4.md | P4 |
-| §十二 / §十三 | phase3-part5.md | P5 |
+| §一 | phase3-part1.md | P1 |
+| §二 / §三 | phase3-part2.md | P2 |
+| §四 / §五 | phase3-part3.md | P3 |
+| §六 / §七 / §八 | phase3-part4.md | P4 |
 
 ## 输出格式(★ 严格 schema)
 
@@ -58,7 +57,7 @@ model: inherit
 
 (PASS 时本段省略)
 
-**lessons (≥0 条,可选)**: 本次红旗闭环检查踩到的非显然坑(如某种红旗只在 §十三 audit 汇总列出但不在 §一/§三/§十一 引用的情况、或 audit 行号定位失败的边界等),由主 agent append。无则省略。
+**lessons (≥0 条,可选)**: 本次红旗闭环检查踩到的非显然坑(如某种红旗只在 §六 6.2 汇总列出但不在 §一/§六 6.3 引用的情况、或 audit 行号定位失败的边界等),由主 agent append。无则省略。
 - (如有)
 ```
 

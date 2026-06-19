@@ -1,16 +1,16 @@
 """MD → HTML 报告构建器 (v4.6.1).
 
-修复 v4.6 的 3 个问题:
-1. MD 17 个 ## 章节 vs HTML 15 个 placeholder → 丢 2-3 个章节
-2. 粘性侧边栏改为顶部横排 metric-strip
+设计要点:
+1. section 槽位从 base.html 动态发现(v6.0 = 8 章节), MD ## 章节一一对应, 不丢章节
+2. 顶部横排 metric-strip + 前置评级三件套
 3. 规范化生成流程,不依赖 LLM inline Python
 
 核心流程:
 1. Read MD 按 ^## 切, 每段一个 section(preserve 所有章节)
 2. 解析结构化注释块(CARD_METADATA / RATING_TRIO_DATA / KEY_METRICS_SIDEBAR)
 3. Read base.html + styles.css, 内联 CSS
-4. 前 15 section 填入 base.html 的 section_1..15 固定占位(锚点 id 不变)
-5. 第 16+ section 追加到 extra_sections 占位(附录等)
+4. 固定 section 填入 base.html 的 section_1..N 占位(槽位数从 base.html 动态发现, v6.0 = 8)
+5. 超出固定槽位的 section 追加到 extra_sections 占位(附录等)
 6. 按 RATING_TRIO_DATA 注入 rating-trio 面板
 7. 按 KEY_METRICS_SIDEBAR 注入 metric-strip 面板
 8. 替换 hero meta ({{company_name}}/{{ticker}}/etc)
@@ -179,7 +179,7 @@ def build_html(
     company: str,
     ticker: str = "",
     report_date: str = "",
-    version: str = "v4.6",
+    version: str = "v6.0",
 ) -> str:
     md_text = md_path.read_text(encoding="utf-8")
 
@@ -254,9 +254,12 @@ def build_html(
         preamble_html or "<!-- 无 preamble 内容 -->",
     )
 
-    # 9. 填 15 个固定 section placeholder + extra_sections
-    # v4.7 fix #5: 每个 section_{i}_* 占位必须唯一,出现 0 或 >1 次都 fail
-    for i in range(1, 16):
+    # 9. 填固定 section placeholder + extra_sections
+    # v6.0: section 槽位从 base.html 动态发现 (不再硬编码 15), 占位数随骨架章节数自适应。
+    # 每个 section_{i}_* 占位必须唯一,出现 0 或 >1 次都 fail (silent loss 风险, v4.7 fix #5)
+    section_slots = sorted(set(int(m) for m in re.findall(r"section_(\d+)_\w+", html)))
+    n_slots = len(section_slots)
+    for i in section_slots:
         pattern = rf"<!-- PLACEHOLDER: section_{i}_\w+ -->"
         matches = re.findall(pattern, html)
         if len(matches) != 1:
@@ -272,15 +275,15 @@ def build_html(
             empty = f"<!-- 第 {i} 章节未填充 -->"
             html = re.sub(pattern, lambda m, e=empty: e, html, count=1)
 
-    # 10. 额外 section(第 16+)追加到 extra_sections
-    # v4.7 fix #6: extra_sections 占位必须存在,否则第 16+ 章静默丢失
+    # 10. 额外 section(超出固定槽位的)追加到 extra_sections
+    # v4.7 fix #6: extra_sections 占位必须存在,否则附录章静默丢失
     if "<!-- PLACEHOLDER: extra_sections -->" not in html:
         raise AssertionError(
-            "base.html 缺 extra_sections 占位 — 第 16+ 章节会静默丢失 (v4.7 fix #6)"
+            "base.html 缺 extra_sections 占位 — 附录章节会静默丢失 (v4.7 fix #6)"
         )
     extra_parts = []
-    for idx, (title, body_md) in enumerate(sections[15:], start=16):
-        section_id = f"extra-{idx - 15}"
+    for idx, (title, body_md) in enumerate(sections[n_slots:], start=n_slots + 1):
+        section_id = f"extra-{idx - n_slots}"
         extra_parts.append(
             f'<div class="section" id="{section_id}">\n'
             f"<h2>{title}</h2>\n{md_to_html(body_md)}\n</div>"
@@ -314,7 +317,7 @@ def main():
     ap.add_argument("--md", help="MD 路径 (默认自动找最新)")
     ap.add_argument("--out", help="输出 HTML 路径 (默认同目录同名 .html)")
     ap.add_argument("--ticker", default="", help="ticker(默认从 MD title 抽)")
-    ap.add_argument("--version", default="v4.7", help="skill 版本号")
+    ap.add_argument("--version", default="v6.0", help="skill 版本号")
     ap.add_argument("--skip-lint", action="store_true", help="跳过 anti_lazy_lint(不推荐, 仅 debug 用)")
     args = ap.parse_args()
 

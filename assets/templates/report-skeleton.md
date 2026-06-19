@@ -4,11 +4,11 @@
 **报告期**: {{data_coverage}}
 **最新收盘**: {{latest_close}} 元（{{latest_date}}）
 **总市值**: {{market_cap}} 亿元 · PB {{pb}} · {{pe_display}}
-**分析师**: Claude Opus 4.7 · Skill v{{skill_version}}
+**分析师**: Claude Opus 4.8 · Skill v{{skill_version}}
 
-<!-- v4.6 HTML 生成锚点: 供 Phase 6 Part B Step 3.5 抽取以下字段填充前置评级卡 + 侧边栏
-     供 Phase 6 Part C Step 4 生成 card-metadata.json
-     LLM 写报告时务必让下列字段在正文中可找到(典型位置: §一 执行摘要 / §九 估值 / §十 回报) -->
+<!-- v6.0 HTML 生成锚点: 供 Phase 6 Part B 抽取以下字段填充前置评级卡 + 顶部指标条
+     供 update_index.py 生成主页卡片 metadata
+     LLM 写报告时务必让下列字段在正文中可找到(典型位置: §一 执行摘要 / §五 估值与回报) -->
 
 <!-- RATING_TRIO_DATA:
   composite_score: {{composite_score}}      (例 4.0)
@@ -48,11 +48,13 @@
 
 ## §一 执行摘要
 
+> 按 `assets/templates/exec-summary-schema.md` 的固定字段展开。这是全报告的决策仪表盘——读者只读本节即可掌握结论。
+
 **一句话结论**: {{one_line_conclusion_with_direction}}
 
 **估值锚**: **{{valuation_anchor}} 亿元 / {{anchor_price}} 元**（DCF 概率加权；{{scenario_count}} 情景）。当前 {{latest_close}} 元相对此锚 {{anchor_delta}}%。
 
-**综合评分**: **{{composite_score}}/10** · **数据置信度**: {{confidence_level}}
+**综合评分**: **{{composite_score}}/10** · **数据置信度**: {{confidence_level}}（与 §四 评分表加总一致）
 
 **三大风险（Top 3）**:
 1. {{risk_1}}
@@ -64,14 +66,91 @@
 2. {{opportunity_2}}
 3. {{opportunity_3}}
 
-**核心非共识观点**（来自 §十一 差异化洞察）:
+**核心非共识判断**（1-3 条，可选——本报告与市场共识的关键分歧）:
 1. {{insight_1_title}}
-2. {{insight_2_title}}
-3. {{insight_3_title}}
+
+**投资方向综合判定**: {{investment_verdict}}（看多 / 看空 / 中性-分歧；与 §四 定性综合判断对齐）
 
 ---
 
-## §二 事实评分总览（10 维度）
+## §二 公司基本面
+
+### 业务板块
+
+{{business_segments_table}}
+
+### 最新经营动态（近 12 个月关键事件）
+
+{{recent_events_table}}
+
+### 财务趋势表（近 3-5 年 + 最新季度）
+
+<!-- ★ 强制规则: 来源 data_snapshot.md §3 多年趋势完整表 -->
+<!-- ★ 必含 data_snapshot.md §1 中标注的"最新期"end_date 行 (例如 20260331); 严禁省略最新季度 -->
+<!-- ★ 严禁用 forecast_vip 预告口径替代 income.parquet 已有实际数据 (查 data_snapshot.md §4 forecast vs actual 对比) -->
+
+| 期末 | 营收 | YoY | 毛利率 | 净利率 | 归母净利 | ROE | 资产负债率 | 来源 |
+|------|-----:|----:|-----:|-----:|-------:|----:|----:|------|
+{{financial_trend_rows}}
+
+### 管理层前瞻信号（`forecast_vip` 解读）
+
+{{forecast_signal_analysis}}
+
+### 管理层与团队（`stk_managers` / `stk_rewards`）
+
+{{management_profile_and_alignment}}
+
+### 主力控盘与筹码分析（Read `capital_flow.md` + `data_snapshot.md` §5/§6/§7）
+
+<!-- ★ 强制规则: 来源 capital_flow.md + data_snapshot.md §5/§6/§7 -->
+<!-- ★ 必含: 十大股东 ≥ 9 行 (data_snapshot.md §5) + 十大流通股东 ≥ 9 行 (data_snapshot.md §6) -->
+<!-- ★ 若 data_snapshot.md §7 质押表非空, 必须 inline 完整质押明细 -->
+<!-- ★ 推荐 2 期对比展示股东持股变动 -->
+
+{{capital_flow_summary_table}}
+
+{{top10_float_holders_table}}
+
+{{chip_concentration_2x2}}
+
+### ★ 若核心资产被剥离的剩余资产清单（触发时必填）
+
+**触发判定**: {{sotp_trigger_status}}
+
+{{sotp_remaining_assets_table}}
+
+---
+
+## §三 行业与竞争对标
+
+### 行业规模与趋势
+
+{{industry_size_and_trends}}
+
+### Porter 五力分析
+
+{{porter_five_forces}}
+
+### A 股同行业对标（Read `peer_analysis.md`，自动采集）
+
+{{peer_comparison_table}}
+
+### 目标公司在 peer 中的分位
+
+{{peer_percentile_table}}
+
+### 硬判定对比洞察 + 海外同业补充（若适用）
+
+{{peer_insights_and_overseas}}
+
+---
+
+## §四 评分与维度证据
+
+> 评分表与逐维度证据合并在本节——分数即证据的索引，不再"总览"与"详细"两处重复。评分标尺见 `references/scoring-rubric.md`。
+
+### 10 维度加权评分
 
 | 维度 | 权重 | 分数(0-10) | 加权 |
 |------|:---:|:---:|:----:|
@@ -87,168 +166,61 @@
 | 10. 催化剂与时机 | 5% | {{score_10}} | {{weighted_10}} |
 | **合计** | 100% | – | **{{composite_score}}** |
 
-*详细证据见 §六。评分标尺见 `references/scoring-rubric.md`。表格严格 4 列（维度/权重/分数/加权分）——不添加"关键理由"列。*
+*表格严格 4 列（维度/权重/分数/加权分）——不添加"关键理由"列。*
 
----
+### 逐维度证据（每维度：分数 + 数据锚 + 判断）
 
-## §三 快速筛选（致命看空条款 - 6 项）
-
-| 条款 | 阈值 | 实际 | 触发? |
-|------|------|------|:----:|
-| 1. 单季 / 单年度净利 < -50% | 50% | {{screen_1_actual}} | {{screen_1_triggered}} |
-| 2. 资产负债率 > 70% | 70% | {{screen_2_actual}} | {{screen_2_triggered}} |
-| 3. 大股东累计质押 > 50% | 50% | {{screen_3_actual}} | {{screen_3_triggered}} |
-| 4. 审计机构连续 2 年变更 | 1 次 | {{screen_4_actual}} | {{screen_4_triggered}} |
-| 5. CFO 非正常离任 | 1 次 | {{screen_5_actual}} | {{screen_5_triggered}} |
-| 6. **Audit ≥ 2 个 🔴 红旗** | 2 | {{screen_6_actual}} | {{screen_6_triggered}} |
-
-**结果**: {{screen_summary}}
-
----
-
-## §四 公司基本面
-
-### 业务板块
-
-{{business_segments_table}}
-
-### 最新经营动态（近 12 个月关键事件）
-
-{{recent_events_table}}
-
-### 财务趋势表（近 3-5 年 + 最新季度）
-
-<!-- ★ v4.8 强制规则: 来源 data_snapshot.md §3 多年趋势完整表 -->
-<!-- ★ 必含 data_snapshot.md §1 中标注的"最新期"end_date 行 (例如 20260331); 严禁省略最新季度 -->
-<!-- ★ 严禁用 forecast_vip 预告口径替代 income.parquet 已有实际数据 (查 data_snapshot.md §4 forecast vs actual 对比) -->
-
-| 期末 | 营收 | YoY | 毛利率 | 净利率 | 归母净利 | ROE | 资产负债率 | 来源 |
-|------|-----:|----:|-----:|-----:|-------:|----:|----:|------|
-{{financial_trend_rows}}
-
-### 管理层前瞻信号（`forecast_vip` 解读）
-
-{{forecast_signal_analysis}}
-
-### 主力控盘与筹码分析（v4.4 — Read `capital_flow.md`; v4.8 — 同时 Read `data_snapshot.md` §5/§6/§7）
-
-<!-- ★ v4.8 强制规则: 来源 capital_flow.md + data_snapshot.md §5/§6/§7 -->
-<!-- ★ 必含: 十大股东 ≥ 9 行 (data_snapshot.md §5) + 十大流通股东 ≥ 9 行 (data_snapshot.md §6) -->
-<!-- ★ 若 data_snapshot.md §7 质押表非空, 必须 inline 完整质押明细 -->
-<!-- ★ 推荐 2 期对比展示股东持股变动 -->
-
-{{capital_flow_summary_table}}
-
-{{top10_float_holders_table}}
-
-{{chip_concentration_2x2}}
-
-### ★ 若核心资产被剥离的剩余资产清单（v4.2 触发时必填）
-
-**触发判定**: {{sotp_trigger_status}}
-
-{{sotp_remaining_assets_table}}
-
----
-
-## §五 行业与竞争格局
-
-### 行业规模与趋势
-
-{{industry_size_and_trends}}
-
-### Porter 五力分析（集中在本节，不重复到 §六 维度 3）
-
-{{porter_five_forces}}
-
-### 关键竞品对标
-
-{{key_competitor_summary}}
-
----
-
-## §六 10 维度详细证据
-
-### 维度 1 · 市场规模与结构（{{score_1}}/10）
+#### 维度 1 · 市场规模与结构（{{score_1}}/10）
 {{dim_1_evidence}}
 
-### 维度 2 · 商业模式（{{score_2}}/10）
+#### 维度 2 · 商业模式（{{score_2}}/10）
 {{dim_2_evidence}}
 
-### 维度 3 · 盈利能力（{{score_3}}/10）
+#### 维度 3 · 盈利能力（{{score_3}}/10）
 {{dim_3_evidence}}
 
-### 维度 4 · 产品与技术（{{score_4}}/10）
+#### 维度 4 · 产品与技术（{{score_4}}/10）
 {{dim_4_evidence}}
 
-### 维度 5 · 团队与管理层（{{score_5}}/10）
-
-#### 管理层利益对齐（`stk_rewards`）
-{{team_alignment}}
-
-#### 核心团队画像（`stk_managers`）
-{{team_profile}}
-
+#### 维度 5 · 团队与管理层（{{score_5}}/10）
 {{dim_5_evidence}}
 
-### 维度 6 · 市场进入与护城河（{{score_6}}/10）
+#### 维度 6 · 市场进入与护城河（{{score_6}}/10）
+
+**护城河判定**: {{moat_verdict}}
+
 {{dim_6_evidence}}
 
-### 维度 7 · 财务健康度（{{score_7}}/10）
+#### 维度 7 · 财务健康度（{{score_7}}/10）
 {{dim_7_evidence}}
 
-### 维度 8 · 估值合理性（{{score_8}}/10）
+#### 维度 8 · 估值合理性（{{score_8}}/10）
 {{dim_8_evidence}}
 
-### 维度 9 · 风险与治理（{{score_9}}/10）
+#### 维度 9 · 风险与治理（{{score_9}}/10）
 {{dim_9_evidence}}
 
-### 维度 10 · 催化剂与时机（{{score_10}}/10）
+#### 维度 10 · 催化剂与时机（{{score_10}}/10）
+
+**催化剂判定**: {{catalyst_verdict}}
+
 {{dim_10_evidence}}
 
----
+### 定性综合判断
 
-## §七 网络舆情与市场情绪
+> 综合护城河 / 管理层 / 催化剂三个维度的方向（≥ 2 同向 → 对应方向；否则"中性-分歧"），给出 §一 的"投资方向综合判定"。会计红旗见 §六，估值见 §五。
 
-### 看多派声音
+**护城河 → {{moat_verdict}}** · **管理层 → {{mgmt_verdict}}** · **催化剂 → {{catalyst_verdict}}**
 
-{{bull_sentiment_table}}
-
-### 看空派声音
-
-{{bear_sentiment_table}}
-
-### 资金流向信号（v4.4 — Read `capital_flow.md` §4/§5/§6）
-
-{{capital_flow_hsgt_margin_mainflow}}
+**综合方向**: **{{qualitative_overall}}**
 
 ---
 
-## §八 可比公司对标（v4.4 — Read `peer_analysis.md`）
+## §五 估值与回报
 
-### §8.1 A 股同行业对标（自动采集）
+> **方法论**: 以"**DCF 概率加权**"为唯一估值锚；可比 PE / PB 仅作交叉验证。投资回报情景与 DCF 共用同一套概率分布。
 
-{{peer_comparison_table}}
-
-### §8.2 目标公司在 peer 中的分位
-
-{{peer_percentile_table}}
-
-### §8.3 硬判定对比洞察
-
-{{peer_insights_list}}
-
-### §8.4 海外同业补充（若适用）
-
-{{overseas_peers_llm_filled}}
-
----
-
-## §九 估值与回报模拟
-
-> **方法论**: 以"**DCF 概率加权**"为唯一估值锚，§十（投资回报）沿用同一套情景。§9.2 可比 PE 和 PB 作为**交叉验证**而非独立锚。
-
-### 9.1 DCF 情景分析（v4.2 — {{scenario_count}} 情景）
+### 5.1 DCF 情景分析（{{scenario_count}} 情景）
 
 #### 乐观情景（{{weight_bull}}% 权重）
 {{scenario_bull_description}}
@@ -263,7 +235,7 @@
 
 {{scenario_bear_sotp_table}}
 
-#### 最差情景（{{weight_tail}}% 权重，若触发 Step 9.5）
+#### 最差情景（{{weight_tail}}% 权重，若触发）
 {{scenario_tail_description}}
 
 #### 估值锚（概率加权 DCF）
@@ -276,32 +248,25 @@
 | 最差 | {{valuation_tail}} | {{price_tail}} | {{weight_tail}}% | {{contrib_tail}} |
 | **概率加权** | **{{valuation_anchor}}** | **{{anchor_price}}** | 100% | {{valuation_anchor}} |
 
-### 9.2 交叉验证（仅互证，不纳入锚）
+### 5.2 交叉验证（仅互证，不纳入锚）
 
 - **可比 PE**: {{comparable_pe_calc}}
 - **有形 PB**: {{tangible_pb_calc}}
 - **自洽判定**: {{triangulation_consistency}}（差 < 10% ✅ / 10-20% ⚠ / > 20% 🔴）
 
-### 9.3 估值异常
+### 5.3 估值异常 + 技术面位置（Read `technical_analysis.md`）
 
 {{valuation_anomalies}}
-
-### 9.4 技术面位置（v4.4 — Read `technical_analysis.md`）
 
 {{technical_summary_table}}
 
 {{support_resistance_levels}}
 
-**基本面 × 技术面配合判断**:
+**基本面 × 技术面配合判断**: {{fundamental_technical_combo_judgment}}
 
-{{fundamental_technical_combo_judgment}}
+### 5.4 投资回报测算（与 5.1 共用情景）
 
----
-
-## §十 投资回报测算（与 §九 共用情景）
-
-**初始仓位**: 100 万元人民币
-**当前买入**: {{latest_close}} 元 × {{shares_bought}} 股
+**初始仓位**: {{amount}} 元人民币 · **当前买入**: {{latest_close}} 元 × {{shares_bought}} 股
 
 | 情景 | 目标价 | 收益率 | 概率 | 加权 |
 |------|:---:|:---:|:----:|:---:|
@@ -315,49 +280,24 @@
 
 ---
 
-## §十一 定性判断（3 框架，v4.1 — 无打分）
+## §六 风险与红旗审计
 
-> *会计红旗检查见 `audit_report.md`（Buffett Quality + Sloan Accrual 框架已自动扫描）；估值分析见 §九。*
+> 集中回答"什么会杀死这笔投资"：致命看空快筛 + 11 框架审计红旗 + 治理风险，一处看全。
 
-### 框架 1 · 护城河（Moat）→ **{{moat_verdict}}**
-{{moat_analysis}}
+### 6.1 致命看空快筛（6 项量化阈值）
 
-### 框架 2 · 管理层（Management）→ **{{mgmt_verdict}}**
-{{mgmt_analysis}}
+| 条款 | 阈值 | 实际 | 触发? |
+|------|------|------|:----:|
+| 1. 单季 / 单年度净利 < -50% | 50% | {{screen_1_actual}} | {{screen_1_triggered}} |
+| 2. 资产负债率 > 70% | 70% | {{screen_2_actual}} | {{screen_2_triggered}} |
+| 3. 大股东累计质押 > 50% | 50% | {{screen_3_actual}} | {{screen_3_triggered}} |
+| 4. 审计机构连续 2 年变更 | 1 次 | {{screen_4_actual}} | {{screen_4_triggered}} |
+| 5. CFO 非正常离任 | 1 次 | {{screen_5_actual}} | {{screen_5_triggered}} |
+| 6. **Audit ≥ 2 个 🔴 红旗** | 2 | {{screen_6_actual}} | {{screen_6_triggered}} |
 
-### 框架 3 · 催化剂（Catalyst）→ **{{catalyst_verdict}}**
-{{catalyst_analysis}}
+**快筛结果**: {{screen_summary}}
 
-**综合判断**（3 框架中 ≥ 2 同向 → 对应方向；否则"中性-分歧"）: **{{qualitative_overall}}**
-
-**致命看空条款检查**: 见 §三 快筛结果（{{screen_summary_short}}）。
-
----
-
-## §十二 信息缺口与尽调优先级
-
-| # | 缺口 | 状态 | 可得性 | 影响的结论 |
-|---|------|:----:|:---:|------|
-{{info_gap_rows}}
-
----
-
-## §十三 数据可审计性（时效性 + 来源 3 类分组）
-
-**截止日期**: {{data_cutoff}}。**关键待披露**: {{pending_disclosures}}。
-
-### [Tushare API]
-{{tushare_sources}}
-
-### [PDF 原文]
-{{pdf_sources}}
-
-### [WebSearch]
-{{websearch_sources}}
-
-**详细来源清单见 `phase1-data.md` §11**。
-
-### 审计红旗汇总（11 框架）
+### 6.2 审计红旗汇总（11 框架，Read `audit_report.md`）
 
 | 严重度 | 数量 | 代表性红旗 |
 |-------|:----:|------|
@@ -368,6 +308,53 @@
 
 完整清单: `audit_report.md`。
 
+### 6.3 致命看空论证
+
+> 把 6.1 触发项 + 6.2 高级红旗串成"空头核心逻辑链"。每条 🔴/🟠 红旗必须在此或 §一 Top 3 风险被引用闭环。
+
+{{fatal_short_thesis}}
+
 ---
 
-*本报告由 Claude Code company-analysis skill v{{skill_version}}（6+1 阶段流水线 + 11 大师框架审计）生成。禁止用于实际投资决策，仅作研究参考。*
+## §七 舆情与市场情绪
+
+### 看多派声音（≥ 3 条）
+
+{{bull_sentiment_table}}
+
+### 看空派声音（≥ 3 条）
+
+{{bear_sentiment_table}}
+
+### 资金流向信号（Read `capital_flow.md` §4/§5/§6）
+
+{{capital_flow_hsgt_margin_mainflow}}
+
+---
+
+## §八 数据来源与信息缺口
+
+**截止日期**: {{data_cutoff}}。**关键待披露**: {{pending_disclosures}}。
+
+### 数据来源（3 类分组）
+
+#### [Tushare API]
+{{tushare_sources}}
+
+#### [PDF 原文]
+{{pdf_sources}}
+
+#### [WebSearch]
+{{websearch_sources}}
+
+**详细来源清单见 `phase1-data.md` §11**。
+
+### 信息缺口与尽调优先级（≥ 3 条）
+
+| # | 缺口 | 状态 | 可得性 | 影响的结论 |
+|---|------|:----:|:---:|------|
+{{info_gap_rows}}
+
+---
+
+*本报告由 Claude Code company-analysis skill v{{skill_version}}（结构化数据 + 11 大师框架审计流水线）生成。禁止用于实际投资决策，仅作研究参考。*

@@ -11,24 +11,18 @@
 <body>
 
 <!-- ============================================================
-     Sticky 顶部导航栏 — 15 章节锚点
+     Sticky 顶部导航栏 — 8 章节锚点
      ============================================================ -->
 <nav class="top-nav">
   <a href="../../index.html" class="nav-brand">叶纸的投资报告</a>
   <a href="#exec-summary">摘要</a>
-  <a href="#scoring">评分</a>
-  <a href="#screening">快筛</a>
   <a href="#fundamentals">基本面</a>
-  <a href="#industry">行业</a>
-  <a href="#detail">详细</a>
+  <a href="#industry">行业对标</a>
+  <a href="#scoring">评分</a>
+  <a href="#valuation">估值回报</a>
+  <a href="#risk">风险红旗</a>
   <a href="#sentiment">舆情</a>
-  <a href="#peers">对标</a>
-  <a href="#valuation">估值</a>
-  <a href="#qualitative">定性</a>
-  <a href="#variant">洞察</a>
-  <a href="#personas">角色</a>
-  <a href="#gaps">缺口</a>
-  <a href="#sources">来源</a>
+  <a href="#sources">来源缺口</a>
 </nav>
 
 <div class="container">
@@ -38,7 +32,7 @@
      ============================================================ -->
 <header class="hero">
   <h1>{{company_name}}（{{ticker}}）投资分析报告</h1>
-  <div class="subtitle">Claude Opus 4.7 · company-analysis skill v{{skill_version}} · 6+1 阶段流水线 + 11 大师框架审计</div>
+  <div class="subtitle">Claude Opus 4.8 · company-analysis skill v{{skill_version}} · 结构化数据 + 11 大师框架审计</div>
   <div class="meta">
     <span>📅 {{report_date}}</span>
     <span>💵 收盘 {{latest_close}} 元</span>
@@ -49,22 +43,21 @@
 </header>
 
 <!-- ============================================================
-     v4.6.2 新增: Preamble 区 — 主报告第一个 ## 之前的 blockquote / 段落
-     (版本切换说明 / 数据截止注意 / meta 行的详细补充等),否则会丢失
+     Preamble 区 — 主报告第一个 ## 之前的 blockquote / 段落
      ============================================================ -->
 <div class="preamble">
 <!-- PLACEHOLDER: preamble -->
 </div>
 
 <!-- ============================================================
-     v4.6 新增: 前置评级三件套(Goldman 风格, hero 下方醒目位置)
+     前置评级三件套(Goldman 风格, hero 下方醒目位置)
      ============================================================ -->
 <div class="rating-trio">
 <!-- PLACEHOLDER: rating_trio - Phase 6 Part B 从主报告 §一 抽取 composite_score / anchor_price / expected_return 填充 -->
 </div>
 
 <!-- ============================================================
-     v4.6.1 关键指标横排面板(替代 v4.6 的粘性侧边栏,更简洁)
+     关键指标横排面板
      ============================================================ -->
 <div class="metric-strip">
 <!-- PLACEHOLDER: key_metrics - 5-8 个最关键指标, 每个一个 metric-chip -->
@@ -78,112 +71,62 @@
 </div>
 
 <!-- ============================================================
-     §二 评分总览（10 维度单列）
-     ============================================================ -->
-<div class="section" id="scoring">
-<!-- PLACEHOLDER: section_2_scoring -->
-</div>
-
-<!-- ============================================================
-     §三 快速筛选
-     ============================================================ -->
-<div class="section" id="screening">
-<!-- PLACEHOLDER: section_3_screening -->
-</div>
-
-<!-- ============================================================
-     §四 公司基本面（含剥离后剩余资产清单若触发）
+     §二 公司基本面（含剥离后剩余资产清单若触发）
      ============================================================ -->
 <div class="section" id="fundamentals">
-<!-- PLACEHOLDER: section_4_fundamentals -->
+<!-- PLACEHOLDER: section_2_fundamentals -->
 </div>
 
 <!-- ============================================================
-     §五 行业与竞争格局
+     §三 行业与竞争对标（行业格局 + 可比公司）
      ============================================================ -->
 <div class="section" id="industry">
-<!-- PLACEHOLDER: section_5_industry -->
+<!-- PLACEHOLDER: section_3_industry -->
 </div>
 
 <!-- ============================================================
-     §六 10 维度详细证据
+     §四 评分与维度证据（10 维度评分 + 逐维度证据 + 定性综合）
      ============================================================ -->
-<div class="section" id="detail">
-<!-- PLACEHOLDER: section_6_detail -->
+<div class="section" id="scoring">
+<!-- PLACEHOLDER: section_4_scoring -->
 </div>
 
 <!-- ============================================================
-     §七 网络舆情与市场情绪
+     §五 估值与回报（DCF + 交叉验证 + 技术面 + 回报测算）
+     ============================================================ -->
+<div class="section" id="valuation">
+<!-- PLACEHOLDER: section_5_valuation -->
+</div>
+
+<!-- ============================================================
+     §六 风险与红旗审计（致命看空快筛 + 11 框架红旗）
+     ============================================================ -->
+<div class="section" id="risk">
+<!-- PLACEHOLDER: section_6_risk -->
+</div>
+
+<!-- ============================================================
+     §七 舆情与市场情绪
      ============================================================ -->
 <div class="section" id="sentiment">
 <!-- PLACEHOLDER: section_7_sentiment -->
 </div>
 
 <!-- ============================================================
-     §八 可比公司对标
-     ============================================================ -->
-<div class="section" id="peers">
-<!-- PLACEHOLDER: section_8_peers -->
-</div>
-
-<!-- ============================================================
-     §九 估值与回报模拟
-     ============================================================ -->
-<div class="section" id="valuation">
-<!-- PLACEHOLDER: section_9_valuation -->
-</div>
-
-<!-- ============================================================
-     §十 投资回报测算（与 §九 共用情景）
-     ============================================================ -->
-<div class="section" id="invest-sim">
-<!-- PLACEHOLDER: section_10_invest_sim -->
-</div>
-
-<!-- ============================================================
-     §十一 定性判断（3 框架，无打分）
-     ============================================================ -->
-<div class="section" id="qualitative">
-<!-- PLACEHOLDER: section_11_qualitative -->
-</div>
-
-<!-- ============================================================
-     §十二 差异化洞察（紫色强调，9 字段卡片）
-     ============================================================ -->
-<div class="section variant-perception" id="variant">
-<!-- PLACEHOLDER: section_12_variant -->
-</div>
-
-<!-- ============================================================
-     §十三 多角色投资结论（Phase 4 回写）
-     ============================================================ -->
-<div class="section" id="personas">
-<!-- PLACEHOLDER: section_13_personas -->
-</div>
-
-<!-- ============================================================
-     §十四 信息缺口与尽调优先级
-     ============================================================ -->
-<div class="section" id="gaps">
-<!-- PLACEHOLDER: section_14_gaps -->
-</div>
-
-<!-- ============================================================
-     §十五 数据可审计性（时效性+来源+audit 红旗）
+     §八 数据来源与信息缺口
      ============================================================ -->
 <div class="section" id="sources">
-<!-- PLACEHOLDER: section_15_sources -->
+<!-- PLACEHOLDER: section_8_sources -->
 </div>
 
 <!-- ============================================================
-     v4.6.1: 附录/补丁章节追加区(避免 MD→HTML 内容丢失)
-     主报告 §十五 之后的所有 ## 章节(如"附录 v4 修订日志" / "v4.1 补丁")
-     Phase 6 Part B 必须追加到这里, 不得丢弃
+     附录/补丁章节追加区(避免 MD→HTML 内容丢失)
+     主报告 §八 之后的所有 ## 章节 Phase 6 Part B 必须追加到这里, 不得丢弃
      ============================================================ -->
 <!-- PLACEHOLDER: extra_sections -->
 
 <footer>
-  本报告由 Claude Code company-analysis skill v{{skill_version}} 生成 · 6+1 阶段流水线 · 11 大师框架审计<br>
+  本报告由 Claude Code company-analysis skill v{{skill_version}} 生成 · 结构化数据 + 11 大师框架审计<br>
   数据源：Tushare Pro / yfinance / 巨潮资讯 PDF / WebSearch · 不构成投资建议<br>
   <a href="https://github.com/leafpaper/claude-company-analysis">skill 代码</a> · <a href="https://github.com/leafpaper/Inves-Report">报告归档</a>
 </footer>

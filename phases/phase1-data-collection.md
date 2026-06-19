@@ -5,7 +5,7 @@
 > **🧭 你在这里**：[SKILL.md 协调器](../SKILL.md) → **Phase 1 数据采集** → Phase 2 文档精析
 >
 > **接收自**: SKILL.md Step 2 （已确认 `{company}`/`{type}`/`{market}`/`{ticker}` + 已建目录）
-> **输出给**: Phase 2（`raw_data/pdfs/` + `pdf_sections_*.json`）+ Phase 3（`raw_data/metrics.json` + `phase1-data.md`）+ Phase 5（`§11 信息缺口清单`）
+> **输出给**: Phase 2（`raw_data/pdfs/` + `pdf_sections_*.json`）+ Phase 3（`raw_data/metrics.json` + `phase1-data.md` + `§11 信息缺口清单` → 主报告 §八）
 > **质量门控**: `_manifest.json` 核心 4 bundle 不空 / `pdfs/` ≥1 份 / `§11` 缺口 ≥3 条
 
 ---
@@ -523,7 +523,7 @@ python3 -m scripts.derived_metrics output/{company}/raw_data/ --market {a|us|hk}
 
 ---
 
-## §11 信息缺口清单（★Phase 5 补查循环强接口）
+## §11 信息缺口清单（★主报告 §八 + Phase 6 Part D 缺口补查强接口）
 
 ### 11.1 强制要求
 
@@ -532,16 +532,16 @@ python3 -m scripts.derived_metrics output/{company}/raw_data/ --market {a|us|hk}
 | 字段 | 说明 | 示例 |
 |------|------|------|
 | 缺口项 | 缺什么信息 | "AI 玩具分项毛利率" |
-| 影响的结论 | 如果拿到数据，能验证/推翻哪个章节的哪条判断 | "洞察 #3 验证 / §5 维度 4 产品技术评分" |
+| 影响的结论 | 如果拿到数据，能验证/推翻哪个章节的哪条判断 | "§四 维度 4 产品技术评分 / §五 DCF 假设" |
 | **已尝试的查询（详细）** | **具体调用的接口/关键词/PDF 页码**，不能只写"查过了" | "Tushare:fina_mainbz(ts_code='002862.SZ', start_year=2022)—返回 0 行；PDF annual_2024.pdf Page 12-20 正则 '玩具.*毛利'—无匹配" |
 | 当前状态 | ✅已解决 / ⚠️部分 / ❌未找到 | ❌未找到 |
 | 信息可得性判断 | 原则上是否能公开获取 | 高 / 中 / 低 / 原则上不可得 |
 
 ### 11.2 强制最少条目
 
-**§11 至少列出 3 条缺口**，即使全部标 ✅已解决。这是为 Phase 5 提供审计接口。
+**§11 至少列出 3 条缺口**，即使全部标 ✅已解决。这是为主报告 §八 + Phase 6 Part D 提供审计接口。
 
-**若 Phase 1 声明"无明显缺口"** → Phase 5 将自动降级报告置信度并触发 Part D 反向检查。
+**若 Phase 1 声明"无明显缺口"** → Phase 6 将自动降级报告置信度并触发 Part D 反向检查。
 
 ### 11.3 缺口记录模板（必用）
 
@@ -592,4 +592,4 @@ python3 -m scripts.derived_metrics output/{company}/raw_data/ --market {a|us|hk}
 - [ ] §8 舆情 ≥ 8 条、覆盖 ≥ 2 个独立平台
 - [ ] 所有关键财务数据都附 `[Tushare:*]` 或 `[PDF:*]` 标签
 - [ ] 无任何 `[证券之星算法]` / `[财经网摘要]` 充当关键数据来源
-- [ ] §11 信息缺口清单为 Phase 5 补查循环准备好入口
+- [ ] §11 信息缺口清单为主报告 §八 + Phase 6 缺口补查准备好入口

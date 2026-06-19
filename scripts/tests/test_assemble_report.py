@@ -1,7 +1,8 @@
-"""单元测试: scripts.assemble_report
+"""单元测试: scripts.assemble_report (v6.0 — 8 章节 / 4 part)
 
 运行:
     python3 -m scripts.tests.test_assemble_report
+    或  python3 -m pytest scripts/tests/test_assemble_report.py
 """
 from __future__ import annotations
 
@@ -24,45 +25,37 @@ def _make_part(idx: int, sections: list[str], extra: str = "") -> str:
 
 
 class TestValidatePart(unittest.TestCase):
-    def test_part1_with_required_sections(self):
-        content = _make_part(1, ["## §一 执行摘要", "## §二 事实评分总览", "## §三 快速筛选"])
+    def test_part1_with_required_section(self):
+        content = _make_part(1, ["## §一 执行摘要"])
         issues = assemble_report.validate_part(1, content)
         self.assertEqual(issues, [])
 
     def test_part2_missing_section_raises(self):
-        content = _make_part(2, ["## §四 公司基本面"])  # 缺 §五
+        content = _make_part(2, ["## §二 公司基本面"])  # 缺 §三
         issues = assemble_report.validate_part(2, content)
         self.assertEqual(len(issues), 1)
-        self.assertIn("§五", issues[0])
+        self.assertIn("§三", issues[0])
 
-    def test_part4_section_十_with_space(self):
-        """§十 后跟空格 + 标题, 应通过"""
-        content = _make_part(4, ["## §九 估值与回报模拟", "## §十 投资回报测算", "## §十一 定性判断"])
+    def test_part4_all_sections(self):
+        content = _make_part(4, ["## §六 风险与红旗审计", "## §七 舆情与市场情绪", "## §八 数据来源与信息缺口"])
         issues = assemble_report.validate_part(4, content)
         self.assertEqual(issues, [])
 
-    def test_part4_only_十一_should_fail(self):
-        """如果只有 §十一 没有 §十, 应报错 (v4.8.1: 用正则边界匹配, §十一 不再假阳性命中 §十)"""
-        content = "## §九 估值与回报模拟\n\n## §十一 定性判断\n"
-        issues = assemble_report.validate_part(4, content)
-        self.assertTrue(any("§十" in i and "§十一" not in i for i in issues),
-                        f"应报缺 §十 但实际 issues={issues}")
-
     def test_part4_with_tab_after_section(self):
-        """v4.8.1 修 Bug 3: §十 后用 tab 代替空格也应识别 (原版硬编码尾部空格会失败)"""
-        content = "## §九 估值\n\n## §十\t投资回报测算\n\n## §十一 定性\n"
+        """§七 后用 tab 代替空格也应识别 (正则边界匹配, 不依赖尾部空格)"""
+        content = "## §六 风险\n\n## §七\t舆情\n\n## §八 来源\n"
         issues = assemble_report.validate_part(4, content)
-        self.assertEqual(issues, [], "§十 后跟 tab 应被正则识别")
+        self.assertEqual(issues, [], "§七 后跟 tab 应被正则识别")
 
     def test_part4_with_multiple_spaces(self):
-        """v4.8.1: §十 后多个空格(常见手抖)也应识别"""
-        content = "## §九 估值\n\n## §十   投资回报\n\n## §十一 定性\n"
+        """§七 后多个空格(常见手抖)也应识别"""
+        content = "## §六 风险\n\n## §七   舆情\n\n## §八 来源\n"
         issues = assemble_report.validate_part(4, content)
-        self.assertEqual(issues, [], "§十 后多空格应被正则识别")
+        self.assertEqual(issues, [], "§七 后多空格应被正则识别")
 
-    def test_section_十_at_end_of_line_no_title(self):
-        """§十 后无标题(行末)也应识别(罕见但合法)"""
-        content = "## §九 估值\n\n## §十\n\n内容\n\n## §十一 定性\n"
+    def test_section_at_end_of_line_no_title(self):
+        """§标题 后无正文化标题(行末)也应识别(罕见但合法)"""
+        content = "## §六\n\n内容\n\n## §七 舆情\n\n## §八 来源\n"
         issues = assemble_report.validate_part(4, content)
         self.assertEqual(issues, [])
 
@@ -98,45 +91,45 @@ class TestExtractMetadataBlocks(unittest.TestCase):
 
 
 class TestAssembleEndToEnd(unittest.TestCase):
-    def test_assemble_5_parts_writes_final(self):
+    def test_assemble_4_parts_writes_final(self):
         with tempfile.TemporaryDirectory() as td:
             d = Path(td)
-            # 构造 5 个 part 文件 (含必需章节)
-            (d / "phase3-part1.md").write_text(_make_part(1, ["## §一 执行摘要", "## §二 评分", "## §三 快筛"]))
-            (d / "phase3-part2.md").write_text(_make_part(2, ["## §四 基本面", "## §五 行业"]))
-            (d / "phase3-part3.md").write_text(_make_part(3, ["## §六 维度", "## §七 舆情", "## §八 Peer"]))
-            (d / "phase3-part4.md").write_text(_make_part(4, ["## §九 估值", "## §十 回报", "## §十一 定性"]))
-            (d / "phase3-part5.md").write_text(_make_part(5, ["## §十二 洞察", "## §十三 角色", "## §十四 缺口", "## §十五 来源"]))
+            # 构造 4 个 part 文件 (含必需章节, v6.0 = 8 章节)
+            (d / "phase3-part1.md").write_text(_make_part(1, ["## §一 执行摘要"]), encoding="utf-8")
+            (d / "phase3-part2.md").write_text(_make_part(2, ["## §二 公司基本面", "## §三 行业与竞争对标"]), encoding="utf-8")
+            (d / "phase3-part3.md").write_text(_make_part(3, ["## §四 评分与维度证据", "## §五 估值与回报"]), encoding="utf-8")
+            (d / "phase3-part4.md").write_text(_make_part(4, ["## §六 风险与红旗审计", "## §七 舆情与市场情绪", "## §八 数据来源与信息缺口"]), encoding="utf-8")
             out = d / "final.md"
-            ret = assemble_report.assemble("TestCo", "2026-04-27", d, out)
+            ret = assemble_report.assemble("TestCo", "2026-06-20", d, out)
             self.assertEqual(ret, 0)
             self.assertTrue(out.exists())
-            content = out.read_text()
-            # 章节齐全
-            for sec_name in ("§一", "§五", "§十", "§十五"):
+            content = out.read_text(encoding="utf-8")
+            # 8 章节齐全
+            for sec_name in ("§一", "§四", "§六", "§八"):
                 self.assertIn(sec_name, content)
+            # section 数 = 8
+            self.assertEqual(content.count("\n## §"), assemble_report.EXPECTED_SECTION_COUNT)
 
     def test_assemble_missing_part_returns_1(self):
         with tempfile.TemporaryDirectory() as td:
             d = Path(td)
-            # 只写 4 个 part
-            for i in range(1, 5):
-                (d / f"phase3-part{i}.md").write_text(f"## §{i} test\n")
+            # 只写 3 个 part (缺 part4)
+            for i in range(1, 4):
+                (d / f"phase3-part{i}.md").write_text(f"## §{i} test\n", encoding="utf-8")
             out = d / "final.md"
-            ret = assemble_report.assemble("TestCo", "2026-04-27", d, out)
+            ret = assemble_report.assemble("TestCo", "2026-06-20", d, out)
             self.assertEqual(ret, 1)
 
     def test_assemble_missing_section_validation_fails(self):
         with tempfile.TemporaryDirectory() as td:
             d = Path(td)
-            # part2 缺 §五
-            (d / "phase3-part1.md").write_text(_make_part(1, ["## §一", "## §二", "## §三"]))
-            (d / "phase3-part2.md").write_text("## §四 基本面\n仅 §四, 缺 §五\n")
-            (d / "phase3-part3.md").write_text(_make_part(3, ["## §六", "## §七", "## §八"]))
-            (d / "phase3-part4.md").write_text(_make_part(4, ["## §九", "## §十 ", "## §十一"]))
-            (d / "phase3-part5.md").write_text(_make_part(5, ["## §十二", "## §十三", "## §十四", "## §十五"]))
+            # part2 缺 §三
+            (d / "phase3-part1.md").write_text(_make_part(1, ["## §一 执行摘要"]), encoding="utf-8")
+            (d / "phase3-part2.md").write_text("## §二 公司基本面\n仅 §二, 缺 §三\n", encoding="utf-8")
+            (d / "phase3-part3.md").write_text(_make_part(3, ["## §四 评分", "## §五 估值"]), encoding="utf-8")
+            (d / "phase3-part4.md").write_text(_make_part(4, ["## §六 风险", "## §七 舆情", "## §八 来源"]), encoding="utf-8")
             out = d / "final.md"
-            ret = assemble_report.assemble("TestCo", "2026-04-27", d, out)
+            ret = assemble_report.assemble("TestCo", "2026-06-20", d, out)
             self.assertEqual(ret, 1, "缺章节应返回 1")
 
 
