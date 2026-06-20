@@ -207,3 +207,14 @@ ls -la output/{company}/raw_data/pdf_sections_*.json
 - [ ] §3 子公司表至少列出 3 家子公司（年报一般有，季报可能省略）
 - [ ] §8 高价值事实锚点 ≥ 5 条，每条都标注了后续 phase 的引用位置
 - [ ] 没有写"无文档模式"字样——Phase 1 已经下载了 PDF，不存在"无文档"
+
+## Step 6: 机器门控（★主 agent 必跑，退出 1 即回 Step 4 补写）
+
+写完 phase2-documents.md 后，主 agent 跑：
+
+```bash
+python3 -m scripts.check_phase2 --md output/{company}/phase2-documents.md
+```
+
+确定性校验 3 条硬规则：§1-§8 章节齐全 / §2 带 `[PDF:]` 原文引用 ≥3 行 / §8 锚点表 ≥5 行带来源标签。
+退出码 0 → 进 Phase 3；退出码 1 → 按报告补写 phase2-documents.md 后重跑。**这取代了 Phase 2 旧的"全靠主 agent 自查"——现在和 check_env / anti_lazy_lint 一样是机器门控。**

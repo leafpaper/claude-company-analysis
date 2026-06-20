@@ -33,8 +33,9 @@
 1. 主 agent 读 `pdfs/*.pdf` + `pdf_sections_*.json`
 2. 精读 6 个高价值 section(income_statement_changes / subsidiaries / MD&A / 风险因素 / 非经常性损益 / 关联交易)
 3. 写 `output/{company}/phase2-documents.md`
+4. 跑 `python3 -m scripts.check_phase2 --md output/{company}/phase2-documents.md`;退出 1 → 补写后重跑
 
-**质量门控**:§2 利润表变动 ≥ 3 行原文引用;每份 PDF 都被列出
+**质量门控**:`check_phase2` 退出码 0(§1-§8 齐全 + §2 [PDF:] 原文引用≥3 + §8 锚点≥5);每份 PDF 都被列出
 
 ---
 

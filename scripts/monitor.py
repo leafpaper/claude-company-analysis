@@ -1,8 +1,10 @@
 """Quantitative monitor for Phase 7.
 
 Compares a historical analysis report (baseline) against fresh Tushare/yfinance
-data to identify material changes and trigger falsification checks on Phase 5
-insights.
+data to identify material changes (≥10%) and a next-disclosure date, and emits a
+machine-filled §1/§3/§4 brief. The §2 证伪检查 (非共识判断 / 红旗) is left as an
+LLM-fill stub for the Phase 7 主 agent — it reads the baseline report §一 核心非共识判断
++ §六 致命看空论证 and judges falsification qualitatively (脚本不再解析已删除的 Phase 5 洞察卡).
 
 Usage:
     from scripts.monitor import Monitor
@@ -24,7 +26,7 @@ from pathlib import Path
 from typing import Any
 
 from . import config
-from .report_parser import parse_report, extract_insights, MetricPoint, InsightPoint
+from .report_parser import parse_report, MetricPoint
 
 
 # Material-change threshold
@@ -44,16 +46,6 @@ class ChangeRecord:
 
 
 @dataclass
-class InsightCheck:
-    insight_index: int
-    title: str
-    level: str
-    falsification: str
-    triggered: str  # "✅ 未触发" / "❌ 已触发" / "⚠️ 数据不足"
-    evidence: str
-
-
-@dataclass
 class MonitorResult:
     company: str
     ticker: str
@@ -64,7 +56,6 @@ class MonitorResult:
     days_since_baseline: int | None
     material_changes: list[ChangeRecord]
     stable_metrics_count: int
-    insight_checks: list[InsightCheck]
     next_disclosure_date: str | None
     conclusion: str  # "维持" / "建议复评" / "重大修订"
     summary_markdown: str
@@ -76,15 +67,6 @@ def _find_latest_report(company_dir: Path) -> Path | None:
     """Find the most recent {company}-analysis-*.md file."""
     candidates = sorted(company_dir.glob("*-analysis-*.md"), reverse=True)
     return candidates[0] if candidates else None
-
-
-def _find_phase5_file(company_dir: Path) -> Path | None:
-    """Find phase5-variant-perception.md or legacy phase2.5-alpha-insights.md."""
-    for name in ["phase5-variant-perception.md", "phase2.5-alpha-insights.md"]:
-        p = company_dir / name
-        if p.exists():
-            return p
-    return None
 
 
 def _extract_report_date(report_path: Path) -> str | None:
@@ -268,51 +250,6 @@ def _compute_changes(
     return material, stable_count
 
 
-# ---------- Insight falsification checker ----------
-
-def _check_insights(
-    insights: list[InsightPoint],
-    fresh: dict[str, Any],
-) -> list[InsightCheck]:
-    """For each insight, inspect the falsification condition against fresh data.
-
-    NOTE: We can't fully automate all falsification checks (they're natural language),
-    but we can flag ones where the condition contains specific numeric thresholds.
-    """
-    import re
-    checks: list[InsightCheck] = []
-
-    for ins in insights:
-        fal = ins.falsification or ""
-        if not fal:
-            continue
-
-        # Try to find numeric thresholds like "< 2000 万" or "> 55%"
-        threshold_match = re.search(r"([<>≥≤]=?)\s*([-+]?\d[\d,.]*)\s*(万|亿|%|元|x|倍)?", fal)
-
-        triggered = "⚠️ 数据不足"
-        evidence = "（自动化检查仅能识别简单数值阈值；需人工复核）"
-
-        if threshold_match:
-            op = threshold_match.group(1)
-            thr = float(threshold_match.group(2).replace(",", ""))
-            unit = threshold_match.group(3)
-            # Try to find a related metric in fresh data by keyword from insight title/hypothesis
-            # This is heuristic — flags "potentially relevant" rather than conclusive
-            evidence = f"数值阈值: {op} {thr} {unit or ''}（需对照最新 {ins.title} 相关数据人工确认）"
-
-        checks.append(InsightCheck(
-            insight_index=ins.index,
-            title=ins.title[:80],
-            level=ins.level,
-            falsification=fal[:200],
-            triggered=triggered,
-            evidence=evidence,
-        ))
-
-    return checks
-
-
 # ---------- Summary generation ----------
 
 def _format_summary(result: MonitorResult) -> str:
@@ -347,17 +284,12 @@ def _format_summary(result: MonitorResult) -> str:
         "",
         "---",
         "",
-        "## §2 Phase 5 洞察证伪检查",
+        "## §2 非共识判断 / 红旗证伪检查",
+        "",
+        "> 由 Phase 7 主 agent(LLM)填写: 从基线报告 §一 核心非共识判断 + §六 致命看空论证",
+        "> 提取每条的证伪条件, 对照 §1 最新数据判断是否触发(✅ 未触发 / ❌ 已触发 / ⚠️ 数据不足)。",
         "",
     ]
-    if result.insight_checks:
-        lines.append("| # | 洞察标题 | Level | 证伪条件 | 状态 | 证据 |")
-        lines.append("|---|---------|:---:|---------|:---:|------|")
-        for ic in result.insight_checks:
-            lines.append(f"| #{ic.insight_index} | {ic.title} | {ic.level} | {ic.falsification[:100]} | {ic.triggered} | {ic.evidence[:100]} |")
-    else:
-        lines.append("*（未找到 Phase 5 洞察文件或无可解析洞察）*")
-
     lines += [
         "",
         "---",
@@ -380,11 +312,11 @@ def _format_summary(result: MonitorResult) -> str:
         "",
     ]
     if result.conclusion == "重大修订":
-        lines.append("⚠️ 多项关键指标变化幅度超过 10%，或 ≥2 条 Phase 5 洞察触发证伪。**建议立即重跑完整分析**。")
+        lines.append("⚠️ 多项关键指标变化幅度超过 10%(或 §2 主 agent 判断有证伪触发)。**建议立即重跑完整分析**。")
     elif result.conclusion == "建议复评":
-        lines.append("🟡 检测到部分重大变化或 1 条洞察触发证伪。**建议人工复核相关章节**。")
+        lines.append("🟡 检测到部分重大变化。**建议人工复核相关章节 + 完成 §2 证伪判断**。")
     else:
-        lines.append("✅ 所有指标稳定，无洞察证伪触发。**维持现有投资结论**。")
+        lines.append("✅ 所有指标稳定。**结合 §2 证伪判断后维持现有投资结论**。")
 
     return "\n".join(lines)
 
@@ -418,26 +350,18 @@ class Monitor:
         # 2. Parse baseline metrics
         baseline_metrics = parse_report(baseline_report)
 
-        # 3. Parse Phase 5 insights (falsification conditions)
-        phase5_file = _find_phase5_file(company_dir)
-        insights = extract_insights(phase5_file) if phase5_file else []
-
-        # 4. Fetch fresh data
+        # 3. Fetch fresh data
         fresh = _fetch_fresh_metrics(self.ticker, self.market)
 
-        # 5. Compare
+        # 4. Compare
         material_changes, stable_count = _compute_changes(
             baseline_metrics, fresh, self.change_threshold
         )
 
-        # 6. Check insights
-        insight_checks = _check_insights(insights, fresh)
-
-        # 7. Determine conclusion
-        triggered_count = sum(1 for ic in insight_checks if ic.triggered == "❌ 已触发")
-        if len(material_changes) >= 5 or triggered_count >= 2:
+        # 5. Determine conclusion (基于指标变化; §2 证伪由主 agent 复核后可上调)
+        if len(material_changes) >= 5:
             conclusion = "重大修订"
-        elif len(material_changes) >= 1 or triggered_count >= 1:
+        elif len(material_changes) >= 1:
             conclusion = "建议复评"
         else:
             conclusion = "维持"
@@ -452,7 +376,6 @@ class Monitor:
             days_since_baseline=days_since,
             material_changes=material_changes,
             stable_metrics_count=stable_count,
-            insight_checks=insight_checks,
             next_disclosure_date=fresh.get("next_disclosure"),
             conclusion=conclusion,
             summary_markdown="",  # filled below

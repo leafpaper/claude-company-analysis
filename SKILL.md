@@ -97,7 +97,7 @@ python3 -m scripts.check_env
 
 检查 `$ARGUMENTS`:
 - 含 `--monitor` 或用户说 "监控/复查" → **跳 Step 4 量化监控**
-- 其他 → 正常 6 阶段流水线
+- 其他 → 正常分析流水线 (Phase 1/2/3/6)
 
 ### 1.2 输入确认
 
@@ -167,7 +167,7 @@ Phase 1 (data-collector) → Phase 2 (主 agent) → Phase 3 (4 sub-agent 串行
 |:-:|---|---|
 | 0 | `python3 -m scripts.check_env` 退出码 | 0 |
 | 1 | `grep "^\*\*判定\*\*:" data_collector_response` | PASS / 部分降级 |
-| 2 | 主 agent 自查 §2 利润表变动行数 | ≥ 3 行原文 |
+| 2 | `python3 -m scripts.check_phase2 --md …phase2-documents.md` 退出码 | 0(§1-§8 齐全 + §2 [PDF:] 引用≥3 + §8 锚点≥5) |
 | 3.1-4 | `grep "^\*\*判定\*\*:" phase3_partN_response` | 每 part PASS |
 | 3 整体 | `assemble_report.py` 退出码 + section 数 | 0 + 8 章节 |
 | 6 Part A | `anti_lazy_lint` 退出码 | 0 |

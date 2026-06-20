@@ -60,36 +60,6 @@ class TestValidatePart(unittest.TestCase):
         self.assertEqual(issues, [])
 
 
-class TestExtractMetadataBlocks(unittest.TestCase):
-    def test_extracts_3_blocks(self):
-        part1 = """# 报告
-
-<!-- RATING_TRIO_DATA:
-  composite_score: 5.0
-  verdict: 中性
--->
-
-<!-- KEY_METRICS_SIDEBAR:
-  pe_ttm: 30
--->
-
-<!-- CARD_METADATA:
-  slug: TEST_测试
--->
-
-## §一 摘要
-"""
-        result = assemble_report.extract_metadata_blocks(part1)
-        self.assertIn("RATING_TRIO_DATA", result)
-        self.assertIn("KEY_METRICS_SIDEBAR", result)
-        self.assertIn("CARD_METADATA", result)
-
-    def test_missing_blocks_returns_empty(self):
-        part1 = "# 报告\n\n## §一 摘要\n"
-        result = assemble_report.extract_metadata_blocks(part1)
-        self.assertEqual(result, "")
-
-
 class TestAssembleEndToEnd(unittest.TestCase):
     def test_assemble_4_parts_writes_final(self):
         with tempfile.TemporaryDirectory() as td:
@@ -136,7 +106,7 @@ class TestAssembleEndToEnd(unittest.TestCase):
 def main():
     loader = unittest.TestLoader()
     suite = unittest.TestSuite()
-    for cls in (TestValidatePart, TestExtractMetadataBlocks, TestAssembleEndToEnd):
+    for cls in (TestValidatePart, TestAssembleEndToEnd):
         suite.addTests(loader.loadTestsFromTestCase(cls))
     runner = unittest.TextTestRunner(verbosity=2)
     result = runner.run(suite)

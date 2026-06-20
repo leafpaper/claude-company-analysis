@@ -6,7 +6,7 @@
 - **pypdf** 解析财报 PDF 原文（关键段落如"利润表项目变动原因"）
 - **derived_metrics** 预计算 CAGR / FCF / ROE / Owner Earnings 等
 
-LLM（Phase 1-5）只负责**分析**，不再自己去搜索和拼凑数据。
+LLM（Phase 1/2/3）只负责**分析**，不再自己去搜索和拼凑数据。
 
 ---
 

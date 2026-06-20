@@ -4,7 +4,7 @@
 > 所有可执行的 CSS 变量、组件 class、HTML 骨架均已迁至:
 > - `assets/html/base.html` — HTML 骨架（15 section + sticky nav + hero）
 > - `assets/html/styles.css` — 完整 CSS（16 变量 + 9 组件样式 + 响应式 + 打印）
-> - `assets/html/components.html` — 10 个组件片段（评分环/维度条/情景卡/团队名片/风险项/时间轴/情绪量表/估值区间/洞察卡片）
+> - `assets/html/components.html` — 9 个组件片段（评分环/维度条/情景卡/期望回报条/团队名片/风险项/时间轴/情绪量表/估值区间）
 >
 > **Phase 6 Part B 必须 Read 上面三个文件并按骨架填充,禁止凭记忆重写 CSS 或自创变量名**。本文件仅描述**设计理念**,供作者/审稿人理解为什么这么设计。
 

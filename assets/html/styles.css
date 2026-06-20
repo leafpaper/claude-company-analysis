@@ -149,16 +149,6 @@ header.hero .meta {
 }
 .section h4 { color: var(--c-gray-900); font-size: 16px; margin-top: 18px; }
 
-/* Variant Perception 章节专用紫色强调 */
-.section.variant-perception {
-  border-left: 4px solid var(--c-variant);
-  background: linear-gradient(to right, var(--c-variant-bg) 0%, white 3%);
-}
-.section.variant-perception h2 {
-  color: var(--c-variant);
-  border-bottom-color: var(--c-variant-bg);
-}
-
 /* ---------- 3.2 评分环形图 (SVG) ---------- */
 .score-ring {
   display: inline-block;

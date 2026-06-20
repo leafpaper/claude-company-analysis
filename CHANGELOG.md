@@ -28,9 +28,16 @@
 - **过时文档**: 重写 `README.md`(去 v4.1 角色/差异化/15章节) + `phase3-analysis-report.md` + `phase6-review-publish.md`(审核项 23→20,去 persona/variant 校验);删 `references/report-template.LEGACY.md`(20KB 死文件)+ `assets/validation/insight-card-schema.json`(Phase 5 死 schema)。
 - `exec-summary-schema.md` 字段 6 去除对已删 Phase 5 的依赖,改"核心非共识判断(可选)"。
 
+### Fixed (v6.0 收尾 — 补门控 + 清死代码)
+
+- **Phase 2 加机器门控**: 新增 `scripts/check_phase2.py`(R1 §1-§8 齐全 / R2 §2 [PDF:] 原文引用≥3 / R3 §8 锚点≥5), 取代此前"全靠主 agent 自查"——Phase 2 不再是全流程唯一无机器门控的阶段。已接入 SKILL 质量门控表 / phase-orchestration / phase2 文档 / install.sh(scripts 23→24)。
+- **Phase 7 证伪检查落地为 LLM-fill**: 删 `monitor.py` 的死 Phase-5 解析链(`_find_phase5_file`/`_check_insights`/`InsightCheck`/`insight_checks`)+ `report_parser.py` 的 `extract_insights`/`InsightPoint`(保留 baseline `[Tushare:*]` 标签解析)。§2 改为主 agent 从基线 §一 核心非共识判断 + §六 致命看空论证逐条填写; phase7 文档同步, 不再描述"脚本扫描证伪"。
+- **删死代码/死样式**: `components.html` 差异化洞察卡 + `styles.css .section.variant-perception`(base.html 已无对应元素); `assemble_report.py` 未被调用的 `extract_metadata_blocks`(+ 其单测)。
+- **文档残留**: `scripts/README.md` "Phase 1-5"→"1/2/3"; `SKILL.md` "6 阶段流水线"→"Phase 1/2/3/6"; `html-template-guide.md` 组件 10→9; assemble/build_html 注释里的旧 §十/variant 举例。
+
 ### Notes
 
-- Phase 7 量化监控仍可用,但其 Phase 5 洞察证伪解析为休眠态(`scripts/monitor.py` / `report_parser.py`),待 v5.3 规划的量化系统升级一并重做。
+- Phase 7 量化监控核心(基线指标对比 + 披露日 + 初判)可跑; §2 证伪现为 LLM 填写。脚本侧"真量化证伪"仍待 v5.3 规划升级。
 
 ---
 

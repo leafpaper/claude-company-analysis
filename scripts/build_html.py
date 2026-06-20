@@ -376,7 +376,7 @@ def main():
     import re as _re
     md_text_raw = md_path.read_text(encoding="utf-8")
     md_h2_count = md_text_raw.count("\n## ")
-    # 严格: 以 '<div class="section' 开头的行(涵盖 section 和 section variant-perception 等)
+    # 严格: 匹配所有 '<div class="section...">' 块(含附录 extra-N section)
     html_section_count = len(_re.findall(r'<div class="section[^"]*"', html))
     rating_card_count = html.count('rating-card--')
     metric_chip_count = html.count('class="metric-chip"')

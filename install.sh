@@ -103,6 +103,7 @@ for py in \
     __init__ \
     config \
     check_env \
+    check_phase2 \
     data_cache \
     tushare_collector \
     us_collector \
@@ -136,9 +137,9 @@ AGENT_COUNT=$(find "$SKILL_DIR/agents" -name "*.md" 2>/dev/null | wc -l | tr -d 
 REF_COUNT=$(find "$SKILL_DIR/references" -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
 SCRIPT_COUNT=$(find "$SKILL_DIR/scripts" -name "*.py" 2>/dev/null | wc -l | tr -d ' ')
 ASSETS_COUNT=$(find "$SKILL_DIR/assets" -type f 2>/dev/null | wc -l | tr -d ' ')
-# v6.0 期望: 5 phases + 8 agents + 7 refs + 23 scripts + 6 assets + 1 SKILL.md
+# v6.0 期望: 5 phases + 8 agents + 7 refs + 24 scripts + 6 assets + 1 SKILL.md
 
-if [ "$PHASE_COUNT" -eq "5" ] && [ "$AGENT_COUNT" -eq "8" ] && [ "$REF_COUNT" -eq "7" ] && [ "$SCRIPT_COUNT" -eq "23" ] && [ "$ASSETS_COUNT" -eq "6" ]; then
+if [ "$PHASE_COUNT" -eq "5" ] && [ "$AGENT_COUNT" -eq "8" ] && [ "$REF_COUNT" -eq "7" ] && [ "$SCRIPT_COUNT" -eq "24" ] && [ "$ASSETS_COUNT" -eq "6" ]; then
     echo ""
     echo "============================================"
     echo "  ✅ 安装成功！(v6.0)"
@@ -179,7 +180,7 @@ if [ "$PHASE_COUNT" -eq "5" ] && [ "$AGENT_COUNT" -eq "8" ] && [ "$REF_COUNT" -e
 else
     echo ""
     echo "❌ 错误：安装不完整"
-    echo "  预期(v6.0): phases=5 agents=8 refs=7 scripts=23 assets=6"
+    echo "  预期(v6.0): phases=5 agents=8 refs=7 scripts=24 assets=6"
     echo "  实际:       phases=$PHASE_COUNT agents=$AGENT_COUNT refs=$REF_COUNT scripts=$SCRIPT_COUNT assets=$ASSETS_COUNT"
     exit 1
 fi

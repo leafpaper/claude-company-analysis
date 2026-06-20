@@ -26,9 +26,8 @@ import sys
 from pathlib import Path
 
 # part 名 → 期望含的章节号 (Rule 4 anti_lazy_lint 已强制章节标题与 skeleton 字节一致)
-# v4.8.1: 用正则边界匹配 (\s|$) 取代字符串 startswith,
-# 修 Bug 3 — §十 vs §十一/§十二 等的脆弱区分(原版用尾部空格硬编码,
-# 容错性差: 任何 tab / 多空格都会误报缺章节)
+# 用正则边界匹配 (?=\s|$) 取代字符串 startswith: 任何 tab / 多空格都不会误报缺章节,
+# 也避免某章节号被"同前缀的更长章节号"假阳性命中。
 PART_EXPECTED_SECTIONS = {
     1: ["§一"],                  # 执行摘要 (主 agent 串行链最后写)
     2: ["§二", "§三"],           # 公司基本面 / 行业与竞争对标
@@ -79,10 +78,9 @@ def strip_self_check_report(content: str) -> str:
 
 
 def _has_section(content: str, section: str) -> bool:
-    """检查 markdown content 是否含 ## {section} 章节标题, 用正则保证 §十 不被 §十一/§十二 假阳性命中.
+    """检查 markdown content 是否含 ## {section} 章节标题, 用 (?=\\s|$) 边界避免前缀假阳性.
 
-    匹配规则: 行首 ## (允许前后任意空白), 然后 {section}, 后面必须是空白或行尾.
-    例如 _has_section(text, '§十') 不会匹配 '## §十一 投资回报'.
+    匹配规则: 行首 ## (允许前后任意空白), 然后 {section}, 后面必须是空白或行尾。
     """
     pattern = rf"^\s*##\s+{re.escape(section)}(?=\s|$)"
     return bool(re.search(pattern, content, re.MULTILINE))
@@ -96,22 +94,6 @@ def validate_part(idx: int, content: str) -> list[str]:
         if not _has_section(content, sec):
             issues.append(f"part{idx}: 缺章节标题 '## {sec}'")
     return issues
-
-
-def extract_metadata_blocks(part1_content: str) -> str:
-    """从 part1 抽取 RATING_TRIO_DATA / KEY_METRICS_SIDEBAR / CARD_METADATA 三个注释块.
-
-    若 part1 未含 metadata 注释块, 返回空字符串 (Phase 3b-1 写作时未按 schema 输出).
-    """
-    blocks = []
-    for marker in ("RATING_TRIO_DATA", "KEY_METRICS_SIDEBAR", "CARD_METADATA"):
-        pattern = rf"<!--\s*{marker}:.*?-->"
-        m = re.search(pattern, part1_content, re.DOTALL)
-        if m:
-            blocks.append(m.group(0))
-        else:
-            sys.stderr.write(f"⚠️  part1 未含 {marker} 注释块 (Phase 6 update_index.py 可能解析降级)\n")
-    return "\n\n".join(blocks)
 
 
 def assemble(company: str, date: str, parts_dir: Path, out_path: Path) -> int:
