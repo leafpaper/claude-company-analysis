@@ -47,18 +47,17 @@
 
 ## Step 0: 环境自检
 
-```bash
-# 自适应定位 skill 根(避免硬编码用户名,plugin 安装在任何 ~/.claude/plugins/ 都能跑)
-cd ./skills/company-analysis 2>/dev/null || \
-  cd "$HOME/.claude/plugins/company-analysis/skills/company-analysis" 2>/dev/null || \
-  { echo "❌ 无法定位 skill 根"; exit 1; }
-python3 -m scripts.check_env
+> {PYBIN} = 主 agent 传入的 Python 解释器(Mac/Linux: python3;Windows: py -3)。
+
+```
+# cd 到 skill 根目录(Mac/Linux: ~/.claude/skills/company-analysis;Windows: %USERPROFILE%\.claude\skills\company-analysis)。
+{PYBIN} -m scripts.check_env
 ```
 
 **通过标准**: 所有依赖 `[OK]`、`TUSHARE_TOKEN set`。
 
 若 `TUSHARE_TOKEN` 未设置且 `{market} ∈ {A股, 港股}`：
-- 报告给用户："请先在 ~/.zshrc 设置 TUSHARE_TOKEN，然后 source。A 股/港股分析需要此 token。"
+- 报告给用户："请先在 shell 配置(Mac: ~/.zshrc;Windows: 用户环境变量) 设置 TUSHARE_TOKEN，然后 source。A 股/港股分析需要此 token。"
 - 停止执行，等用户修复。
 
 ---
@@ -67,8 +66,8 @@ python3 -m scripts.check_env
 
 ### 1.1 A 股路径
 
-```bash
-python3 -m scripts.tushare_collector {ticker} --name {company}
+```
+{PYBIN} -m scripts.tushare_collector {ticker} --name {company}
 ```
 
 **北交所代码自动迁移（v4.6 起）**：北交所 2025 年把许多股票从 8XXXXX 迁至 9XXXXX。如果用户输入旧代码（如 `832522.BJ`），`tushare_collector` 内部 `resolve_ticker` 会自动尝试 9-prefix（→ `920522.BJ`）并打印迁移提示。如果代码完全不识别，还可加 `--name 公司名` 用名称作为最后 fallback。无须手动转换。
@@ -92,16 +91,16 @@ python3 -m scripts.tushare_collector {ticker} --name {company}
 
 ### 1.2 美股路径
 
-```bash
-python3 -m scripts.us_collector {ticker} --name {company}
+```
+{PYBIN} -m scripts.us_collector {ticker} --name {company}
 ```
 
 生成：`income_annual/quarterly`, `balance_annual/quarterly`, `cashflow_annual/quarterly`, `info`, `major_holders`, `institutional_holders`, `history_5y`, `dividends`。
 
 ### 1.3 港股路径
 
-```bash
-python3 -m scripts.hk_collector {ticker} --name {company}
+```
+{PYBIN} -m scripts.hk_collector {ticker} --name {company}
 ```
 
 生成 Tushare 港股元数据 + yfinance 财务数据（混合）。
@@ -120,8 +119,8 @@ python3 -m scripts.hk_collector {ticker} --name {company}
 
 仅对 **A 股** 执行,生成同行业 Top 5 相近市值 peer 的对比表:
 
-```bash
-python3 -m scripts.peer_collector {ticker} \
+```
+{PYBIN} -m scripts.peer_collector {ticker} \
     --peers 5 \
     --out output/{company}/peer_analysis.md
 ```
@@ -145,8 +144,8 @@ python3 -m scripts.peer_collector {ticker} \
 
 仅对 **A 股** 执行,拉 6 个控盘数据接口并推导 6 个综合指标:
 
-```bash
-python3 -m scripts.capital_flow {ticker} \
+```
+{PYBIN} -m scripts.capital_flow {ticker} \
     --days 60 \
     --out output/{company}/capital_flow.md
 ```
@@ -187,8 +186,8 @@ python3 -m scripts.capital_flow {ticker} \
 
 仅对 **A 股** 执行,基于 Step 1.1 已采集的 `daily.parquet` (近 3 年日线) 算经典 TA 指标:
 
-```bash
-python3 -m scripts.technical_analysis {ticker} \
+```
+{PYBIN} -m scripts.technical_analysis {ticker} \
     --name {company} \
     --out output/{company}/technical_analysis.md
 ```
@@ -223,8 +222,8 @@ python3 -m scripts.technical_analysis {ticker} \
 
 **解决方案**: `data_snapshot.py` 用纯 Python 从 parquet 读取并拼装结构化 markdown,**完全确定性**(LLM 不参与),保证最新期 + 完整十大股东数据 always 落地。
 
-```bash
-python3 -m scripts.data_snapshot \
+```
+{PYBIN} -m scripts.data_snapshot \
     --bundle output/{company}/raw_data \
     --out output/{company}/data_snapshot.md
 ```
@@ -277,8 +276,8 @@ python3 -m scripts.data_snapshot \
 
 对每一份找到的 PDF：
 
-```bash
-python3 -m scripts.pdf_reader {PDF_URL} \
+```
+{PYBIN} -m scripts.pdf_reader {PDF_URL} \
   --all-sections \
   --out output/{company}/raw_data/pdf_sections_{report_name}.json
 ```
@@ -328,8 +327,8 @@ python3 -m scripts.pdf_reader {PDF_URL} \
 
 ## Step 3: 衍生指标计算
 
-```bash
-python3 -m scripts.derived_metrics output/{company}/raw_data/ --market {a|us|hk}
+```
+{PYBIN} -m scripts.derived_metrics output/{company}/raw_data/ --market {a|us|hk}
 ```
 
 生成 `output/{company}/metrics.json`，包含：

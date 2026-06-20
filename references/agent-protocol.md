@@ -140,7 +140,7 @@ Fresh-restart 每次重传完整任务描述 + 上轮 FIX(~500-2000 token),换�
 **(可选)精简版片段**: {若 sub-agent 需要主 agent 拼到主报告某处,直接给可复制 markdown}
 ```
 
-主 agent 用 `grep "^\*\*判定\*\*:"` 提取判定。
+主 agent 直接从响应文本读出 `**判定**:` 字段(响应就在你的上下文里, 无需 shell)。
 
 **reviewer 特例**(3 个 reviewer 用不同 schema):
 ```markdown
@@ -167,20 +167,20 @@ sub-agent 完成后,主 agent 提取 `**lessons**` 字段追加到全局经验�
 ### 主 agent 处理协议
 
 完成 sub-agent 后:
-```bash
-# 1. 提取 lessons (用 grep 在 sub-agent 响应文件里)
-lessons=$(grep -A 100 '^\*\*lessons' sub_agent_response.md | grep '^-' | sed 's/^- //')
+```
+# 1. 提取 lessons (直接从 sub-agent 响应文本读出 **lessons** 字段下的列表行, 响应就在你的上下文里, 无需 shell)
+lessons=<从响应文本读出的 lessons 列表行>
 
 # 2. 追加到全局(如有)
-test -n "$lessons" && python3 -m scripts.lessons_manager append \
+test -n "$lessons" && {PYBIN} -m scripts.lessons_manager append \
     --category <sub_agent_name> --company <company> --date <yymmdd> \
     --lines "$lessons"
 ```
 
 启动新 sub-agent 前:
-```bash
+```
 # 注入近 30 天 lessons
-recent=$(python3 -m scripts.lessons_manager recent --category <sub_agent_name> --days 30)
+recent=$({PYBIN} -m scripts.lessons_manager recent --category <sub_agent_name> --days 30)
 # 把 $recent 拼到下次 Agent() 的 prompt 头部
 ```
 

@@ -35,16 +35,17 @@
 
 ### Step 0: 环境自检
 
-```bash
-cd ./skills/company-analysis 2>/dev/null || \
-  cd "$HOME/.claude/plugins/company-analysis/skills/company-analysis" 2>/dev/null || \
-  { echo "❌ 无法定位 skill 根"; exit 1; }
-python3 -m scripts.check_env
+> **{PYBIN} = 主 agent 传入的 Python 解释器（Mac/Linux: python3；Windows: py -3）。**
+
+cd 到 skill 根目录（Mac/Linux: ~/.claude/skills/company-analysis；Windows: %USERPROFILE%\.claude\skills\company-analysis）。
+
+```
+{PYBIN} -m scripts.check_env
 ```
 
 ### Step 1: 识别最新基线报告
 
-```bash
+```
 ls -lt output/{company}/*-analysis-*.md | head -3
 ```
 
@@ -52,8 +53,8 @@ ls -lt output/{company}/*-analysis-*.md | head -3
 
 ### Step 2: 运行监控脚本
 
-```bash
-python3 -m scripts.monitor {company} \
+```
+{PYBIN} -m scripts.monitor {company} \
   --ticker {ticker} \
   --market {a|us|hk}
 ```

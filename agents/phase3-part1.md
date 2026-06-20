@@ -34,7 +34,7 @@ model: inherit
 
 ## 核心约束(★ 最严格)
 
-- ★ §一 综合评分 = §四 加权评分表加总 (允差 ≤ 0.05);grep part3.md 提取 10 维度评分,自己复核加权
+- ★ §一 综合评分 = §四 加权评分表加总 (允差 ≤ 0.05);直接从 part3.md 内容读出 10 维度评分(文件已在你上下文中,无需 shell),自己复核加权
 - ★ §一 投资方向综合判定必须与 §四 定性综合判断方向一致(看多/看空/中性-分歧)
 - ★ §一 Top 3 风险必须每条都对应至少 1 个 audit 红旗或 §六 快筛触发条款
 - ★ §一 必须严格遵守 `assets/templates/exec-summary-schema.md` 的 7 字段(一句话结论 / 估值锚 / 综合评分 / Top 3 风险 / Top 3 机会 / 核心非共识判断[可选] / 投资方向综合判定),禁止用旧字段名/禁用字段
@@ -71,8 +71,9 @@ model: inherit
 
 ## 后续步骤(主 agent 收到本响应后)
 
-1. 用 `grep "^\*\*判定\*\*:"` 提取判定
-2. 若 PASS → 主 agent 跑 `python3 -m scripts.assemble_report --company {company} --date {date} --parts-dir {output_dir} --out {output_dir}/{company}-analysis-{date}.md`
+1. 直接从本响应文本读出 `**判定**:` 字段(响应就在你的上下文里,无需 shell)
+2. 若 PASS → 主 agent 跑 `{PYBIN} -m scripts.assemble_report --company {company} --date {date} --parts-dir {output_dir} --out {output_dir}/{company}-analysis-{date}.md`
+   （{PYBIN} = 主 agent 传入的 Python 解释器(Mac/Linux: python3;Windows: py -3)。）
 3. 若 FAIL → fresh-restart phase3-part1 sub-agent,prompt 注入上轮问题点(见 references/agent-protocol.md)
 
 ## 严禁事项

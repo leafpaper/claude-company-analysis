@@ -21,7 +21,7 @@
 | part4 | `phase3-part4.md` | **§六** 风险与红旗审计 · **§七** 舆情与市场情绪 · **§八** 数据来源与信息缺口 | 依赖 part2/part3 |
 | part1 | `phase3-part1.md` | **§一** 执行摘要 + 报告头部 metadata | **最后写**——要"结算"前面所有 part |
 
-写完 4 个 part 后，主 agent 跑 `python3 -m scripts.assemble_report --company {company} --date {date} --parts-dir output/{company}/ --out output/{company}/{company}-analysis-{date}.md` 拼成主报告，再跑 `python3 -m scripts.anti_lazy_lint` 验证反偷懒规则。
+写完 4 个 part 后，主 agent 跑 `{PYBIN} -m scripts.assemble_report --company {company} --date {date} --parts-dir output/{company}/ --out output/{company}/{company}-analysis-{date}.md` 拼成主报告，再跑 `{PYBIN} -m scripts.anti_lazy_lint` 验证反偷懒规则。
 
 ---
 
@@ -68,7 +68,7 @@ Read assets/templates/exec-summary-schema.md
 | 七 | 舆情与市场情绪 | part4 |
 | 八 | 数据来源与信息缺口 | part4 |
 
-**自检**：写完跑 `grep -E '^## §' output/{company}/*-analysis-*.md`，确认 §一 → §八 共 8 行，顺序一致。
+**自检**：`{PYBIN} -m scripts.assemble_report` 已确定性校验恰 8 章节(§一→§八),缺章节即退出非 0——无需手工 grep。
 
 ---
 
@@ -215,7 +215,7 @@ Read assets/templates/exec-summary-schema.md
 各 part 保存为 `output/{company}/phase3-part{1-4}.md`；主 agent 拼接为 `output/{company}/{company}-analysis-{YYYY-MM-DD}.md`。
 
 **自检**（拼接后）：
-- `grep -E '^## §'` → §一 至 §八 共 8 行，顺序一致。
-- `python3 -m scripts.anti_lazy_lint --md output/{company}/{company}-analysis-{date}.md` 全部规则通过。
+- `assemble_report` 校验 §一 → §八 共 8 章节(退出码 0)。
+- `{PYBIN} -m scripts.anti_lazy_lint --md output/{company}/{company}-analysis-{date}.md` 全部规则通过。
 - §一 综合评分 = §四 加权合计（≤ 0.05）；§一 投资方向 = §四 定性综合方向。
 - 财务趋势表含最新季度；十大股东 ≥ 9 行；peer ≥ 4 家；DCF g < r；audit 🔴/🟠 红旗 ≥ 3 处闭环；exec summary 7 字段齐全。

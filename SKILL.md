@@ -15,7 +15,7 @@ argument-hint: <company-name> [--monitor]
 - **路由**:解析用户输入,锁定 `{company}` / `{type}` / `{market}` / `{ticker}` / `{amount}`
 - **维护** `output/{company}/main-log.md`(yymmdd hhmm 双层日志,贯穿全程)
 - **启动 sub-agent**:用 `Agent` 工具,详见 `references/phase-orchestration.md`
-- **接收 sub-agent 响应**:用 `Bash grep` 提取关键字段(`^**判定**:` / `^### 维度` / `^- \[FIX-P`),**不读响应全文**
+- **接收 sub-agent 响应**:直接从响应文本读关键字段(`**判定**:` / `### 维度` / `- [FIX-P`)——响应就在你上下文里,**无需 shell grep, 也不读全文**
 - **应用 FIX**:Phase 6 修正循环里,主 agent 用 `Edit` 工具按 `scripts/review_loop.py` 输出的 FIX 列表 改 `phase3-partN.md`
 - **处理异常 / 转人工 / 给用户进度反馈**(每 Phase 完成报一行)
 
@@ -40,6 +40,8 @@ argument-hint: <company-name> [--monitor]
 Agent(subagent_type="X", prompt="...",
       run_in_background=True/False, description="...")
 ```
+
+**给 sub-agent 传 `{PYBIN}`**:调用任何会跑 Python 的 sub-agent(data-collector / phase3-part*)时, 在 prompt 里写明 Step 0 选定的 `{PYBIN}`, 让它用同一个解释器。
 
 **修正循环规则**(Fresh-Restart with Context Injection):
 
@@ -80,11 +82,20 @@ prompt = f"""[正常评审任务...]
 
 ---
 
-## Step 0: 环境自检
+## Step 0: 环境自检（跨平台）
 
-```bash
-cd "$(dirname "${BASH_SOURCE[0]:-$0}")"   # cd 到 SKILL.md 同目录(skills/company-analysis/)
-python3 -m scripts.check_env
+**① 先确定 Python 解释器 `{PYBIN}`** — 本文档后续所有命令都用它, 并在调用 sub-agent 时把它写进 prompt:
+- Mac / Linux:`python3`
+- Windows:`py -3`(⚠️ `python` 可能是 Microsoft Store 占位符会失败, 务必用 `py -3`)
+
+**② cd 到本 skill 根目录**(SKILL.md 所在目录, `{PYBIN} -m scripts.X` 需从这里跑;`cd "<绝对路径>"` 两个 shell 通用):
+- Mac / Linux:`~/.claude/skills/company-analysis`
+- Windows:`%USERPROFILE%\.claude\skills\company-analysis`
+
+**③ 自检**:
+
+```
+{PYBIN} -m scripts.check_env
 ```
 
 通过标准:依赖全部 `[OK]` + `TUSHARE_TOKEN set`(A 股/港股必需)。失败 → 给用户修复命令,停止。
@@ -107,17 +118,15 @@ python3 -m scripts.check_env
 
 ---
 
-## Step 2: 创建输出目录 + main-log.md
+## Step 2: 创建输出目录 + main-log.md（跨平台）
 
-```bash
-mkdir -p output/{company}/raw_data/pdfs output/{company}/reviewer_responses
-
-# 创建 main-log.md(已存在则追加新会话分隔)
-test -f output/{company}/main-log.md || \
-  printf "# %s 分析日志\n\n" "{company}" > output/{company}/main-log.md
+```
+{PYBIN} -m scripts.init_run --company "{company}" --ticker "{ticker}"
 ```
 
-主 agent 立即用 Edit 工具追加:`- {yymmdd hhmm} ━━━ 开始分析 {company}({ticker}) ━━━`
+`init_run` 跨平台建好 `output/{company}/raw_data/pdfs` + `reviewer_responses/`, 并在 `main-log.md` 追加
+`- {yymmdd hhmm} ━━━ 开始分析 {company}({ticker}) ━━━`(取代旧的 bash `mkdir -p` / `test -f` / 手动 Edit)。
+后续日志主 agent 仍用 Edit 工具追加一行。
 
 **产物清单**:
 
@@ -147,7 +156,7 @@ Phase 1 (data-collector) → Phase 2 (主 agent) → Phase 3 (4 sub-agent 串行
 ```
 
 **关键规则**:
-- 每次 sub-agent 完成,主 agent 用 Bash `grep "^\*\*判定\*\*:" response` 提取判定
+- 每次 sub-agent 完成,主 agent 直接从响应读 `**判定**:` 那一行(无需 shell grep)
 - 修正循环只用 fresh-restart(详见 phase-orchestration.md §Phase 6)
 - 状态持久化:reviewer 响应 / FIX 列表 / diff signature 全部写文件,不靠 context 记忆
 
@@ -161,18 +170,18 @@ Phase 1 (data-collector) → Phase 2 (主 agent) → Phase 3 (4 sub-agent 串行
 
 ---
 
-## ✅ 质量门控汇总(每 Phase 一行 grep 验证)
+## ✅ 质量门控汇总(每 Phase 一行验证;命令用 `{PYBIN}`)
 
-| Phase | grep / 验证 | PASS 标准 |
+| Phase | 验证 | PASS 标准 |
 |:-:|---|---|
-| 0 | `python3 -m scripts.check_env` 退出码 | 0 |
-| 1 | `grep "^\*\*判定\*\*:" data_collector_response` | PASS / 部分降级 |
-| 2 | `python3 -m scripts.check_phase2 --md …phase2-documents.md` 退出码 | 0(§1-§8 齐全 + §2 [PDF:] 引用≥3 + §8 锚点≥5) |
-| 3.1-4 | `grep "^\*\*判定\*\*:" phase3_partN_response` | 每 part PASS |
-| 3 整体 | `assemble_report.py` 退出码 + section 数 | 0 + 8 章节 |
-| 6 Part A | `anti_lazy_lint` 退出码 | 0 |
-| 6 Part A.5 | `review_loop.py` 输出 JSON `overall_pass: true` | 3/3 维度 PASS |
-| 6 Part B | `build_html.py` 退出码 + section 数 | 0 + 8 |
+| 0 | `{PYBIN} -m scripts.check_env` 退出码 | 0 |
+| 1 | 读 data-collector 响应 `**判定**:` 字段 | PASS / 部分降级 |
+| 2 | `{PYBIN} -m scripts.check_phase2 --md …phase2-documents.md` 退出码 | 0(§1-§8 齐全 + §2 [PDF:] 引用≥3 + §8 锚点≥5) |
+| 3.1-4 | 读 phase3-partN 响应 `**判定**:` 字段 | 每 part PASS |
+| 3 整体 | `{PYBIN} -m scripts.assemble_report` 退出码 + section 数 | 0 + 8 章节 |
+| 6 Part A | `{PYBIN} -m scripts.anti_lazy_lint` 退出码 | 0 |
+| 6 Part A.5 | `{PYBIN} -m scripts.review_loop` 输出 JSON `overall_pass: true` | 3/3 维度 PASS |
+| 6 Part B | `{PYBIN} -m scripts.build_html` 退出码 + section 数 | 0 + 8 |
 
 ---
 
@@ -180,7 +189,7 @@ Phase 1 (data-collector) → Phase 2 (主 agent) → Phase 3 (4 sub-agent 串行
 
 | 情况 | 处理 |
 |---|---|
-| Step 0 环境失败 | 停止 + 给用户修复命令(`pip3 install` / `export TUSHARE_TOKEN=xxx`) |
+| Step 0 环境失败 | 停止 + 给修复命令(装依赖 `{PYBIN} -m pip install --user ...`;设 token:Mac/Linux `export TUSHARE_TOKEN=xxx`, Windows `[Environment]::SetEnvironmentVariable('TUSHARE_TOKEN','xxx','User')`) |
 | Phase N sub-agent FAIL | fresh-restart 1 次,prompt 注入"上轮 FAIL 原因";仍失败 → 转人工 |
 | Phase 6 reviewer 3 轮仍 FAIL | review_loop.py 检测 diff_repeat=true 或 round=3 → 主 agent 转人工 + 累计 FIX 给用户 |
 | GitHub push 失败 | 保存 HTML 到本地 + 通知用户手动上传 |
@@ -215,7 +224,7 @@ Phase 1 (data-collector) → Phase 2 (主 agent) → Phase 3 (4 sub-agent 串行
 | `scripts/check_env.py` | 环境检查 |
 | `scripts/data_snapshot.py` ★ | 9 节确定性数据 |
 | `scripts/financial_audit.py` | 11 框架红旗 |
-| `scripts/assemble_report.py` ★ | Phase 3 5 part 拼接 |
+| `scripts/assemble_report.py` ★ | Phase 3 4 part 拼接 |
 | `scripts/anti_lazy_lint.py` ★ | Phase 6 Part A 4 项机械规则 |
 | `scripts/review_loop.py` ★ v5.1.3 | Phase 6 Part A.5 reviewer FIX 合并 + 对抗检测 |
 | `scripts/lessons_manager.py` | 全局经验库 (append / recent) |

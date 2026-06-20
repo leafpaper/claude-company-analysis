@@ -178,40 +178,40 @@ claude-company-analysis/
 
 ## 快速开始
 
+> **跨平台**：Mac/Linux 与 Windows 都可用。Windows 上 Python 解释器用 `py -3`(`python` 可能是 Microsoft Store 占位符), skill 内部会自动探测 `{PYBIN}`。
+
 ### 1. 安装 skill
 
+**Mac / Linux:**
 ```bash
 curl -fsSL https://raw.githubusercontent.com/leafpaper/claude-company-analysis/main/install.sh | bash
 ```
-
-这会克隆到 `~/.claude/skills/company-analysis/` 并创建输出目录。
+**Windows (PowerShell, 在克隆的仓库根目录里):**
+```powershell
+powershell -ExecutionPolicy Bypass -File .\install.ps1
+```
+装到 `~/.claude/skills/company-analysis/` + 8 个 sub-agent 到 `~/.claude/agents/company-analysis/`。
 
 ### 2. 安装 Python 依赖
 
-```bash
-cd ~/.claude/skills/company-analysis/scripts
-pip3 install --user -r requirements.txt
-```
-
-依赖：`tushare yfinance pypdf pandas pyarrow requests`
+依赖：`tushare yfinance pypdf pandas pyarrow requests markdown`
+- **Mac / Linux:** `pip3 install --user -r ~/.claude/skills/company-analysis/scripts/requirements.txt`
+- **Windows:** `py -3 -m pip install --user tushare yfinance pypdf pandas pyarrow requests markdown`
 
 ### 3. 配置 Tushare Token（A 股 / 港股必需）
 
 注册 [tushare.pro](https://tushare.pro/register)，获取 token（建议申请学生权限获 5000+ 免费积分；或购买 2000 积分约 ¥200 解锁所有核心财报接口）。
 
-```bash
-echo 'export TUSHARE_TOKEN="your_token_here"' >> ~/.zshrc
-source ~/.zshrc
-```
+- **Mac / Linux:** `echo 'export TUSHARE_TOKEN="your_token_here"' >> ~/.zshrc && source ~/.zshrc`
+- **Windows (PowerShell):** `[Environment]::SetEnvironmentVariable('TUSHARE_TOKEN','your_token_here','User')`(重开终端生效)
 
-> ⚠️ **千万别把 token 提交到 git**。[`.env.sample`](./.env.sample) 是模板；实际 token 写到 `~/.zshrc`（不在仓库内）。
+> ⚠️ **千万别把 token 提交到 git**。[`.env.sample`](./.env.sample) 是模板；token 走环境变量(不在仓库内)。
 
 ### 4. 环境自检
 
-```bash
-cd ~/.claude/skills/company-analysis
-python3 -m scripts.check_env
-```
+cd 到 skill 根目录(`~/.claude/skills/company-analysis`)后:
+- **Mac / Linux:** `python3 -m scripts.check_env`
+- **Windows:** `py -3 -m scripts.check_env`
 
 全部 `[OK]` + `TUSHARE_TOKEN set` → 可用。
 

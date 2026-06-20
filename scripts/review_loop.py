@@ -13,7 +13,7 @@
          output/{company}/reviewer_responses/round_{N}_valuation.md
          output/{company}/reviewer_responses/round_{N}_redflag.md
     3. 主 agent 用 Bash 跑:
-         python3 -m scripts.review_loop \\
+         python -m scripts.review_loop \\
              --company {company} --date {date} \\
              --output-dir output/{company}/ --round N
     4. 脚本输出 JSON:
@@ -41,7 +41,7 @@
     - 脚本只负责: 合并 FIX 列表 / 去重 / 算 diff signature
 
 CLI:
-    python3 -m scripts.review_loop \\
+    python -m scripts.review_loop \\
         --company 实丰文化 --date 2026-05-04 \\
         --output-dir output/实丰文化/ --round 1
 """
@@ -161,8 +161,8 @@ def write_merged_fix_md(fix_list: list[str], by_part: dict, out_path: Path,
         "1. 对每个非空 Part:",
         "   - Read 对应 `phase3-part{N}.md`",
         "   - 按 FIX 的 `问题 → 建议` 用 Edit 工具改文件",
-        "2. 全部 FIX 应用后,运行 `python3 -m scripts.assemble_report ...` 重拼主报告",
-        "3. 运行 `python3 -m scripts.anti_lazy_lint ...` 重跑机械检查",
+        "2. 全部 FIX 应用后,运行 `{PYBIN} -m scripts.assemble_report ...` 重拼主报告({PYBIN}=你的 Python: Mac/Linux python3, Windows py -3)",
+        "3. 运行 `{PYBIN} -m scripts.anti_lazy_lint ...` 重跑机械检查",
         "4. Round+1: 重新并行启动 3 个 reviewer (fresh-restart, prompt 注入本 FIX 列表已应用)",
     ])
 

@@ -52,8 +52,8 @@
 - §一~§八 章节标题被 LLM 重命名(如 §二 公司基本面 → §二 业务概况)
 
 **执行**:
-```bash
-python3 -m scripts.anti_lazy_lint --md output/{company}/{company}-analysis-{date}.md
+```
+{PYBIN} -m scripts.anti_lazy_lint --md output/{company}/{company}-analysis-{date}.md
 # 退出码 0 = 进入下面的 20 项 LLM 审核
 # 退出码 1 = BLOCK, 必须返回 Phase 3 修对应 part 后重 assemble 再来; 不允许 LLM 自审"绕过"机械检查
 ```
@@ -116,8 +116,8 @@ python3 -m scripts.anti_lazy_lint --md output/{company}/{company}-analysis-{date
 
 ### ★ 推荐: 直接调用 `scripts/build_html.py`（一键转换）
 
-```bash
-python3 -m scripts.build_html --company {company} \
+```
+{PYBIN} -m scripts.build_html --company {company} \
     --md output/{company}/{company}-analysis-{date}.md \
     --out output/{company}/{company}-analysis-{date}.html
 ```
@@ -213,29 +213,31 @@ Step 5: 自检:
 
 **目标仓库**: `leafpaper/Inves-Report`
 
-**执行步骤**:
+> **本发布步骤路径可配置、且为可选**: 下文 `$INVES_REPORT_DIR` 为环境变量(Mac/Linux 默认 `/tmp/Inves-Report`, Windows 设为如 `C:\Inves-Report`);git 命令保留不变。
+
+**执行步骤**(下方为 Mac/Linux 写法;Windows 把 `mkdir -p`→`New-Item -ItemType Directory -Force`、`cp`→`Copy-Item`、`$INVES_REPORT_DIR`→`$env:INVES_REPORT_DIR`;`cd` / `git` 两边通用):
 
 ```
 1. 确保仓库已克隆:
-   cd /tmp/Inves-Report-v2 && git pull origin main
+   cd $INVES_REPORT_DIR && git pull origin main
    (如不存在则 git clone)
 
 2. 创建/更新公司报告目录:
-   mkdir -p /tmp/Inves-Report-v2/reports/{CompanySlug}_{CompanyNameCN}
+   mkdir -p $INVES_REPORT_DIR/reports/{CompanySlug}_{CompanyNameCN}
 
 3. 复制 HTML 报告:
-   cp output/{company}/{company}-analysis-{date}.html /tmp/Inves-Report-v2/reports/{CompanySlug}_{CompanyNameCN}/分析报告_dashboard.html
+   cp output/{company}/{company}-analysis-{date}.html $INVES_REPORT_DIR/reports/{CompanySlug}_{CompanyNameCN}/分析报告_dashboard.html
 
 4. ★ 自动更新主页卡片数据:
-   python3 -m scripts.update_index --company {company} \
-       --repo /tmp/Inves-Report-v2 \
+   {PYBIN} -m scripts.update_index --company {company} \
+       --repo $INVES_REPORT_DIR \
        --force
 
    这会:
    - 解析主报告 MD 的 <!-- CARD_METADATA / RATING_TRIO_DATA / KEY_METRICS_SIDEBAR --> 结构化注释块
    - 生成 output/{company}/card-metadata.json
-   - 复制到 /tmp/Inves-Report-v2/reports/{slug}/card-metadata.json
-   - upsert 到 /tmp/Inves-Report-v2/data/reports.json
+   - 复制到 $INVES_REPORT_DIR/reports/{slug}/card-metadata.json
+   - upsert 到 $INVES_REPORT_DIR/data/reports.json
    - 主页 JS 会从 reports.json 自动渲染新卡片 + 更新统计数字
 
    若解析结果不理想(老报告未带结构化注释块), 会走 regex fallback 并输出警告。
@@ -243,7 +245,7 @@ Step 5: 自检:
    三个注释块**(见 assets/templates/report-skeleton.md 顶部)。
 
 5. 提交推送(改动 3 项: HTML + card-metadata + reports.json):
-   cd /tmp/Inves-Report-v2
+   cd $INVES_REPORT_DIR
    git add reports/{CompanySlug}_{CompanyNameCN}/ data/reports.json
    git commit -m "feat: 新增/更新 {company} 投资分析报告"
    git push origin main
@@ -291,8 +293,8 @@ WebFetch http://www.cninfo.com.cn/new/disclosure/stock?stockCode={code}&orgId=..
 
 #### Step D.3: PDF 原文全文搜索（用 pypdf 正则）
 
-```bash
-python3 -m scripts.pdf_reader \
+```
+{PYBIN} -m scripts.pdf_reader \
   output/{company}/raw_data/pdfs/annual_2024.pdf \
   --search "{关键词正则}"
 ```
@@ -373,10 +375,7 @@ c = TushareCollector()
 | 数据涉及估值（分红/回购/股东户数） | §四 维度 8（估值合理性）+ §五 估值 |
 | 数据涉及审计红旗/减值 | §六 6.1 快筛 / 6.2 汇总 + §一 Top 3 风险 |
 
-**强制反写校验**：生成最终报告前，对每个补查成功条目执行 grep：
-```bash
-grep -l "{缺口项关键词}" output/{company}/{company}-analysis-*.md
-```
+**强制反写校验**：生成最终报告前，对每个补查成功条目, 用 Read 打开主报告搜索 `{缺口项关键词}`, 看它出现在哪些章节(无需 shell)。
 若只在 §八 出现一次，而其他应引用的章节里没引用 → 视为"孤岛化错误"，必须补写。
 
 ### Part D 自检（保存 phase6-review-log.md 前必须通过）

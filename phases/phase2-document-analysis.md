@@ -35,7 +35,7 @@
 
 列出 `output/{company}/raw_data/pdfs/` 下所有 PDF 文件及其对应的 section JSON。
 
-```bash
+```
 ls -la output/{company}/raw_data/pdfs/
 ls -la output/{company}/raw_data/pdf_sections_*.json
 ```
@@ -212,8 +212,8 @@ ls -la output/{company}/raw_data/pdf_sections_*.json
 
 写完 phase2-documents.md 后，主 agent 跑：
 
-```bash
-python3 -m scripts.check_phase2 --md output/{company}/phase2-documents.md
+```
+{PYBIN} -m scripts.check_phase2 --md output/{company}/phase2-documents.md
 ```
 
 确定性校验 3 条硬规则：§1-§8 章节齐全 / §2 带 `[PDF:]` 原文引用 ≥3 行 / §8 锚点表 ≥5 行带来源标签。

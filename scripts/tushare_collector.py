@@ -95,9 +95,9 @@ class TushareCollector:
             return
         if not self._token:
             raise RuntimeError(
-                "TUSHARE_TOKEN 未设置。请在 ~/.zshrc 添加：\n"
-                "  export TUSHARE_TOKEN='your_token_here'\n"
-                "然后新开终端或 source ~/.zshrc"
+                "TUSHARE_TOKEN 未设置。\n"
+                "  Mac/Linux: 在 ~/.zshrc 加 export TUSHARE_TOKEN='your_token' 后 source\n"
+                "  Windows:   [Environment]::SetEnvironmentVariable('TUSHARE_TOKEN','your_token','User') 后重开终端"
             )
         import tushare as ts  # deferred import
         ts.set_token(self._token)

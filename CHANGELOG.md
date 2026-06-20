@@ -4,6 +4,29 @@
 
 ---
 
+## [v6.1] — 2026-06-20 — 跨平台(Mac/Linux + Windows)
+
+> **主题**: skill 原本写死 bash(`python3` / `mkdir -p` / `grep` / `cd "$(...)"` / `git -C /tmp`), 在 Windows PowerShell 上整跑会一路撞 shell 错。本版把编排层移植成跨平台。
+
+### Changed
+- **Python 解释器抽象成 `{PYBIN}`**: SKILL.md Step 0 探测(Mac/Linux=`python3`, Windows=`py -3`, 因为 Windows `python` 可能是 Microsoft Store 占位符), 并经 prompt 传给各 sub-agent。SKILL.md + 9 个编排 .md(agents/data-collector、phase3-part1、references/agent-protocol、phase-orchestration、phases/phase1/2/3/6/7)全部 `python3 -m scripts.X` → `{PYBIN} -m scripts.X`。
+- **去 shell 依赖**:
+  - `grep "^**判定**:" response`(从 sub-agent 响应提字段)→ 改为"直接从响应文本读"(本就在上下文里, 无需 shell)。
+  - `mkdir -p` / `test -f` 建目录+main-log → 新增跨平台 **`scripts/init_run.py`**(SKILL Step 2 调用)。
+  - phase3 自检的 `grep -E '^## §' | wc -l` 数章节 → 改用 `assemble_report` 的确定性退出码;phase6 反写校验的 `grep -l` → 改为主 agent Read 搜索。
+  - 发布步骤 `/tmp/Inves-Report` → `$INVES_REPORT_DIR`(环境变量, 可配置);并给出 Windows 命令对照(`mkdir -p`→`New-Item`、`cp`→`Copy-Item`)。
+  - `tushare_collector` 缺 token 报错信息 → 同时给 Mac/Linux 与 Windows 设置法。
+
+### Added
+- **`install.ps1`**: Windows PowerShell 安装器(对应 `install.sh`), 把 skill 装到 `~/.claude/skills/` + 8 个 sub-agent 装到 `~/.claude/agents/`(bundled agents 不会自动注册成 subagent_type, 必须单独放)。保持 ASCII-only(避免 PS5.1 把无 BOM 的 UTF-8 .ps1 按 GBK 解析)。
+- `scripts/init_run.py`(跨平台建目录 + main-log)。
+- `README.md` 快速开始补 Windows 命令(`py -3` / `install.ps1` / `SetEnvironmentVariable`)。
+
+### Notes
+- `.py` 脚本本身一直跨平台(纯 Python);docstring 里的 `python3` 示例为开发者参考, 不影响运行(运行路径以编排 .md 的 `{PYBIN}` 为准)。
+
+---
+
 ## [v6.0] — 2026-06-20 — 报告 13→8 章节精简 + 残留清理
 
 > **主题**: 报告"过于多余"。反复瘦身(v4.1 / v5.1.4)留下大量未清理残留——删了 Phase 4/5 阶段却没同步改文档/脚本/schema,报告里同一信息写两遍。本版做两层精简:**报告输出结构** + **skill 内部文件**,零信息丢失,只去重叠。

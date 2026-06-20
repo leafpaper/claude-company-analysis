@@ -23,21 +23,20 @@ Skill 根目录: `<plugin-root>/skills/company-analysis/`。可用以下命令�
 
 ### Step 0: 环境自检
 
-```bash
-# 自适应定位 skill 根(相对优先,$HOME 兜底,不硬编码用户名)
-cd ./skills/company-analysis 2>/dev/null || \
-  cd "$HOME/.claude/plugins/company-analysis/skills/company-analysis" 2>/dev/null || \
-  { echo "❌ 无法定位 skill 根,请检查 plugin 安装位置"; exit 1; }
+cd 到 skill 根目录(Mac/Linux: ~/.claude/skills/company-analysis;Windows: %USERPROFILE%\.claude\skills\company-analysis)。
 
-python3 -m scripts.check_env 2>&1 | tail -10
+{PYBIN} = 主 agent 传入的 Python 解释器(Mac/Linux: python3;Windows: py -3)。
+
+```
+{PYBIN} -m scripts.check_env 2>&1 | tail -10
 ```
 
 若失败 → stderr 报错 + 提前结束 + 在响应中标 ❌。
 
 ### Step 1: 主 Tushare bundle
 
-```bash
-python3 -m scripts.tushare_collector {ticker} --name {company}
+```
+{PYBIN} -m scripts.tushare_collector {ticker} --name {company}
 ```
 
 (`tushare_collector` 内部会调 `resolve_ticker` 自动处理北交所 8↔9 代码迁移)
@@ -51,18 +50,18 @@ python3 -m scripts.tushare_collector {ticker} --name {company}
 
 按 A 股 / 美股 / 港股 市场分支(美股 / 港股 跳过 peer / capital_flow / technical):
 
-```bash
+```
 # 仅 A 股
-python3 -m scripts.peer_collector {ticker} --peers 5 --name {company} --out output/{company}/peer_analysis.md
-python3 -m scripts.capital_flow {ticker} --days 60 --out output/{company}/capital_flow.md
-python3 -m scripts.technical_analysis {ticker} --name {company} --daily output/{company}/raw_data/daily.parquet --out output/{company}/technical_analysis.md
+{PYBIN} -m scripts.peer_collector {ticker} --peers 5 --name {company} --out output/{company}/peer_analysis.md
+{PYBIN} -m scripts.capital_flow {ticker} --days 60 --out output/{company}/capital_flow.md
+{PYBIN} -m scripts.technical_analysis {ticker} --name {company} --daily output/{company}/raw_data/daily.parquet --out output/{company}/technical_analysis.md
 
 # 全部市场
-python3 -m scripts.financial_audit output/{company}/raw_data
-python3 -m scripts.derived_metrics output/{company}/raw_data --market a  # market=a/us/hk
+{PYBIN} -m scripts.financial_audit output/{company}/raw_data
+{PYBIN} -m scripts.derived_metrics output/{company}/raw_data --market a  # market=a/us/hk
 
 # ★ v4.8.1 必含 — 8 节确定性数据快照
-python3 -m scripts.data_snapshot --bundle output/{company}/raw_data --out output/{company}/data_snapshot.md --ts-code {resolved_ticker} --company {company}
+{PYBIN} -m scripts.data_snapshot --bundle output/{company}/raw_data --out output/{company}/data_snapshot.md --ts-code {resolved_ticker} --company {company}
 ```
 
 某 collector 失败 → 标 ❌ 但继续其他。
@@ -75,7 +74,7 @@ python3 -m scripts.data_snapshot --bundle output/{company}/raw_data --out output
 - 美股: WebSearch SEC EDGAR
 - 港股: WebSearch hkex.com.hk 披露易
 
-下载至少 2 份(年报 + 最新季报),用 `python3 -m scripts.pdf_reader {URL} --all-sections --out output/{company}/raw_data/pdf_sections_{name}.json`。
+下载至少 2 份(年报 + 最新季报),用 `{PYBIN} -m scripts.pdf_reader {URL} --all-sections --out output/{company}/raw_data/pdf_sections_{name}.json`。
 
 PDF 失败 → 备用 URL → 仍失败标"已尝试: {urls}",继续。
 
@@ -94,7 +93,7 @@ PDF 失败 → 备用 URL → 仍失败标"已尝试: {urls}",继续。
 - §2 财务数据小节用一句话指向 data_snapshot.md §3 多年趋势完整表
 - §11 信息缺口必须 ≥ 3 条,即使全部已解决也要列出已尝试的查询
 
-## 输出格式(★ 严格遵守 v5.1 协议,主 agent 只 grep 关键字段)
+## 输出格式(★ 严格遵守 v5.1 协议,主 agent 只读关键字段)
 
 完成后,你的最终消息必须以下面结构结尾(其他内容可在前面,但末尾结构固定):
 
@@ -126,7 +125,7 @@ PDF 失败 → 备用 URL → 仍失败标"已尝试: {urls}",继续。
 - §11 缺口 ≥ 3 条: ✅ / ❌
 ```
 
-★ v5.1 协议: `**判定**:` 字段必须单独一行,主 agent 用 `grep "^\\*\\*判定\\*\\*:"` 提取。
+★ v5.1 协议: `**判定**:` 字段必须单独一行,主 agent 直接从响应文本读出该字段(响应就在你的上下文里,无需 shell)。
 
 ## 严禁事项
 
