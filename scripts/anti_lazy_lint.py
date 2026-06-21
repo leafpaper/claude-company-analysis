@@ -1,6 +1,6 @@
 """anti_lazy_lint — 主报告深度检查 (skill v4.7)
 
-机械化阻断"偷懒报告"的 4 条 hard-fail lint 规则。
+机械化阻断"偷懒报告"的 5 条 hard-fail lint 规则。
 LLM 自审看不见自己的懒,这里用确定性的 grep + 计数 + diff 替代。
 
 调用:
@@ -124,7 +124,7 @@ class LintResult:
         if failed:
             lines.append(f"总结: {len(failed)} 项失败 ({', '.join(failed)}) → exit 1")
         else:
-            lines.append("总结: 全部 4 项通过 → exit 0")
+            lines.append(f"总结: 全部 {len(self.rules)} 项通过 → exit 0")
         return "\n".join(lines)
 
 
@@ -366,6 +366,33 @@ def rule_4_title_byte_exact(md_text: str) -> RuleResult:
 
 
 # ============================================================================
+# Rule 5: §一 执行摘要禁止内联来源标签 (保持干净 TL;DR)
+# 执行摘要是给人快读的决策仪表盘, 混入 [data_snapshot §2.1] / [§五] / [缺口#1] /
+# [Tushare:..] 这类来源脚注会严重伤可读性。来源属于 §二-§八 正文。
+# ============================================================================
+EXEC_SUMMARY_SOURCE_TAG = re.compile(
+    r"\[(?:data_snapshot|peer_analysis|metrics\.json|capital_flow|technical_analysis|"
+    r"audit_report|audit|缺口|WebSearch|Tushare|PDF|yfinance|§[一二三四五六七八九十])"
+)
+
+
+def rule_5_exec_summary_clean(md_text: str) -> RuleResult:
+    sections = _split_sections(md_text)
+    body = sections.get("§一", "")
+    findings: list[str] = []
+    for line in body.splitlines():
+        if line.lstrip().startswith("##"):
+            continue
+        m = EXEC_SUMMARY_SOURCE_TAG.search(line)
+        if m:
+            s = line.strip()
+            findings.append(f"§一 内联来源标签: …{s[max(0, m.start() - 15):m.start() + 35]}…")
+    passed = len(findings) == 0
+    detail = f"{len(findings)} 处内联来源标签 (§一 应为干净叙述, 来源放 §二-§八; 阈值 = 0)"
+    return RuleResult(name="Rule 5 §一 执行摘要无内联来源标签", passed=passed, detail=detail, findings=findings)
+
+
+# ============================================================================
 # 公共 API
 # ============================================================================
 def lint_md(md_path: Path) -> LintResult:
@@ -383,6 +410,7 @@ def lint_md(md_path: Path) -> LintResult:
     result.rules.append(rule_2_min_chars(md_text))
     result.rules.append(rule_3_artifact_coverage(md_path, md_text))
     result.rules.append(rule_4_title_byte_exact(md_text))
+    result.rules.append(rule_5_exec_summary_clean(md_text))
     return result
 
 

@@ -208,6 +208,8 @@ Read assets/templates/exec-summary-schema.md
 6. **核心非共识判断**（1-3 条，可选；由分析师直接给出本报告与市场共识的关键分歧，纯标题/短句）
 7. **投资方向综合判定**（看多 / 看空 / 中性-分歧；与 §四 定性综合判断方向一致）
 
+★ **§一 全程干净叙述,禁止内联来源标签**（`[data_snapshot…]`/`[peer_analysis…]`/`[metrics.json…]`/`[§X]`/`[缺口#N]`/`[WebSearch/Tushare/PDF:…]`）——执行摘要只给结论与逻辑,出处放 §二–§八（`anti_lazy_lint` Rule 5 机械拦截）。
+
 ---
 
 ## 输出

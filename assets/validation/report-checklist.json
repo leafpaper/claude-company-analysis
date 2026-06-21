@@ -232,6 +232,12 @@
       "skeleton_path": "assets/templates/report-skeleton.md",
       "comparison": "去除全角/半角括号注释 + ## 前缀 + 反引号后逐字符比对"
     },
+    "rule_5_exec_summary_clean": {
+      "section": "§一",
+      "max_inline_source_tags": 0,
+      "blocked_patterns": "[data_snapshot…] / [peer_analysis…] / [metrics.json…] / [audit…] / [§X] / [缺口#N] / [WebSearch|Tushare|PDF|yfinance:…]",
+      "rationale": "执行摘要是给人快读的 TL;DR, 来源标注属于 §二-§八 正文, §一 只给结论与逻辑"
+    },
     "enforcement": "Phase 6 Part A Step 0 强制调用 — 任一规则违规则退出码 1, BLOCK 后续 LLM 审核与 HTML 生成"
   }
 }

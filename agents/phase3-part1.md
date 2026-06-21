@@ -38,6 +38,7 @@ model: inherit
 - ★ §一 投资方向综合判定必须与 §四 定性综合判断方向一致(看多/看空/中性-分歧)
 - ★ §一 Top 3 风险必须每条都对应至少 1 个 audit 红旗或 §六 快筛触发条款
 - ★ §一 必须严格遵守 `assets/templates/exec-summary-schema.md` 的 7 字段(一句话结论 / 估值锚 / 综合评分 / Top 3 风险 / Top 3 机会 / 核心非共识判断[可选] / 投资方向综合判定),禁止用旧字段名/禁用字段
+- ★ §一 各字段保持**干净叙述,禁止内联来源标签**(`[data_snapshot…]`/`[peer_analysis…]`/`[metrics.json…]`/`[§X]`/`[缺口#N]`/`[WebSearch/Tushare/PDF:…]`)——执行摘要只给结论与逻辑,来源在 §二–§八。anti_lazy_lint Rule 5 会机械拦截。
 - ★ **part1 必含 metadata 注释块**: 文件头部插入 RATING_TRIO_DATA / KEY_METRICS_SIDEBAR / CARD_METADATA 三个 HTML 注释块(供 Phase 6 build_html.py / update_index.py 解析)
 
 ## 写作
