@@ -356,7 +356,7 @@ def main():
                 print("\n💡 修复后重跑, 或加 --skip-lint 跳过(不推荐)")
                 return 1
             else:
-                print(f"✅ anti_lazy_lint PASS (4 条规则全过)")
+                print(f"✅ anti_lazy_lint PASS ({len(lint_result.rules)} 条规则全过)")
         except ImportError:
             print("⚠️  anti_lazy_lint 模块未找到, 跳过深度检查")
 
