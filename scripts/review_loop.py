@@ -54,12 +54,13 @@ import re
 import sys
 from pathlib import Path
 
-# 章节 → Part 文件映射(与 assemble_report.py PART_EXPECTED_SECTIONS 一致, v6.0 — 4 part)
+# 章节 → Part 文件映射(与 assemble_report.py PART_EXPECTED_SECTIONS 一致, v7.0 — 5 part)
 PART_SECTION_MAP = {
     "P1": ["§一"],
     "P2": ["§二", "§三"],
     "P3": ["§四", "§五"],
-    "P4": ["§六", "§七", "§八"],
+    "P4": ["§六", "§七"],
+    "P5": ["§八", "§九"],
 }
 N_PARTS = len(PART_SECTION_MAP)
 
@@ -73,7 +74,7 @@ def parse_reviewer_response(text: str) -> dict:
     - `### 维度 N {名}: PASS/FAIL`
     - `### 总体: PASS/FAIL` (旧 reviewer 兼容)
 
-    FIX 行格式:`- [FIX-P{1-4}-§{X}] {问题} → {建议}`
+    FIX 行格式:`- [FIX-P{1-5}-§{X}] {问题} → {建议}`
     """
     # 判定: 找第一个 PASS/FAIL
     judgment = "UNKNOWN"
@@ -83,7 +84,7 @@ def parse_reviewer_response(text: str) -> dict:
         judgment = m.group(1)
 
     # FIX 列表
-    fix_lines = re.findall(r"^- \[FIX-P[1-4]-§[^\]]+\] .+ → .+$",
+    fix_lines = re.findall(r"^- \[FIX-P[1-5]-§[^\]]+\] .+ → .+$",
                            text, re.MULTILINE)
 
     return {"judgment": judgment, "fixes": fix_lines}
@@ -104,10 +105,10 @@ def merge_fix_lists(all_fixes_by_reviewer: dict[str, list[str]]) -> list[str]:
 
 
 def categorize_fixes_by_part(fixes: list[str]) -> dict[str, list[str]]:
-    """把 FIX 行按 P1-P4 分组。"""
+    """把 FIX 行按 P1-P5 分组。"""
     by_part = {p: [] for p in PART_SECTION_MAP.keys()}
     for fix in fixes:
-        m = re.match(r"^- \[FIX-(P[1-4])-", fix)
+        m = re.match(r"^- \[FIX-(P[1-5])-", fix)
         if m:
             p = m.group(1)
             by_part[p].append(fix)
@@ -115,7 +116,7 @@ def categorize_fixes_by_part(fixes: list[str]) -> dict[str, list[str]]:
 
 
 def compute_diff_signature(output_dir: Path) -> str:
-    """计算 phase3-part{1-4}.md 4 个文件的 md5 拼接签名。
+    """计算 phase3-part{1-5}.md 5 个文件的 md5 拼接签名。
     用于检测 diff 对抗(连续 2 轮 signature 重复 = LLM 反复改回原状)。
     """
     h = hashlib.md5()

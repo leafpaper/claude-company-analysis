@@ -4,6 +4,28 @@
 
 ---
 
+## [v7.0] — 2026-06-22 — 投资决策内核（贝叶斯之美五篇融入）
+
+> **主题**: 把"贝叶斯之美/BayesCrest"五篇投资理念（《投资是泊松过程》《喊线时代》《三大数学模型之美》《信仰投资最大陷阱》《十年十倍股》）落成 skill 的判断逻辑链。核心公式 **投资价值 = 状态后验 × 赔率 × 路径可承受性**，把"是不是好公司"拆成 **好公司 / 好下注 / 好价格** 三分。根治旧版"DCF 单锚 lowball + 贵=回避"的 Issue 1。
+
+### Added
+- **§七 投资决策内核（新章节，8→9 章）**: 状态×赔率×路径合成 → 决策三元组 + 三分结论 + 行动档位（六档：核心仓/期权仓/等证据临界/不追高/减仓/回避）+ 证伪退出。由新写手 **phase3-part5** 之前的 part4 合成（part4=§六/§七，新增 part5=§八/§九）。
+- **§四 4.11 状态评估区**: 全机制落地——【λ与证据临界密度】【身份切换·升级基本面5元组】【四层验证·权威认证】【右尾识别·幂律来源·左尾预警】【无记忆性检查】，机制原料供 §七 合成。
+- **§六 6.4 左尾防护·高信仰股特征**。
+- **`references/investment-decision-core.md`**: 五篇全机制权威定义 hub + 行动档位映射表 + 各报告块必填字段。
+- **anti_lazy_lint Rule 6**（§七 决策内核完整性：决策三元组/行动档位/证伪）+ **Rule 7**（无记忆性反例：禁"跌久了该涨/估值压久了该修复"作买入理由）。
+- phase3 写手 4→5（新增 `agents/phase3-part5.md` 写 §八/§九）；sub-agent 8→9。
+
+### Changed
+- **§五 估值重做**（替代 DCF 单锚）: 5.1 价格分解 P=F+N（含 free option vs embedded obligation、N'/N vs F'/F）/ 5.2 反向DCF 隐含预期 / 5.3 ΔP 传播因子分解 / 5.4 叙事分部SOTP / 5.5 正向DCF 降为 F 的交叉验证 / 5.6 回报含路径成本 / 5.7 赔率小结。每块须出数字。
+- **§一 第 7 字段** "投资方向综合判定" → **决策结论**（决策三元组+三分+行动档位+该等什么，照抄 §七 7.4）；综合评分标注「基本面静态快照」非结论。
+- **评分原样保留**（用户选定 Option B）: scoring-rubric.md 不改，10 维度评分作 F(B) 先验/快照；权威投资结论移到 §七。
+- 结构管线 9 章 / 5 part: `assemble_report`(PART_EXPECTED_SECTIONS 5 part) / `anti_lazy_lint`(MIN_SECTION_CHARS 9 项) / `review_loop`(P1-P5) / `base.html`(section_7 决策内核 + nav) / `report-checklist.json`(9 章 + valuation_anchor 放宽 + forbidden_phrases 限 §四) / `build_html`(槽位动态适配 9)。
+- reviewer-valuation 扩为"估值+决策可信度"（反向DCF/P=F+N/SOTP/三元组一致 6 项检查）；reviewer-narrative 1.2 改为 §一 决策结论 vs §七 7.4。
+- 旧 §七 舆情 → §八，旧 §八 来源 → §九。
+
+---
+
 ## [v6.1] — 2026-06-20 — 跨平台(Mac/Linux + Windows)
 
 > **主题**: skill 原本写死 bash(`python3` / `mkdir -p` / `grep` / `cd "$(...)"` / `git -C /tmp`), 在 Windows PowerShell 上整跑会一路撞 shell 错。本版把编排层移植成跨平台。

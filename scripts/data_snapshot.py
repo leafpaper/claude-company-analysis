@@ -667,8 +667,8 @@ def build_snapshot(bundle_dir: Path, ts_code: str = "", company: str = "") -> st
     out.write(f"# 数据快照: {company or 'company'} ({ts_code or 'ticker'})\n\n")
     out.write(f"**生成日期**: {today}\n")
     out.write(f"**数据源**: `{bundle_dir}` (Tushare parquet)\n\n")
-    out.write("> ★ **Phase 3 必读规则**: 本 artifact 为主报告 §四 公司基本面 / §九 估值 / "
-              "§十一 治理 等章节的**唯一**财务和股东数据源。Phase 3 LLM 必须把 §3 多年趋势完整表、"
+    out.write("> ★ **Phase 3 必读规则**: 本 artifact 为主报告 §二 公司基本面 / §五 估值 / "
+              "§六 风险红旗 等章节的**唯一**财务和股东数据源。Phase 3 LLM 必须把 §3 多年趋势完整表、"
               "§5/§6 十大股东表 inline 完整搬入主报告对应章节, **严禁** \"同上\"/\"余略\"/"
               "\"详见附件\" 等省略性写法。**若 §4 forecast vs actual 表显示 actual 已存在, "
               "主报告必须用 actual 数据, 禁止用预告区间口径。**\n\n")

@@ -14,7 +14,7 @@ REPO_URL="https://raw.githubusercontent.com/leafpaper/claude-company-analysis/ma
 echo "================================================"
 echo "  Claude Code — 投资分析 Skill 安装程序 v6.0"
 echo "  结构化数据 + PDF 精析 + 11 大师框架审计"
-echo "  v6.0: 8 章节精简报告 + 4 part 写手编排"
+echo "  v7.0: 9 章节报告(含投资决策内核) + 5 part 写手编排"
 echo "  支持 A 股 / 美股 / 港股"
 echo "================================================"
 echo ""
@@ -42,9 +42,9 @@ curl -fsSL "$REPO_URL/CHANGELOG.md" -o "$SKILL_DIR/CHANGELOG.md"
 curl -fsSL "$REPO_URL/.env.sample" -o "$SKILL_DIR/.env.sample"
 
 # ------------------------------------------------
-# [3/6] 下载 5 个阶段文件 + 8 个 sub-agent
+# [3/6] 下载 5 个阶段文件 + 9 个 sub-agent
 # ------------------------------------------------
-echo "[3/6] 下载 5 个阶段文件 + 8 个 sub-agent..."
+echo "[3/6] 下载 5 个阶段文件 + 9 个 sub-agent..."
 for phase in \
     phase1-data-collection \
     phase2-document-analysis \
@@ -60,6 +60,7 @@ for agent in \
     phase3-part2 \
     phase3-part3 \
     phase3-part4 \
+    phase3-part5 \
     reviewer-narrative \
     reviewer-valuation \
     reviewer-redflag; do
@@ -67,15 +68,16 @@ for agent in \
 done
 
 # ------------------------------------------------
-# [4/6] 下载 7 个参考文档
+# [4/6] 下载 8 个参考文档
 # ------------------------------------------------
-echo "[4/6] 下载 7 个参考文档..."
+echo "[4/6] 下载 8 个参考文档..."
 for ref in \
     agent-protocol \
     phase-orchestration \
     scoring-rubric \
     qualitative-frameworks \
     valuation-frameworks \
+    investment-decision-core \
     search-strategy \
     html-template-guide; do
   curl -fsSL "$REPO_URL/references/${ref}.md" -o "$SKILL_DIR/references/${ref}.md"
@@ -84,7 +86,7 @@ done
 # ------------------------------------------------
 # [5/6] 下载 assets/ (报告骨架 + HTML 模板 + 审核 schema)
 # ------------------------------------------------
-echo "[5/6] 下载 assets/（8 章节骨架强制）..."
+echo "[5/6] 下载 assets/（9 章节骨架强制）..."
 # 2 个模板
 curl -fsSL "$REPO_URL/assets/templates/report-skeleton.md"     -o "$SKILL_DIR/assets/templates/report-skeleton.md"
 curl -fsSL "$REPO_URL/assets/templates/exec-summary-schema.md" -o "$SKILL_DIR/assets/templates/exec-summary-schema.md"
@@ -138,12 +140,12 @@ AGENT_COUNT=$(find "$SKILL_DIR/agents" -name "*.md" 2>/dev/null | wc -l | tr -d 
 REF_COUNT=$(find "$SKILL_DIR/references" -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
 SCRIPT_COUNT=$(find "$SKILL_DIR/scripts" -name "*.py" 2>/dev/null | wc -l | tr -d ' ')
 ASSETS_COUNT=$(find "$SKILL_DIR/assets" -type f 2>/dev/null | wc -l | tr -d ' ')
-# v6.0 期望: 5 phases + 8 agents + 7 refs + 25 scripts + 6 assets + 1 SKILL.md
+# v7.0 期望: 5 phases + 9 agents + 8 refs + 25 scripts + 6 assets + 1 SKILL.md
 
-if [ "$PHASE_COUNT" -eq "5" ] && [ "$AGENT_COUNT" -eq "8" ] && [ "$REF_COUNT" -eq "7" ] && [ "$SCRIPT_COUNT" -eq "25" ] && [ "$ASSETS_COUNT" -eq "6" ]; then
+if [ "$PHASE_COUNT" -eq "5" ] && [ "$AGENT_COUNT" -eq "9" ] && [ "$REF_COUNT" -eq "8" ] && [ "$SCRIPT_COUNT" -eq "25" ] && [ "$ASSETS_COUNT" -eq "6" ]; then
     echo ""
     echo "============================================"
-    echo "  ✅ 安装成功！(v6.0)"
+    echo "  ✅ 安装成功！(v7.0)"
     echo "============================================"
     echo ""
     echo "  协调器:  SKILL.md"
@@ -151,7 +153,7 @@ if [ "$PHASE_COUNT" -eq "5" ] && [ "$AGENT_COUNT" -eq "8" ] && [ "$REF_COUNT" -e
     echo "  子智能体: $AGENT_COUNT 个 (agents/)"
     echo "  框架:    $REF_COUNT 个 (references/)"
     echo "  脚本:    $SCRIPT_COUNT 个 Python 模块 (scripts/)"
-    echo "  资产:    $ASSETS_COUNT 个 (assets/ - 8 章节骨架 + HTML 模板 + 审核 schema)"
+    echo "  资产:    $ASSETS_COUNT 个 (assets/ - 9 章节骨架 + HTML 模板 + 审核 schema)"
     echo "  输出目录: ~/投资报告/"
     echo ""
     echo "============================================"
@@ -181,7 +183,7 @@ if [ "$PHASE_COUNT" -eq "5" ] && [ "$AGENT_COUNT" -eq "8" ] && [ "$REF_COUNT" -e
 else
     echo ""
     echo "❌ 错误：安装不完整"
-    echo "  预期(v6.0): phases=5 agents=8 refs=7 scripts=25 assets=6"
+    echo "  预期(v7.0): phases=5 agents=9 refs=8 scripts=25 assets=6"
     echo "  实际:       phases=$PHASE_COUNT agents=$AGENT_COUNT refs=$REF_COUNT scripts=$SCRIPT_COUNT assets=$ASSETS_COUNT"
     exit 1
 fi

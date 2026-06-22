@@ -1,6 +1,6 @@
 """anti_lazy_lint — 主报告深度检查 (skill v4.7)
 
-机械化阻断"偷懒报告"的 5 条 hard-fail lint 规则。
+机械化阻断"偷懒报告"的 7 条 hard-fail lint 规则 (v7.0: +Rule6 §七决策内核 +Rule7 无记忆性反例)。
 LLM 自审看不见自己的懒,这里用确定性的 grep + 计数 + diff 替代。
 
 调用:
@@ -38,9 +38,9 @@ FORBIDDEN_LINK_PATTERNS = [
     (re.compile(r"\[[^\]]+\]\((?!#)[^)]*\.md\)"), "[xxx](xxx.md) 外链"),
 ]
 
-# v6.0: 跨文件引用白名单 — §八 = 数据来源与信息缺口, 允许引用源文件名
+# v7.0: 跨文件引用白名单 — §九 = 数据来源与信息缺口, 允许引用源文件名 (v6.0 的 §八)
 SECTION_WHITELIST: dict[str, set[str]] = {
-    "§八": {"audit_report.md", "metrics.json", "phase1-data.md", "phase2-documents.md"},
+    "§九": {"audit_report.md", "metrics.json", "phase1-data.md", "phase2-documents.md"},
     "§六": {"audit_report.md"},   # 风险与红旗审计章节引用 audit_report 完整清单
 }
 
@@ -51,14 +51,15 @@ SECTION_WHITELIST: dict[str, set[str]] = {
 # 摘要式 (§八 来源缺口) 给低阈值. 太严会卡合法摘要式章节.
 # ============================================================================
 MIN_SECTION_CHARS = {
-    "§一":  600,   # 执行摘要
+    "§一":  600,   # 执行摘要 (含决策结论)
     "§二":  800,   # 公司基本面 (财务趋势 + 主力控盘 + 十大股东)
-    "§三":  700,   # 行业与竞争对标 (行业格局 + peer, 旧 §五+§八)
-    "§四": 1500,   # 评分与维度证据 (评分表 + 10 维度逐条, 旧 §二+§六)
-    "§五":  800,   # 估值与回报 (DCF + 交叉验证 + 技术面 + 回报, 旧 §九+§十)
-    "§六":  500,   # 风险与红旗审计 (快筛 + audit 汇总, 旧 §三+§十三红旗)
-    "§七":  600,   # 舆情 + 资金流
-    "§八":  200,   # 数据来源 + 信息缺口 (旧 §十二+§十三)
+    "§三":  700,   # 行业与竞争对标 (行业格局 + peer)
+    "§四": 1500,   # 评分与维度证据 (评分表 + 10 维度逐条 + 4.11 状态评估)
+    "§五":  900,   # 估值、赔率与定价充分度 (P=F+N / 反向DCF / ΔP / SOTP / DCF / 回报路径)
+    "§六":  500,   # 风险与红旗审计 (快筛 + audit 汇总 + 6.4 左尾防护)
+    "§七":  800,   # 投资决策内核 (状态×赔率×路径 → 三分 + 行动档位)  v7.0 新增; 结构由 Rule6 兜底
+    "§八":  600,   # 舆情 + 资金流 (v6.0 的 §七)
+    "§九":  200,   # 数据来源 + 信息缺口 (v6.0 的 §八)
 }
 
 # ============================================================================
@@ -393,6 +394,59 @@ def rule_5_exec_summary_clean(md_text: str) -> RuleResult:
 
 
 # ============================================================================
+# Rule 6: §七 投资决策内核 完整性 (v7.0)
+# §七 必含 决策三元组 / 行动档位 / 证伪, 且行动档位是六档之一 —— 防"合成章被略过/空话"
+# ============================================================================
+DECISION_CORE_REQUIRED = ("决策三元组", "行动档位", "证伪")
+ACTION_TIERS = ("核心仓", "期权仓", "等证据临界", "不追高", "减仓", "回避")
+
+
+def rule_6_decision_core(md_text: str) -> RuleResult:
+    sections = _split_sections(md_text)
+    body = sections.get("§七", "")
+    findings: list[str] = []
+    if not body.strip():
+        findings.append("§七 投资决策内核 缺失或为空")
+    else:
+        for kw in DECISION_CORE_REQUIRED:
+            if kw not in body:
+                findings.append(f"§七 缺必填要素「{kw}」")
+        if not any(t in body for t in ACTION_TIERS):
+            findings.append(f"§七 行动档位未给出六档之一 {ACTION_TIERS}")
+    passed = len(findings) == 0
+    detail = f"{len(findings)} 项缺失 (§七 须含 决策三元组/行动档位/证伪 + 六档行动档位之一)"
+    return RuleResult(name="Rule 6 §七 投资决策内核完整性", passed=passed, detail=detail, findings=findings)
+
+
+# ============================================================================
+# Rule 7: 无记忆性反例 — 禁止"等待时间幻觉"作买入理由 (v7.0, 泊松)
+# 等久 ≠ 该涨; 买入理由必须是 λ↑ / 证据斜率变正。否定/元讨论语境豁免。
+# ============================================================================
+MEMORYLESS_FORBIDDEN = [
+    "跌久了该涨", "跌多了该反弹", "超跌就该反弹", "沉寂这么久该涨",
+    "沉寂久了该轮到", "估值压久了该修复", "压制这么久该修复",
+    "横盘这么久该突破", "讲多年AI该兑现", "等这么久该涨",
+]
+MEMORYLESS_EXEMPT_CONTEXT = (
+    "禁用", "禁止", "不得", "不能", "不应", "反例", "幻觉", "警惕", "避免", "并非", "而非", "无记忆性",
+)
+
+
+def rule_7_memorylessness(md_text: str) -> RuleResult:
+    findings: list[str] = []
+    for i, line in enumerate(md_text.splitlines()):
+        if any(ctx in line for ctx in MEMORYLESS_EXEMPT_CONTEXT):
+            continue   # 否定/元讨论语境 (报告解释"禁用这些") 豁免
+        for phrase in MEMORYLESS_FORBIDDEN:
+            if phrase in line:
+                findings.append(f"L{i+1} 等待时间幻觉作买入理由: …{line.strip()[:60]}…")
+                break
+    passed = len(findings) == 0
+    detail = f"{len(findings)} 处'等待时间幻觉' (泊松无记忆性: 等久≠该涨, 须 λ↑/证据斜率变正)"
+    return RuleResult(name="Rule 7 无记忆性反例", passed=passed, detail=detail, findings=findings)
+
+
+# ============================================================================
 # 公共 API
 # ============================================================================
 def lint_md(md_path: Path) -> LintResult:
@@ -411,6 +465,8 @@ def lint_md(md_path: Path) -> LintResult:
     result.rules.append(rule_3_artifact_coverage(md_path, md_text))
     result.rules.append(rule_4_title_byte_exact(md_text))
     result.rules.append(rule_5_exec_summary_clean(md_text))
+    result.rules.append(rule_6_decision_core(md_text))
+    result.rules.append(rule_7_memorylessness(md_text))
     return result
 
 

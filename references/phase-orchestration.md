@@ -39,16 +39,16 @@
 
 ---
 
-## Phase 3: 综合分析(4 个 phase3-part sub-agent 串行 + assemble)
+## Phase 3: 综合分析(5 个 phase3-part sub-agent 串行 + assemble)
 
-**串行顺序固定**:`part2 → part3 → part4 → part1`(part1 最后,§一 执行摘要依赖 §四 评分加权 + §五 估值 + §六 风险)
+**串行顺序固定**:`part2 → part3 → part4 → part5 → part1`(part1 最后,§一 决策结论照抄 §七 7.4;§七 由 part4 合成 §四状态/§五赔率/§六路径)
 
 **章节边界**(真理来源 `scripts/assemble_report.py:PART_EXPECTED_SECTIONS`):
-part1=§一 · part2=§二/§三 · part3=§四/§五 · part4=§六/§七/§八。
+part1=§一 · part2=§二/§三 · part3=§四/§五 · part4=§六/§七 · part5=§八/§九。
 
 **调度 checklist**:
 
-对每个 N ∈ [2, 3, 4, 1] 顺序:
+对每个 N ∈ [2, 3, 4, 5, 1] 顺序:
 
 1. 用 Agent 工具启动 `phase3-part{N}`:
    - prompt 含 `output_dir / company / date / type / market / ticker / amount`
@@ -58,7 +58,7 @@ part1=§一 · part2=§二/§三 · part3=§四/§五 · part4=§六/§七/§八
    - 启动新 phase3-partN sub-agent
    - prompt 注入"上一轮判定 FAIL,问题点: {主 agent 审到的具体问题}, 请重写"
    - 最多 1 次 fresh-restart;仍 FAIL → 转人工
-5. 4 个 part 全部 PASS 后,用 Bash 跑 assemble_report.py:
+5. 5 个 part 全部 PASS 后,用 Bash 跑 assemble_report.py:
 
    ```
    {PYBIN} -m scripts.assemble_report \
@@ -66,9 +66,9 @@ part1=§一 · part2=§二/§三 · part3=§四/§五 · part4=§六/§七/§八
        --parts-dir "output/{company}/" \
        --out "output/{company}/{company}-analysis-{date}.md"
    ```
-6. 检查脚本退出码 + 主报告 section 数 = 8
+6. 检查脚本退出码 + 主报告 section 数 = 9
 
-**质量门控**:每 part 自检 PASS + assemble 退出码 0 + 8 章节齐全 + Audit 红旗全部被引用
+**质量门控**:每 part 自检 PASS + assemble 退出码 0 + 9 章节齐全 + Audit 红旗全部被引用 + §七 决策三元组齐
 
 ---
 
@@ -120,7 +120,7 @@ part1=§一 · part2=§二/§三 · part3=§四/§五 · part4=§六/§七/§八
 
    脚本会:
    - 读 round_1_*.md 提取 PASS/FAIL + FIX 列表
-   - 合并 FIX(P1-P4 分组,去重)
+   - 合并 FIX(P1-P5 分组,去重)
    - 计算 part 文件 diff signature(md5)
    - 如果是 round > 1:对比上轮 signature → 若重复标 "diff_repeat"
    - 输出 JSON: `{"overall_pass": bool, "fix_applied": int, "diff_repeat": bool, "fix_list_path": "..."}`

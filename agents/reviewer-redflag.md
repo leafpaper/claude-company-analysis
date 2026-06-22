@@ -45,7 +45,8 @@ model: inherit
 | §一 | phase3-part1.md | P1 |
 | §二 / §三 | phase3-part2.md | P2 |
 | §四 / §五 | phase3-part3.md | P3 |
-| §六 / §七 / §八 | phase3-part4.md | P4 |
+| §六 / §七 | phase3-part4.md | P4 |
+| §八 / §九 | phase3-part5.md | P5 |
 
 ## 输出格式(★ 严格 schema)
 

@@ -1,8 +1,8 @@
-# Phase 6: 审核与发布（v6.0 · 8 章节 + reviewer 3 并行）
+# Phase 6: 审核与发布（v7.0 · 9 章节 + reviewer 3 并行）
 
-> **⚠️ v6.0 起**: 报告从 13 章重构为 **8 章**（§一执行摘要 / §二公司基本面 / §三行业与竞争对标 / §四评分与维度证据 / §五估值与回报 / §六风险与红旗审计 / §七舆情与市场情绪 / §八数据来源与信息缺口）。已删除 Phase 4 多角色与 Phase 5 差异化洞察 —— 本文件不再含任何 persona / variant-perception / 9 字段卡片 相关审核。
+> **⚠️ v7.0 起**: 报告 9 章（§一执行摘要 / §二公司基本面 / §三行业与竞争对标 / §四评分与维度证据 / §五估值、赔率与定价充分度 / §六风险与红旗审计 / §七投资决策内核 / §八舆情与市场情绪 / §九数据来源与信息缺口）。新增 §七 投资决策内核（状态×赔率×路径 → 三分结论 + 行动档位）。
 >
-> **anti_lazy_lint 4 项机械规则通过后**, **Part A.5** 调用 3 个并行 sub-agent: `agents/reviewer-narrative.md`（叙事一致）+ `agents/reviewer-valuation.md`（估值假设）+ `agents/reviewer-redflag.md`（红旗闭环）。主 agent 用 `Agent(run_in_background=True)` 同时启动 3 个,合并 FIX 列表后做 fresh-restart 修正循环（最多 3 轮 + diff 对抗检测）。调度细节见 `references/phase-orchestration.md` Phase 6 Part A.5。
+> **anti_lazy_lint 7 项机械规则通过后**, **Part A.5** 调用 3 个并行 sub-agent: `agents/reviewer-narrative.md`（叙事一致）+ `agents/reviewer-valuation.md`（估值假设）+ `agents/reviewer-redflag.md`（红旗闭环）。主 agent 用 `Agent(run_in_background=True)` 同时启动 3 个,合并 FIX 列表后做 fresh-restart 修正循环（最多 3 轮 + diff 对抗检测）。调度细节见 `references/phase-orchestration.md` Phase 6 Part A.5。
 
 > **🧭 你在这里**：[SKILL.md 协调器](../SKILL.md) → Phase 3 → **Phase 6 审核与发布**（终点）
 >
@@ -26,7 +26,7 @@
 
 ## 前置条件
 
-1. `output/{company}/{company}-analysis-{date}.md` 存在（Phase 3 assemble 产出，8 章节齐全）
+1. `output/{company}/{company}-analysis-{date}.md` 存在（Phase 3 assemble 产出，9 章节齐全）
 2. `output/{company}/phase1-data.md` + `phase2-documents.md` 存在（供来源审计与缺口补查回溯）
 3. HTML 真相源可用：`assets/html/base.html` + `styles.css` + `components.html`
 
@@ -63,9 +63,11 @@
 | # | 规则 | 阈值 | 例外白名单 |
 |:---:|------|------|---------|
 | 1 | 外链引用扫描 (详见 xxx.md / 见 phaseX.md / [xxx](xxx.md)) | 命中 = 0 | §六 允许引用 `audit_report.md`;§八 允许 `audit_report.md` / `metrics.json` / `phase1-data.md` / `phase2-documents.md` |
-| 2 | 章节最小字符数 (中文+字母+数字) | 见 `scripts/anti_lazy_lint.py:MIN_SECTION_CHARS`（§一 600 / §二 800 / §三 700 / §四 1500 / §五 800 / §六 500 / §七 600 / §八 200） | – |
+| 2 | 章节最小字符数 (中文+字母+数字) | 见 `scripts/anti_lazy_lint.py:MIN_SECTION_CHARS`（§一 600 / §二 800 / §三 700 / §四 1500 / §五 900 / §六 500 / §七 800 / §八 600 / §九 200） | – |
 | 3 | Artifact 关键短语覆盖率 (capital_flow / peer / tech / audit / data_snapshot) | overall ≥ 40% AND 单 artifact ≥ 20%（data_snapshot.md 单独 5% 且不计 overall） | 美股/港股无 artifact 时跳过 |
-| 4 | 章节标题与 `assets/templates/report-skeleton.md` 字节一致 (去括号注释后) | 8 章节, 0 differences | – |
+| 4 | 章节标题与 `assets/templates/report-skeleton.md` 字节一致 (去括号注释后) | 9 章节, 0 differences | – |
+| 6 | §七 投资决策内核完整性 | 含「决策三元组」「行动档位」(六档之一)「证伪」 | – |
+| 7 | 无记忆性反例 | 0 处"跌久了该涨/估值压久了该修复"作买入理由 | – |
 
 **修复指引**:
 - Rule 1 命中 → 删除外链, **inline 完整内容**(表格 / 数字 / 段落)到对应章节
@@ -99,10 +101,10 @@
 | 16 | **估值-回报一致性** | §五 5.1 估值锚（DCF 概率加权）与 5.4 投资回报测算是否**共用同一组情景**（乐观/基准/悲观 ± 最差）和同一组概率？是否禁止"三角验证均值"作为综合锚？交叉验证（5.2）可比倍数/PB 差距 > 20% 是否已解释分歧原因？**若 5.1 锚 ≠ 5.4 基准或概率分布不同则不通过**。 |
 | 17 | **核心资产剥离风险 SOTP** | 若满足以下**任一**触发条件：①核心子公司占合并净利 > 30% 且存在剥离/控制权丧失可能；②`forecast_vip` 预亏 > 50% 净资产；③PDF 自述"若 XX 发生面临阶段性下调"；④`audit_report` 🔴 涉及核心资产减值 —— §二 是否有"若核心资产被剥离的剩余资产清单"子节（含货币/金融资产/非核心子公司/已剥离尾款/非核心固定资产/壳价值/有息负债/清算成本）？§五 5.1 是否有"最差情景"（3-10% 权重）作为下行地板？**若触发但缺其中任一则不通过**。 |
 | 18 | **红旗闭环** | §六 6.1 致命看空快筛（6 项阈值）每项有实际值 + 触发判定？§六 6.2 审计红旗汇总（11 框架）来自 `audit_report.md`？**每条 🔴/🟠 红旗是否在 §六 6.3 致命看空论证 或 §一 Top 3 风险中被引用闭环**？§四 维度 7（财务健康度）/ 维度 8（估值合理性）是否与 §六 红旗、§五 估值口径一致？ |
-| 19 | **HTML 资产加载** | Part B 生成 HTML 是否**从 `assets/html/base.html` 加载骨架**？是否**内联了 `assets/html/styles.css` 完整内容**（`grep -c '^\s*--c-' *.html` ≥ 16 个 CSS 变量）？是否使用 `assets/html/components.html` 的标准组件 class（≥ 8/9）？是否 **8 个** `<div class="section"` 对应 §一～§八 且 id 属性正确（exec-summary / fundamentals / industry / scoring / valuation / risk / sentiment / sources）？**禁止 Claude 自写 CSS 变量或组件 class**。 |
-| 20 | **Executive Summary 7 字段 schema** | §一 执行摘要是否严格按 `assets/templates/exec-summary-schema.md` 的 7 固定字段展开（一句话结论 / 估值锚 / 综合评分 / 三大风险 / 三大机会 / 核心非共识判断 / 投资方向综合判定）？字段名与顺序字节一致？**是否出现禁用字段**（综合评级 / 量化分+定性修正+调整后分 / 建议仓位 / 尽调优先级 / 关键假设敏感度）？**8 个 `## §` 标题是否与 `assets/templates/report-skeleton.md` 字节一致**？ |
+| 19 | **HTML 资产加载** | Part B 生成 HTML 是否**从 `assets/html/base.html` 加载骨架**？是否**内联了 `assets/html/styles.css` 完整内容**（`grep -c '^\s*--c-' *.html` ≥ 16 个 CSS 变量）？是否使用 `assets/html/components.html` 的标准组件 class（≥ 8/9）？是否 **9 个** `<div class="section"` 对应 §一～§九 且 id 属性正确（exec-summary / fundamentals / industry / scoring / valuation / risk / decision-core / sentiment / sources）？**禁止 Claude 自写 CSS 变量或组件 class**。 |
+| 20 | **Executive Summary 7 字段 schema** | §一 执行摘要是否严格按 `assets/templates/exec-summary-schema.md` 的 7 固定字段展开（一句话结论 / 估值锚 / 综合评分[标注快照] / 三大风险 / 三大机会 / 核心非共识判断 / **决策结论**[来自 §七 7.4，含决策三元组+三分+行动档位]）？字段名与顺序字节一致？**是否出现禁用字段**（综合评级 / 量化分+定性修正+调整后分 / 建议仓位 / 尽调优先级）/旧"投资方向综合判定"？**9 个 `## §` 标题是否与 `assets/templates/report-skeleton.md` 字节一致**？§一 决策结论是否与 §七 7.4 一致？ |
 
-> Phase 1 的 4 个结构化 artifact（`peer_analysis.md` → §三；`capital_flow.md` → §二 主力控盘 + §七 资金流向；`technical_analysis.md` → §五 5.3 技术面；`audit_report.md` → §一 Top 3 + §六）的"真实消费"由 Step 0 Rule 3（artifact 覆盖率）机械保证,LLM 审核不再单列；若 A 股 artifact 存在但对应章节无相应表格,Step 0 会 BLOCK。
+> Phase 1 的 4 个结构化 artifact（`peer_analysis.md` → §三；`capital_flow.md` → §二 主力控盘 + §八 资金流向；`technical_analysis.md` → §五 5.6 技术面；`audit_report.md` → §一 Top 3 + §六）的"真实消费"由 Step 0 Rule 3（artifact 覆盖率）机械保证,LLM 审核不再单列；若 A 股 artifact 存在但对应章节无相应表格,Step 0 会 BLOCK。
 
 ### 修正规则
 
@@ -188,9 +190,9 @@ Step 5: 自检:
 - ❌ **禁止凭记忆重写 CSS** — 必须整体内联 `styles.css` 文件
 - ❌ **禁止自创 CSS 变量名**（如 `--primary` 取代 `--c-primary`;`--accent` 取代 `--c-yellow` 等）
 - ❌ **禁止自命名组件 class** — 必须用 components.html 中定义的标准 class
-- ❌ **禁止"概括/合并/简化"** MD 章节 — 8 个 section 必须一一对应
+- ❌ **禁止"概括/合并/简化"** MD 章节 — 9 个 section 必须一一对应
 
-**HTML 8 章节要求**（严格与 `assets/templates/report-skeleton.md` + `assets/html/base.html` 对齐）:
+**HTML 9 章节要求**（严格与 `assets/templates/report-skeleton.md` + `assets/html/base.html` 对齐）:
 
 | # | 章节 | MD 骨架标题 | HTML section id |
 |---|------|--------|---------|
@@ -198,10 +200,11 @@ Step 5: 自检:
 | 2 | 公司基本面 | `## §二 公司基本面` | `fundamentals` |
 | 3 | 行业与竞争对标 | `## §三 行业与竞争对标` | `industry` |
 | 4 | 评分与维度证据 | `## §四 评分与维度证据` | `scoring` |
-| 5 | 估值与回报 | `## §五 估值与回报` | `valuation` |
+| 5 | 估值、赔率与定价充分度 | `## §五 估值、赔率与定价充分度` | `valuation` |
 | 6 | 风险与红旗审计 | `## §六 风险与红旗审计` | `risk` |
-| 7 | 舆情与市场情绪 | `## §七 舆情与市场情绪` | `sentiment` |
-| 8 | 数据来源与信息缺口 | `## §八 数据来源与信息缺口` | `sources` |
+| 7 | 投资决策内核 | `## §七 投资决策内核` | `decision-core` |
+| 8 | 舆情与市场情绪 | `## §八 舆情与市场情绪` | `sentiment` |
+| 9 | 数据来源与信息缺口 | `## §九 数据来源与信息缺口` | `sources` |
 
 保存为 `output/{company}/{company}-analysis-{date}.html`
 
@@ -397,8 +400,9 @@ reviewer 提出的 FIX 要写回 Phase 3 对应 part 文件,然后重 assemble +
 |-----------|---------|
 | `phase3-part1.md` | §一 执行摘要 |
 | `phase3-part2.md` | §二 公司基本面 / §三 行业与竞争对标 |
-| `phase3-part3.md` | §四 评分与维度证据 / §五 估值与回报 |
-| `phase3-part4.md` | §六 风险与红旗审计 / §七 舆情与市场情绪 / §八 数据来源与信息缺口 |
+| `phase3-part3.md` | §四 评分与维度证据 / §五 估值、赔率与定价充分度 |
+| `phase3-part4.md` | §六 风险与红旗审计 / §七 投资决策内核 |
+| `phase3-part5.md` | §八 舆情与市场情绪 / §九 数据来源与信息缺口 |
 
 > 真理来源: `scripts/assemble_report.py:PART_EXPECTED_SECTIONS`。修正循环为 **fresh-restart**（不用 `Agent(resume=...)`,该参数不存在）,最多 3 轮,diff 重复则转人工。详见 `references/phase-orchestration.md` Phase 6 Part A.5。
 

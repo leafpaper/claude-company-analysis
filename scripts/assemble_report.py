@@ -1,15 +1,16 @@
-"""assemble_report.py — Phase 3c 拼接器, 把 4 个 part 文件合并为最终主报告.
+"""assemble_report.py — Phase 3c 拼接器, 把 5 个 part 文件合并为最终主报告.
 
 设计目标:
-    Phase 3 报告分 4 个 part 由 LLM 分次写入 (避免单次 context 压力下省略中间章节)。
-    本脚本把 phase3-part1.md ~ phase3-part4.md 顺序拼接为 {company}-analysis-{date}.md,
+    Phase 3 报告分 5 个 part 由 LLM 分次写入 (避免单次 context 压力下省略中间章节)。
+    本脚本把 phase3-part1.md ~ phase3-part5.md 顺序拼接为 {company}-analysis-{date}.md,
     同时验证章节齐全 / 提取 metadata 注释块到顶部。
 
-Part 章节边界 (v6.0 — 8 章节, 合并重叠章节; part1 由主 agent 写执行摘要, 串行链最后):
+Part 章节边界 (v7.0 — 9 章节, 新增 §七 投资决策内核; part1 由主 agent 写执行摘要, 串行链最后):
     part1: §一                            (执行摘要, 含报告头部 + RATING/METRICS/CARD metadata)
     part2: §二 §三                        (公司基本面 / 行业与竞争对标)  ★ 财务趋势 + 十大股东 + peer
-    part3: §四 §五                        (评分与维度证据 / 估值与回报)
-    part4: §六 §七 §八                    (风险与红旗审计 / 舆情 / 数据来源与信息缺口)
+    part3: §四 §五                        (评分与维度证据 / 估值、赔率与定价充分度)
+    part4: §六 §七                        (风险与红旗审计 / 投资决策内核)
+    part5: §八 §九                        (舆情与市场情绪 / 数据来源与信息缺口)
 
 CLI:
     python3 -m scripts.assemble_report \\
@@ -31,11 +32,12 @@ from pathlib import Path
 PART_EXPECTED_SECTIONS = {
     1: ["§一"],                  # 执行摘要 (主 agent 串行链最后写)
     2: ["§二", "§三"],           # 公司基本面 / 行业与竞争对标
-    3: ["§四", "§五"],           # 评分与维度证据 / 估值与回报
-    4: ["§六", "§七", "§八"],    # 风险与红旗审计 / 舆情 / 数据来源与信息缺口
+    3: ["§四", "§五"],           # 评分与维度证据 / 估值、赔率与定价充分度
+    4: ["§六", "§七"],           # 风险与红旗审计 / 投资决策内核 (v7.0 新增)
+    5: ["§八", "§九"],           # 舆情与市场情绪 / 数据来源与信息缺口
 }
-N_PARTS = len(PART_EXPECTED_SECTIONS)           # v6.0: 4 part
-EXPECTED_SECTION_COUNT = sum(len(v) for v in PART_EXPECTED_SECTIONS.values())  # 8
+N_PARTS = len(PART_EXPECTED_SECTIONS)           # v7.0: 5 part
+EXPECTED_SECTION_COUNT = sum(len(v) for v in PART_EXPECTED_SECTIONS.values())  # 9
 
 # v5.1.4 新增: phase3-partN.md 文件末尾的 sub-agent 自检报告段必须剥离, 不能拼进主报告
 # 自检段以 "### Phase X PartN 完成报告" 或 "### Phase X 完成报告" 开头
@@ -161,7 +163,7 @@ def main():
     ap = argparse.ArgumentParser(description="拼接 5 个 phase3-part .md 为最终主报告")
     ap.add_argument("--company", required=True, help="公司名称, 用于头部展示")
     ap.add_argument("--date", required=True, help="报告日期 YYYY-MM-DD")
-    ap.add_argument("--parts-dir", required=True, help="包含 phase3-part1.md ~ phase3-part4.md 的目录")
+    ap.add_argument("--parts-dir", required=True, help="包含 phase3-part1.md ~ phase3-part5.md 的目录")
     ap.add_argument("--out", required=True, help="输出主报告路径, 如 output/{company}/{company}-analysis-{date}.md")
     args = ap.parse_args()
 

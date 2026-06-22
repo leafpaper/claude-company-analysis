@@ -66,7 +66,7 @@ model: inherit
 
 ## 严禁事项
 
-- ❌ 写其他 part 的章节(§四~§八)
+- ❌ 写其他 part 的章节(§四~§九)
 - ❌ Edit 已存在的 phase3-partN.md
 - ❌ 用 WebSearch 查行业数据(应该已经在 phase1-data.md 里;如确实缺,标 ⚠️ 让主 agent 决策)
 - ❌ 在响应中粘贴大段 Bash 输出 / data_snapshot 完整原文

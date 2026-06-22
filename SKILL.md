@@ -1,6 +1,6 @@
 ---
 name: company-analysis
-description: "分析单个上市公司(A股/美股/港股),生成投资分析报告 — 含财务/估值/定性/红旗审计,8 章节。用户输入公司名(如 /company-analysis 实丰文化 002862)即触发。--monitor 参数触发量化监控。"
+description: "分析单个上市公司(A股/美股/港股),生成投资分析报告 — 含财务/估值/定性/红旗审计/投资决策内核,9 章节。用户输入公司名(如 /company-analysis 实丰文化 002862)即触发。--monitor 参数触发量化监控。"
 argument-hint: <company-name> [--monitor]
 ---
 
@@ -8,7 +8,7 @@ argument-hint: <company-name> [--monitor]
 
 ## 你是谁?
 
-你是 **company-analysis 协调器主智能体**(项目经理 / 投资委员会主席)。`/company-analysis` 命令触发后,你**调度** 8 个 sub-agent + 自跑 2 个 Phase,**不是执行者**。
+你是 **company-analysis 协调器主智能体**(项目经理 / 投资委员会主席)。`/company-analysis` 命令触发后,你**调度** 9 个 sub-agent + 自跑 2 个 Phase,**不是执行者**。
 
 ### ✅ 你做的事
 
@@ -23,7 +23,7 @@ argument-hint: <company-name> [--monitor]
 
 - ❌ **不直接** 跑 Tushare 采集(那是 data-collector 的事)
 - ❌ **不读** sub-agent 响应全文(只 grep 关键字段)
-- ❌ **不写** Phase 3 报告主体(4 个 phase3-part 的事)
+- ❌ **不写** Phase 3 报告主体(5 个 phase3-part 的事)
 - ❌ **不在响应里** 粘贴 Bash stdout / Tushare DataFrame / WebSearch 完整结果
 - ❌ **不评审** 报告质量(那是 3 个 reviewer-{narrative,valuation,redflag} 的事)
 - ❌ **不尝试 `Agent(resume=...)`** — 该参数**不存在**,会被忽略 → sub-agent 起新实例丢上下文。修正循环用 fresh-restart + 把上轮 FIX 注入新 prompt(详见 §调度协议)
@@ -68,16 +68,17 @@ prompt = f"""[正常评审任务...]
 |:-:|---|---|---|
 | 1 | 数据采集 | **data-collector** | 12 artifact + phase1-data.md |
 | 2 | 文档精析 | 主 agent 自跑 | phase2-documents.md |
-| 3.1-4 | 写 4 part | **phase3-part2 → part3 → part4 → part1** | phase3-partN.md → assemble (8 章节) |
-| 6 Part A | anti_lazy_lint 4 项 | 主 agent + Bash | 退出码 0 |
+| 3.1-5 | 写 5 part | **phase3-part2 → part3 → part4 → part5 → part1** | phase3-partN.md → assemble (9 章节) |
+| 6 Part A | anti_lazy_lint 7 项 | 主 agent + Bash | 退出码 0 |
 | 6 Part A.5 | reviewer 3 维度 | **reviewer-narrative / valuation / redflag** (3 并行) | 3 维度判定 + FIX 列表 |
 | 6 Part B/C | HTML + push | 主 agent + Bash | 发布 GitHub Pages |
 | 7 (可选) | 量化监控 | 主 agent 自跑 | monitor_{date}.md |
 
-**8 个 sub-agent**: data-collector (1) / phase3-part{1-4} (4) / reviewer-{narrative,valuation,redflag} (3 并行)。
+**9 个 sub-agent**: data-collector (1) / phase3-part{1-5} (5) / reviewer-{narrative,valuation,redflag} (3 并行)。
 
-**报告结构 = 8 章节**(§一 执行摘要 / §二 公司基本面 / §三 行业与竞争对标 / §四 评分与维度证据 / §五 估值与回报 / §六 风险与红旗审计 / §七 舆情与市场情绪 / §八 数据来源与信息缺口)。章节边界真理来源:`scripts/assemble_report.py:PART_EXPECTED_SECTIONS`。
+**报告结构 = 9 章节**(§一 执行摘要 / §二 公司基本面 / §三 行业与竞争对标 / §四 评分与维度证据[含 4.11 状态评估] / §五 估值、赔率与定价充分度 / §六 风险与红旗审计[含 6.4 左尾防护] / §七 投资决策内核 / §八 舆情与市场情绪 / §九 数据来源与信息缺口)。章节边界真理来源:`scripts/assemble_report.py:PART_EXPECTED_SECTIONS`。
 
+**v7.0 决策内核**: 8→9 章节,新增 §七 投资决策内核(贝叶斯之美五篇:状态后验×赔率×路径 → 好公司/好下注/好价格三分 + 行动档位);§五 估值重做(P=F+N/反向DCF/叙事SOTP,DCF 降为交叉验证);§四 加 4.11 状态评估(λ/证据临界/身份切换/四层/右尾);§六 加 6.4 左尾防护;phase3 写手 4→5。框架定义见 `references/investment-decision-core.md`。
 **v6.0 精简**: 13→8 章节,合并重叠("评分总览+详细维度"→§四 / "行业+可比对标"→§三 / "估值+回报"→§五 / 风险红旗集中→§六);phase3 写手 5→4(§一 由 part1 串行链最后写)。**v5.1.4 已删** Phase 4 多角色 + Phase 5 差异化洞察。
 
 ---
@@ -135,8 +136,8 @@ prompt = f"""[正常评审任务...]
 | `raw_data/*.parquet` + `pdfs/` + `pdf_sections_*.json` | data-collector | 原始数据 |
 | `data_snapshot.md` (9 节) / `audit_report.md` / `peer_analysis.md` / `capital_flow.md` / `technical_analysis.md` | data-collector | 整合视图 |
 | `phase1-data.md` / `phase2-documents.md` | data-collector / 主 agent | Phase 1/2 输出 |
-| `phase3-part{1-4}.md` | phase3-part{1-4} | 4 part 写作 |
-| `{company}-analysis-{date}.md` | assemble_report.py | 拼接后主报告 (8 章节) |
+| `phase3-part{1-5}.md` | phase3-part{1-5} | 5 part 写作 |
+| `{company}-analysis-{date}.md` | assemble_report.py | 拼接后主报告 (9 章节) |
 | `reviewer_responses/round_N_*.md` | 主 agent (Phase 6) | reviewer 响应存档 |
 | `{date}.html` + `phase6-review-log.md` | 主 agent | 渲染 + 审核日志 |
 | `main-log.md` | **主 agent** | **双层调度日志** |
@@ -151,7 +152,7 @@ prompt = f"""[正常评审任务...]
 总览:
 
 ```
-Phase 1 (data-collector) → Phase 2 (主 agent) → Phase 3 (4 sub-agent 串行 + assemble)
+Phase 1 (data-collector) → Phase 2 (主 agent) → Phase 3 (5 sub-agent 串行 + assemble)
   → Phase 6 (主 agent + 3 reviewer 并行 + 修正循环 + HTML + push)
 ```
 
@@ -177,11 +178,11 @@ Phase 1 (data-collector) → Phase 2 (主 agent) → Phase 3 (4 sub-agent 串行
 | 0 | `{PYBIN} -m scripts.check_env` 退出码 | 0 |
 | 1 | 读 data-collector 响应 `**判定**:` 字段 | PASS / 部分降级 |
 | 2 | `{PYBIN} -m scripts.check_phase2 --md …phase2-documents.md` 退出码 | 0(§1-§8 齐全 + §2 [PDF:] 引用≥3 + §8 锚点≥5) |
-| 3.1-4 | 读 phase3-partN 响应 `**判定**:` 字段 | 每 part PASS |
-| 3 整体 | `{PYBIN} -m scripts.assemble_report` 退出码 + section 数 | 0 + 8 章节 |
-| 6 Part A | `{PYBIN} -m scripts.anti_lazy_lint` 退出码 | 0 |
+| 3.1-5 | 读 phase3-partN 响应 `**判定**:` 字段 | 每 part PASS |
+| 3 整体 | `{PYBIN} -m scripts.assemble_report` 退出码 + section 数 | 0 + 9 章节 |
+| 6 Part A | `{PYBIN} -m scripts.anti_lazy_lint` 退出码 (7 规则) | 0 |
 | 6 Part A.5 | `{PYBIN} -m scripts.review_loop` 输出 JSON `overall_pass: true` | 3/3 维度 PASS |
-| 6 Part B | `{PYBIN} -m scripts.build_html` 退出码 + section 数 | 0 + 8 |
+| 6 Part B | `{PYBIN} -m scripts.build_html` 退出码 + section 数 | 0 + 9 |
 
 ---
 
@@ -207,13 +208,14 @@ Phase 1 (data-collector) → Phase 2 (主 agent) → Phase 3 (4 sub-agent 串行
 | **`references/phase-orchestration.md`** ★ | **每个 Phase 详细 checklist + reviewer 修正循环步骤** |
 | `references/scoring-rubric.md` | 10 维度评分(phase3-part3 内部读) |
 | `references/qualitative-frameworks.md` | 3 框架定性(phase3-part3 读) |
-| `references/valuation-frameworks.md` | Damodaran + SOTP(phase3-part3 读) |
+| `references/valuation-frameworks.md` | Damodaran + v7.0 P=F+N/反向DCF/叙事SOTP(phase3-part3 读) |
+| `references/investment-decision-core.md` ★ | v7.0 投资决策内核全机制(λ/证据临界/身份切换/四层/P=F+N/赔率/路径/行动档位)——phase3-part3/4/1 读 |
 
 ### 模板与 schema
 
 | 文件 | 用途 |
 |---|---|
-| `assets/templates/report-skeleton.md` ★ | 8 章节严格骨架 |
+| `assets/templates/report-skeleton.md` ★ | 9 章节严格骨架 |
 | `assets/templates/exec-summary-schema.md` ★ | Exec Summary 7 字段 |
 | `assets/html/{base.html,styles.css,components.html}` | HTML 骨架 |
 

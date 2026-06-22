@@ -198,8 +198,10 @@ def extract_metadata(md_path: Path, company_name: str) -> CardMetadata:
         score = _grep_float(text, r"综合评分\*?\*?:?\s*\*?\*?([\d.]+)")
     meta.composite_score = score
 
-    # 投资方向(verdict)
-    verdict = _grep(text, r"投资方向综合判定\*?\*?:?\s*\*?\*?([^\n*]+)")
+    # 投资方向(verdict) — v7.0: §一 决策结论的"行动档位"优先(核心仓/不追高/回避…); 兼容旧"投资方向综合判定"
+    verdict = _grep(text, r"行动档位\*?\*?:?\s*\*?\*?([^\n*（(]+)")
+    if not verdict:
+        verdict = _grep(text, r"投资方向综合判定\*?\*?:?\s*\*?\*?([^\n*]+)")
     if not verdict:
         verdict = _grep(text, r"\*\*综合评分\*\*:\s*\*?\*?[\d.]+/10\*?\*?\s*·\s*\*?\*?([^\n*]+)")
     if not verdict:

@@ -1,7 +1,7 @@
 """MD → HTML 报告构建器 (v4.6.1).
 
 设计要点:
-1. section 槽位从 base.html 动态发现(v6.0 = 8 章节), MD ## 章节一一对应, 不丢章节
+1. section 槽位从 base.html 动态发现(v7.0 = 9 章节), MD ## 章节一一对应, 不丢章节
 2. 顶部横排 metric-strip + 前置评级三件套
 3. 规范化生成流程,不依赖 LLM inline Python
 
@@ -9,7 +9,7 @@
 1. Read MD 按 ^## 切, 每段一个 section(preserve 所有章节)
 2. 解析结构化注释块(CARD_METADATA / RATING_TRIO_DATA / KEY_METRICS_SIDEBAR)
 3. Read base.html + styles.css, 内联 CSS
-4. 固定 section 填入 base.html 的 section_1..N 占位(槽位数从 base.html 动态发现, v6.0 = 8)
+4. 固定 section 填入 base.html 的 section_1..N 占位(槽位数从 base.html 动态发现, v7.0 = 9)
 5. 超出固定槽位的 section 追加到 extra_sections 占位(附录等)
 6. 按 RATING_TRIO_DATA 注入 rating-trio 面板
 7. 按 KEY_METRICS_SIDEBAR 注入 metric-strip 面板

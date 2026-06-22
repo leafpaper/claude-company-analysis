@@ -8,7 +8,7 @@
 
 <!-- v6.0 HTML 生成锚点: 供 Phase 6 Part B 抽取以下字段填充前置评级卡 + 顶部指标条
      供 update_index.py 生成主页卡片 metadata
-     LLM 写报告时务必让下列字段在正文中可找到(典型位置: §一 执行摘要 / §五 估值与回报) -->
+     LLM 写报告时务必让下列字段在正文中可找到(典型位置: §一 执行摘要 / §五 估值、赔率与定价充分度) -->
 
 <!-- RATING_TRIO_DATA:
   composite_score: {{composite_score}}      (例 4.0)
@@ -52,9 +52,9 @@
 
 **一句话结论**: {{one_line_conclusion_with_direction}}
 
-**估值锚**: **{{valuation_anchor}} 亿元 / {{anchor_price}} 元**（DCF 概率加权；{{scenario_count}} 情景）。当前 {{latest_close}} 元相对此锚 {{anchor_delta}}%。
+**估值锚**: **{{valuation_anchor}} 亿元 / {{anchor_price}} 元**（§五 综合估值锚；{{scenario_count}} 情景）。当前 {{latest_close}} 元相对此锚 {{anchor_delta}}%。
 
-**综合评分**: **{{composite_score}}/10** · **数据置信度**: {{confidence_level}}（与 §四 评分表加总一致）
+**综合评分**: **{{composite_score}}/10** · **数据置信度**: {{confidence_level}}（§四 评分表加总；★ 此为「基本面静态快照」——衡量"公司本身多好"，**不是投资结论**；投资方向看下方「决策结论」/§七）
 
 **三大风险（Top 3）**:
 1. {{risk_1}}
@@ -69,7 +69,10 @@
 **核心非共识判断**（1-3 条，可选——本报告与市场共识的关键分歧）:
 1. {{insight_1_title}}
 
-**投资方向综合判定**: {{investment_verdict}}（看多 / 看空 / 中性-分歧；与 §四 定性综合判断对齐）
+**决策结论**（来自 §七 投资决策内核——本报告的权威结论；与 §七 7.4 一致）:
+- **决策三元组**: [状态后验: {{state_posterior_verdict}} | 赔率: {{odds_verdict}} | 路径: {{path_verdict}}]
+- **三分结论**: 好公司? {{good_company}} · 好下注(现价)? {{good_bet}} · 好价格? {{good_price}}
+- **行动档位**: {{action_tier}}（核心仓 / 期权仓 / 等证据临界 / 不追高 / 减仓 / 回避）· **该等什么**: {{wait_for}}
 
 ---
 
@@ -208,37 +211,102 @@
 
 ### 定性综合判断
 
-> 综合护城河 / 管理层 / 催化剂三个维度的方向（≥ 2 同向 → 对应方向；否则"中性-分歧"），给出 §一 的"投资方向综合判定"。会计红旗见 §六，估值见 §五。
+> 综合护城河 / 管理层 / 催化剂三个维度的方向（≥ 2 同向 → 对应方向；否则"中性-分歧"）。v7.0：此 verdict 作为 §七 7.1 状态后验的**输入之一**，不再直接定 §一 投资方向——权威结论在 §七 投资决策内核。会计红旗见 §六，估值见 §五。
 
 **护城河 → {{moat_verdict}}** · **管理层 → {{mgmt_verdict}}** · **催化剂 → {{catalyst_verdict}}**
 
 **综合方向**: **{{qualitative_overall}}**
 
+### 4.11 状态评估（正在变好吗？被独立证据确认吗？）
+
+> 10 维度评分 = 静态基线（公司"现在"多好，即 F）。本节给"导数"——是否正在变好、是否被独立证据确认。各机制原料供 §七 投资决策内核合成。机制定义见 `references/investment-decision-core.md`。
+
+#### 【λ 与证据临界密度】（泊松 + 贝叶斯）
+
+- **λ（向上状态跳变强度）定义**（按资产类型）+ **核心状态跳变事件** = {{lambda_definition_and_event}}
+- **λ↑ 信号**（★分部级，注明是否被集团主体稀释）: {{lambda_signals}}
+
+| 信号 | 内容 | 独立证据 / 叙事回声 |
+|------|------|:---:|
+{{evidence_network_rows}}
+
+- **是否达临界密度**: {{evidence_critical_status}}；**临界点** = {{evidence_critical_event}}
+- **贝叶斯三问**: 后验提高还是注意力提高? {{bayes_q1}}｜独立证据还是回声? {{bayes_q2}}｜价格是否过度反映? {{bayes_q3}}
+
+#### 【身份切换 · 升级基本面5元组】（喊线）
+
+- **身份切换 P1→P4**: 旧身份 → 新身份候选 = {{identity_switch}}；当前 **P{{production_position}}**；是否已被市场重命名: {{renamed_status}}
+- **升级基本面5元组**: 生产函数位置 {{f5_position}}｜约束释放能力 {{f5_constraint}}｜权威认证 {{f5_authority}}｜证据再验证节奏 {{f5_cadence}}｜定价充分度 {{f5_pricing}}
+
+#### 【四层验证 · 权威认证】（喊线）
+
+| 层 | 判定 | 依据 |
+|----|:---:|------|
+| ① 能一句话传播? | {{layer1_verdict}} | {{layer1_basis}} |
+| ② 真实产业约束接棒?（订单/收入/客户/毛利/FCF） | {{layer2_verdict}} | {{layer2_basis}} |
+| ③ 权威节点认证?（权威分发 vs 券商回声） | {{layer3_verdict}} | {{layer3_basis}} |
+| ④ 价格已买完完美未来?（详见 §五） | {{layer4_verdict}} | {{layer4_basis}} |
+
+#### 【右尾识别 · 幂律来源 · 左尾预警】（十倍股 + 幂律）
+
+- **右尾清单**: 需求真实可延展 {{rt_demand}}｜难替代提价权 {{rt_pricing}}｜FCF 自造血 {{rt_fcf}}｜利润率持续提升 {{rt_margin}}｜估值起点偏低 {{rt_valuation}}
+- **幂律来源**（是不是"幂律生成器节点"）: {{power_law_sources}}
+- **左尾预警**: {{left_tail_warning}}（详见 §六 6.4）
+
+#### 【无记忆性检查】（泊松）
+
+> 买入理由必须是 λ↑ 或证据斜率变正，不得是"跌久了/沉寂久了/讲多年该兑现/估值压久了"这类等待时间幻觉。
+
+**本标的买入逻辑是否落入无记忆性幻觉**: {{memorylessness_check}}
+
+→ **状态后验初判**（供 §七 7.1）: {{state_posterior_verdict}}（↑变好+证据确认 / ↑变好但仅注意力·未确认 / 横盘 / ↓变差）
+
 ---
 
-## §五 估值与回报
+## §五 估值、赔率与定价充分度
 
-> **方法论**: 以"**DCF 概率加权**"为唯一估值锚；可比 PE / PB 仅作交叉验证。投资回报情景与 DCF 共用同一套概率分布。
+> **方法论 (v7.0)**: 不以"DCF 概率加权单锚"为唯一说服力。先用 **P = 基本面F + 叙事溢价N** 分解价格、用**反向DCF**读市场隐含预期、用**叙事分部 SOTP** 拆分不混账，判"赔率/定价充分度"；正向 DCF 仅作 F 的一种交叉验证。框架见 `references/investment-decision-core.md` + `references/valuation-frameworks.md`。
 
-### 5.1 DCF 情景分析（{{scenario_count}} 情景）
+### 5.1 价格分解 P = 基本面F + 叙事溢价N
 
-#### 乐观情景（{{weight_bull}}% 权重）
-{{scenario_bull_description}}
-**SOTP**: {{sotp_bull}}
+| 项 | 值 | 说明 |
+|------|---:|------|
+| 基本面价值 F（主业行业倍数 + 已兑现分部，保守） | {{fundamental_value_F}} | {{F_method}} |
+| 叙事溢价 N = 现价市值 − F | {{narrative_premium_N}} | 占现价市值 {{N_pct}}% |
 
-#### 基准情景（{{weight_base}}% 权重）
-{{scenario_base_description}}
-**SOTP**: {{sotp_base}}
+- **N 在为什么定价**: {{N_narrative}}
+- **N 是 free option 还是 embedded obligation**: {{N_option_or_obligation}}
+- **N'/N vs F'/F**（驱动股价的是叙事增速还是基本面增速）: {{growth_decomposition}}
 
-#### 悲观情景（{{weight_bear}}% 权重）
-{{scenario_bear_description}}
+### 5.2 反向 DCF：市场隐含预期
 
-{{scenario_bear_sotp_table}}
+| 隐含假设 | 现价隐含值 | 历史/同业参照 | 可信? | 证伪条件 |
+|---------|---------|------------|:---:|--------|
+{{reverse_dcf_rows}}
 
-#### 最差情景（{{weight_tail}}% 权重，若触发）
-{{scenario_tail_description}}
+**结论**: 现价隐含的预期 {{reverse_dcf_verdict}}（可信 / 过度乐观 / 已买完完美未来）。
 
-#### 估值锚（概率加权 DCF）
+### 5.3 ΔP 传播因子分解（本轮上涨由谁驱动）
+
+{{delta_p_factor_decomposition}}
+
+> 因子: Authority Weight / Narrative Compression / Attention Velocity / Marginal Buyer Urgency / Peer Resonance / Gamma·Flow / Right-tail Optionality − (PFPC / Crowding / Valuation Exhaustion)。逐项判强弱 → 是"权威认证驱动"还是"散户拥挤 + 估值耗尽驱动"。
+
+### 5.4 叙事分部 SOTP：拆分不混账（≥ 2 条增长叙事且分部差异大时必填）
+
+**触发判定**: {{sotp_trigger_status}}
+
+| 分部 | 各自合适倍数/方法 | 估值（亿） | 各自证伪指标 |
+|------|------------|---------:|------------|
+{{narrative_sotp_rows}}
+
+**SOTP 合计** {{sotp_total}} vs 现价市值 {{market_cap}} 亿 → {{sotp_vs_price}}。*禁止用单一笼统倍数盖全公司。*
+
+### 5.5 正向 DCF（作为 F 的交叉验证，{{scenario_count}} 情景）
+
+> 退出倍数须 vs 同业当前 + 历史分位 sanity；转型公司放松"终端利润率≈历史均值"硬锚时须显式举证。forecast vs actual 兑现度见 data_snapshot.md §4。
+
+{{dcf_scenarios_description}}
 
 | 情景 | 估值（亿） | 对应股价 | 概率 | 加权贡献 |
 |------|---------:|-------:|:----:|-------:|
@@ -246,17 +314,11 @@
 | 基准 | {{valuation_base}} | {{price_base}} | {{weight_base}}% | {{contrib_base}} |
 | 悲观 | {{valuation_bear}} | {{price_bear}} | {{weight_bear}}% | {{contrib_bear}} |
 | 最差 | {{valuation_tail}} | {{price_tail}} | {{weight_tail}}% | {{contrib_tail}} |
-| **概率加权** | **{{valuation_anchor}}** | **{{anchor_price}}** | 100% | {{valuation_anchor}} |
+| **概率加权（DCF 交叉验证锚）** | **{{valuation_anchor}}** | **{{anchor_price}}** | 100% | {{valuation_anchor}} |
 
-### 5.2 交叉验证（仅互证，不纳入锚）
+**forecast vs actual 兑现度**: {{forecast_vs_actual}}
 
-- **可比 PE**: {{comparable_pe_calc}}
-- **有形 PB**: {{tangible_pb_calc}}
-- **自洽判定**: {{triangulation_consistency}}（差 < 10% ✅ / 10-20% ⚠ / > 20% 🔴）
-
-### 5.3 估值异常 + 技术面位置（Read `technical_analysis.md`）
-
-{{valuation_anomalies}}
+### 5.6 回报与路径成本 + 技术面位置（Read `technical_analysis.md`）
 
 {{technical_summary_table}}
 
@@ -264,19 +326,21 @@
 
 **基本面 × 技术面配合判断**: {{fundamental_technical_combo_judgment}}
 
-### 5.4 投资回报测算（与 5.1 共用情景）
-
 **初始仓位**: {{amount}} 元人民币 · **当前买入**: {{latest_close}} 元 × {{shares_bought}} 股
 
-| 情景 | 目标价 | 收益率 | 概率 | 加权 |
-|------|:---:|:---:|:----:|:---:|
-| 乐观 | {{price_bull}} 元 | {{return_bull}}% | {{weight_bull}}% | {{weighted_return_bull}}% |
-| 基准 | {{price_base}} 元 | {{return_base}}% | {{weight_base}}% | {{weighted_return_base}}% |
-| 悲观 | {{price_bear}} 元 | {{return_bear}}% | {{weight_bear}}% | {{weighted_return_bear}}% |
-| 最差 | {{price_tail}} 元 | {{return_tail}}% | {{weight_tail}}% | {{weighted_return_tail}}% |
-| **概率加权 {{horizon}} 收益率** | – | – | 100% | **{{weighted_expected_return}}%** |
+| 情景 | 目标价 | 终点收益率 | 中途最大回撤 | 时间窗 | 概率 | 加权 |
+|------|:---:|:---:|:---:|:---:|:----:|:---:|
+| 乐观 | {{price_bull}} 元 | {{return_bull}}% | {{drawdown_bull}} | {{horizon_bull}} | {{weight_bull}}% | {{weighted_return_bull}}% |
+| 基准 | {{price_base}} 元 | {{return_base}}% | {{drawdown_base}} | {{horizon_base}} | {{weight_base}}% | {{weighted_return_base}}% |
+| 悲观 | {{price_bear}} 元 | {{return_bear}}% | {{drawdown_bear}} | {{horizon_bear}} | {{weight_bear}}% | {{weighted_return_bear}}% |
+| 最差 | {{price_tail}} 元 | {{return_tail}}% | {{drawdown_tail}} | {{horizon_tail}} | {{weight_tail}}% | {{weighted_return_tail}}% |
+| **概率加权 {{horizon}} 收益率** | – | – | – | – | 100% | **{{weighted_expected_return}}%** |
 
-**年化** ≈ {{annualized_return}}%。**建议仓位**: {{position_sizing}}。
+**年化** ≈ {{annualized_return}}%。**时间成本 + 机会成本**（vs 同期更优替代）: {{time_opportunity_cost}}。**假阳性成本**（把回声当证据的代价）: {{false_positive_cost}}。**建议仓位**: {{position_sizing}}。
+
+### 5.7 赔率/定价充分度小结
+
+**赔率判定**: {{odds_verdict}}（便宜（有 slack）/ 合理 / 已 price-in / 买完完美未来（无 slack））→ 供 §七 7.2。
 
 ---
 
@@ -314,9 +378,54 @@
 
 {{fatal_short_thesis}}
 
+### 6.4 左尾防护 · 高信仰股特征（供 §七 7.3 路径判定）
+
+- **左尾毁灭清单**（兑现前可能"归零/腰斩"的事件）: {{left_tail_destruction_list}}（减值 / 退市 / key-person / 踩踏 / 控制权丧失…）
+- **高信仰股特征体检**（命中越多，下跌时越是"组合波动放大器"）: 高估值 {{faith_valuation}}｜高波动 {{faith_volatility}}｜高散户参与 {{faith_retail}}｜高媒体/期权活跃 {{faith_media}}｜key-person 依赖 {{faith_keyperson}}
+- **路径可承受性初判**（供 §七 7.3）: {{path_verdict}}（可承受 / 高尾险·不可承受）
+
 ---
 
-## §七 舆情与市场情绪
+## §七 投资决策内核
+
+> 用"**投资价值 = 状态后验 × 赔率 × 路径可承受性**"（乘法，任一为"差"即拉低整体）合成 §四（状态）、§五（赔率）、§六（路径），输出"好公司 / 好下注 / 好价格"三分结论与行动档位。本章是各篇理念的合成结论，逐机制原料在 §四 4.11 / §五。框架定义见 `references/investment-decision-core.md`。
+
+### 7.1 状态后验合成（引 §四 4.11）
+
+{{state_posterior_synthesis}}
+
+→ **状态后验**: {{state_posterior_verdict}}（↑变好+证据确认 / ↑变好但仅注意力·未确认 / 横盘 / ↓变差）
+
+### 7.2 赔率合成（引 §五）
+
+{{odds_synthesis}}
+
+→ **赔率**: {{odds_verdict}}（便宜 / 合理 / 已 price-in / 买完完美未来）
+
+### 7.3 路径可承受性合成（引 §六 6.4 + §五 5.6）
+
+{{path_synthesis}}
+
+→ **路径**: {{path_verdict}}（可承受 / 高尾险·不可承受）
+
+### 7.4 决策合成
+
+> 价值 = 状态后验 × 赔率 × 路径。结合 λ×payoff 四象限 + 高质量等待 vs 资本钝化 + 仓位纪律（叙事越远仓位越小）+ 现金=选择权。
+
+- **决策三元组**: [状态后验: {{state_posterior_verdict}} | 赔率: {{odds_verdict}} | 路径: {{path_verdict}}]
+- **三分结论**: 好公司? {{good_company}} · 好下注（现价）? {{good_bet}} · 好价格? {{good_price}}（各带一句依据）
+- **行动档位**: {{action_tier}}（核心仓 / 期权仓（小）/ 等证据临界（观察）/ 不追高（贵但优质）/ 减仓 / 回避）— {{action_rationale}}
+- **该等什么**: {{wait_for}}（跳变事件 + 预计时点）
+- **证伪/退出条件**: {{falsification_exit}}（每条核心叙事 1 个可证伪指标 + λ下降 / 证据恶化触发 → 接 Phase 7 监控）
+- **信仰陷阱五弊端自检**: {{faith_trap_selfcheck}}
+
+### 7.5 与 §一 对齐
+
+> §一「决策结论」的决策三元组 / 三分结论 / 行动档位必须与本节 7.4 一致。
+
+---
+
+## §八 舆情与市场情绪
 
 ### 看多派声音（≥ 3 条）
 
@@ -332,7 +441,7 @@
 
 ---
 
-## §八 数据来源与信息缺口
+## §九 数据来源与信息缺口
 
 **截止日期**: {{data_cutoff}}。**关键待披露**: {{pending_disclosures}}。
 
