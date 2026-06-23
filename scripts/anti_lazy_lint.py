@@ -367,30 +367,34 @@ def rule_4_title_byte_exact(md_text: str) -> RuleResult:
 
 
 # ============================================================================
-# Rule 5: §一 执行摘要禁止内联来源标签 (保持干净 TL;DR)
-# 执行摘要是给人快读的决策仪表盘, 混入 [data_snapshot §2.1] / [§五] / [缺口#1] /
-# [Tushare:..] 这类来源脚注会严重伤可读性。来源属于 §二-§八 正文。
+# Rule 5: 给人读判断的章节 (§一/§五/§七) 禁止内联来源标签 (v7.1 可读性)
+# §一 执行摘要 + §五 估值 + §七 决策 是"给人读判断"的分析正文, 混入
+#   [data_snapshot §2.1] / [§五] / [audit] / [Tushare:..] 这类脚注严重伤可读性, 来源放 §九。
+# 注: §四 含"维度证据"需 [audit:..] 标签做红旗闭环(report-checklist 强制), 故 §四(含 4.11)
+#   不入本机械规则, 由 reviewer 把关其 4.11 子节的可读性; §六 引 audit_report、§八 带 URL 合法。
 # ============================================================================
 EXEC_SUMMARY_SOURCE_TAG = re.compile(
     r"\[(?:data_snapshot|peer_analysis|metrics\.json|capital_flow|technical_analysis|"
     r"audit_report|audit|缺口|WebSearch|Tushare|PDF|yfinance|§[一二三四五六七八九十])"
 )
+CLEAN_SECTIONS = ("§一", "§五", "§七")
 
 
-def rule_5_exec_summary_clean(md_text: str) -> RuleResult:
+def rule_5_clean_sections(md_text: str) -> RuleResult:
     sections = _split_sections(md_text)
-    body = sections.get("§一", "")
     findings: list[str] = []
-    for line in body.splitlines():
-        if line.lstrip().startswith("##"):
-            continue
-        m = EXEC_SUMMARY_SOURCE_TAG.search(line)
-        if m:
-            s = line.strip()
-            findings.append(f"§一 内联来源标签: …{s[max(0, m.start() - 15):m.start() + 35]}…")
+    for sec_id in CLEAN_SECTIONS:
+        body = sections.get(sec_id, "")
+        for line in body.splitlines():
+            if line.lstrip().startswith("##"):
+                continue
+            m = EXEC_SUMMARY_SOURCE_TAG.search(line)
+            if m:
+                s = line.strip()
+                findings.append(f"{sec_id} 内联来源标签: …{s[max(0, m.start() - 15):m.start() + 35]}…")
     passed = len(findings) == 0
-    detail = f"{len(findings)} 处内联来源标签 (§一 应为干净叙述, 来源放 §二-§八; 阈值 = 0)"
-    return RuleResult(name="Rule 5 §一 执行摘要无内联来源标签", passed=passed, detail=detail, findings=findings)
+    detail = f"{len(findings)} 处内联来源标签 (§一/§五/§七 应干净可读, 来源放 §九; 阈值 = 0)"
+    return RuleResult(name="Rule 5 §一/§五/§七 无内联来源标签", passed=passed, detail=detail, findings=findings)
 
 
 # ============================================================================
@@ -464,7 +468,7 @@ def lint_md(md_path: Path) -> LintResult:
     result.rules.append(rule_2_min_chars(md_text))
     result.rules.append(rule_3_artifact_coverage(md_path, md_text))
     result.rules.append(rule_4_title_byte_exact(md_text))
-    result.rules.append(rule_5_exec_summary_clean(md_text))
+    result.rules.append(rule_5_clean_sections(md_text))
     result.rules.append(rule_6_decision_core(md_text))
     result.rules.append(rule_7_memorylessness(md_text))
     return result

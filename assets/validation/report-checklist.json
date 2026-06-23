@@ -21,22 +21,27 @@
   "exec_summary_fields": {
     "required_count": 7,
     "order_locked": true,
+    "note": "v7.1: §一 全说人话; 新增『投资要点』开头 + 『投资决断卡』(5 行人话, 替代旧『决策结论』裸术语)。核心非共识可选。",
     "field_names": [
+      "投资要点",
       "一句话结论",
+      "投资决断卡",
       "估值锚",
       "综合评分",
       "三大风险（Top 3）",
       "三大机会（Top 3）",
-      "核心非共识判断",
-      "决策结论"
+      "核心非共识判断"
     ],
+    "decision_card_rows": ["是不是好公司", "故事真不真", "贵不贵", "该不该买", "怎么办+该等什么"],
+    "decision_card_must_match": "§七 7.4 (三分结论/行动档位/该等什么); '是不是好公司' 与 '该不该买' 分开",
     "forbidden_fields": [
       "综合评级",
       "量化分",
       "定性修正",
       "调整后分",
       "建议仓位",
-      "尽调优先级"
+      "尽调优先级",
+      "决策三元组（裸术语，应转人话进决断卡）"
     ]
   },
 
@@ -126,8 +131,22 @@
     "description": "v7.0 新增。合成 §四(状态)/§五(赔率)/§六(路径) → 三分结论 + 行动档位。机械校验见 anti_lazy_lint Rule 6。",
     "required_elements": ["决策三元组 [状态|赔率|路径]", "三分结论 (好公司?/好下注?/好价格?)", "行动档位 (六档之一)", "该等什么 (跳变事件+时点)", "证伪/退出条件 (每叙事1证伪指标)"],
     "action_tiers": ["核心仓", "期权仓", "等证据临界", "不追高", "减仓", "回避"],
-    "must_match_exec_summary": "§一 决策结论 必须与 §七 7.4 一致",
+    "must_match_exec_summary": "§一 投资决断卡 必须与 §七 7.4 一致",
     "framework_source": "references/investment-decision-core.md"
+  },
+
+  "readability_v71": {
+    "description": "v7.1: 报告改成外行也能读懂、读完能筛选好公司。框架是内部思考引擎, 输出全说人话。reviewer-narrative 把关。",
+    "rules": [
+      "全说人话: §一/§四/§五/§七 正文不出现裸术语(λ/P=F+N/embedded obligation/证据临界密度/幂律生成器…), 框架名只在小标题小括号淡化标注; 没读过那五篇文章的人能看懂",
+      "结论先行: 每个分析块第一行给加粗『一句话』结论, 再给证据",
+      "一个论点一个关键数字: 同一组核心数(分部占比/估值分位/散户倍数)只说一次, 不重复堆砌",
+      "投资决断卡(§一+§七): 5 行人话(是不是好公司/故事真不真/贵不贵/该不该买/怎么办), '是不是好公司' 与 '该不该买' 分开",
+      "四维体检(§四 4.11): 懂财报/懂叙事/懂估值/懂热点, 每维一句结论+最硬一条证据",
+      "排版三段式: 粗体结论 → 2-4 条短支撑 → 紧凑表格"
+    ],
+    "checked_by": "reviewer-narrative (可读性维度) + anti_lazy_lint Rule 5(§一/§五/§七 无来源标签)",
+    "style_source": "phases/phase3-analysis-report.md 写作风格契约 + references/investment-decision-core.md 人话词典"
   },
 
   "info_gaps": {
@@ -246,11 +265,11 @@
       "skeleton_path": "assets/templates/report-skeleton.md",
       "comparison": "去除全角/半角括号注释 + ## 前缀 + 反引号后逐字符比对"
     },
-    "rule_5_exec_summary_clean": {
-      "section": "§一",
+    "rule_5_clean_sections": {
+      "sections": ["§一", "§五", "§七"],
       "max_inline_source_tags": 0,
       "blocked_patterns": "[data_snapshot…] / [peer_analysis…] / [metrics.json…] / [audit…] / [§X] / [缺口#N] / [WebSearch|Tushare|PDF|yfinance:…]",
-      "rationale": "执行摘要是给人快读的 TL;DR, 来源标注属于 §二-§九 正文, §一 只给结论与逻辑"
+      "rationale": "v7.1: §一/§五/§七 是给人读判断的分析正文, 内联来源脚注严重伤可读性, 来源放 §九。§四 4.11 由 reviewer 把关(§四 维度证据保留 audit 标签做红旗闭环, 故不入本机械规则); §六 引 audit_report、§八 带 URL 合法。"
     },
     "rule_6_decision_core": {
       "section": "§七",

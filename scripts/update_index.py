@@ -198,17 +198,18 @@ def extract_metadata(md_path: Path, company_name: str) -> CardMetadata:
         score = _grep_float(text, r"综合评分\*?\*?:?\s*\*?\*?([\d.]+)")
     meta.composite_score = score
 
-    # 投资方向(verdict) — v7.0: §一 决策结论的"行动档位"优先(核心仓/不追高/回避…); 兼容旧"投资方向综合判定"
-    verdict = _grep(text, r"行动档位\*?\*?:?\s*\*?\*?([^\n*（(]+)")
+    # 投资方向(verdict) — v7.1: 优先 RATING_TRIO_DATA.verdict (part1 权威填写的行动档位, 如"等证据临界(不追高)");
+    #   再退到 §一 决断卡"本案落「X」"; 兼容旧"投资方向综合判定"; 最后用一句话结论前缀。
+    #   ★ 不再用裸"行动档位"正则匹配正文——会误抓"行动档位六档：核心仓/期权仓/…"菜单行。
+    verdict = (rating_block.get("verdict") or "").strip()
+    if not verdict:
+        verdict = _grep(text, r"本案落[「『\"]?\s*([^」』\"\n（(]+)")
     if not verdict:
         verdict = _grep(text, r"投资方向综合判定\*?\*?:?\s*\*?\*?([^\n*]+)")
     if not verdict:
-        verdict = _grep(text, r"\*\*综合评分\*\*:\s*\*?\*?[\d.]+/10\*?\*?\s*·\s*\*?\*?([^\n*]+)")
-    if not verdict:
-        # 从"一句话结论"的粗体前缀找
         verdict = _grep(text, r"\*\*一句话结论\*\*:\s*\*\*([^*]+)\*\*")
     meta.verdict = verdict or "–"
-    meta.verdict_tone = _infer_tone(verdict, score)
+    meta.verdict_tone = (rating_block.get("verdict_tone") or "").strip() or _infer_tone(verdict, score)
 
     # 估值锚 / 期望收益
     anchor_price = rating_block.get("anchor_price") or _grep(text, r"估值锚\*?\*?:?\s*\*?\*?[^\n元]*?([\d.]+)\s*元")
