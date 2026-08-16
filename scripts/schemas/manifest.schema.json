@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "manifest.schema.json",
+  "title": "公司级状态唯一源 manifest.json — runs 列表/增量计数/上次全量/披露日/对比组",
+  "type": "object",
+  "required": ["company", "runs", "incremental_count", "last_full_date", "next_disclosure_date", "compare_groups"],
+  "properties": {
+    "company": { "type": "string", "minLength": 1 },
+    "ticker": { "type": "string" },
+    "market": { "type": ["string", "null"] },
+    "runs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["date", "type"],
+        "properties": {
+          "date": { "$ref": "common.schema.json#/$defs/iso_date" },
+          "type": { "enum": ["full", "incremental"] }
+        }
+      }
+    },
+    "incremental_count": { "type": "integer", "minimum": 0 },
+    "last_full_date": {
+      "anyOf": [
+        { "$ref": "common.schema.json#/$defs/iso_date" },
+        { "type": "null" }
+      ]
+    },
+    "next_disclosure_date": {
+      "anyOf": [
+        { "$ref": "common.schema.json#/$defs/iso_date" },
+        { "type": "null" }
+      ]
+    },
+    "compare_groups": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

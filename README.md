@@ -230,9 +230,9 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 
 ### 2. 安装 Python 依赖
 
-依赖：`tushare yfinance pypdf pandas pyarrow requests markdown`
+依赖：`tushare yfinance pypdf pandas pyarrow requests markdown pyyaml jsonschema`
 - **Mac / Linux:** `pip3 install --user -r ~/.claude/skills/company-analysis/scripts/requirements.txt`
-- **Windows:** `py -3 -m pip install --user tushare yfinance pypdf pandas pyarrow requests markdown`
+- **Windows:** `py -3 -m pip install --user tushare yfinance pypdf pandas pyarrow requests markdown pyyaml jsonschema`
 
 ### 3. 配置 Tushare Token（A 股 / 港股必需）
 

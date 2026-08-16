@@ -107,6 +107,8 @@ for py in \
     check_env \
     check_phase2 \
     init_run \
+    verdict_block \
+    manifest \
     data_cache \
     tushare_collector \
     us_collector \
@@ -131,6 +133,19 @@ for py in \
 done
 curl -fsSL "$REPO_URL/scripts/requirements.txt" -o "$SKILL_DIR/scripts/requirements.txt"
 curl -fsSL "$REPO_URL/scripts/README.md" -o "$SKILL_DIR/scripts/README.md"
+# v8 契约层 schema(节点×4 + decision + assembly + manifest + common)
+mkdir -p "$SKILL_DIR/scripts/schemas"
+for schema in \
+    common \
+    node-quality \
+    node-state \
+    node-odds \
+    node-path \
+    node-decision \
+    assembly \
+    manifest; do
+  curl -fsSL "$REPO_URL/scripts/schemas/${schema}.schema.json" -o "$SKILL_DIR/scripts/schemas/${schema}.schema.json"
+done
 
 # ------------------------------------------------
 # 验证

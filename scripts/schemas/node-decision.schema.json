@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "node-decision.schema.json",
+  "title": "决策层 YAML verdict 块 — 三元组乘法→行动档位;仓位唯一出处;封顶检查",
+  "type": "object",
+  "required": [
+    "node", "verdict", "triad", "action_gear", "action_detail", "position",
+    "three_part", "good_company_ref", "what_to_wait", "falsification_exit", "gear_cap"
+  ],
+  "properties": {
+    "node": { "const": "decision" },
+    "verdict": { "type": "string", "minLength": 1 },
+    "reused_from": {
+      "anyOf": [
+        { "$ref": "common.schema.json#/$defs/iso_date" },
+        { "type": "null" }
+      ]
+    },
+    "triad": { "$ref": "common.schema.json#/$defs/triad" },
+    "action_gear": { "$ref": "common.schema.json#/$defs/action_gear" },
+    "action_detail": { "type": "string", "minLength": 1 },
+    "position": { "type": "string", "minLength": 1 },
+    "three_part": {
+      "type": "object",
+      "required": ["good_company", "good_bet", "good_price"],
+      "properties": {
+        "good_company": { "type": "string", "minLength": 1 },
+        "good_bet": { "type": "string", "minLength": 1 },
+        "good_price": { "type": "string", "minLength": 1 }
+      }
+    },
+    "good_company_ref": { "type": "string", "minLength": 1 },
+    "what_to_wait": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "falsification_exit": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "gear_cap": {
+      "type": "object",
+      "required": ["triggered"],
+      "properties": {
+        "triggered": { "type": "boolean" },
+        "reason": { "type": ["string", "null"] }
+      }
+    },
+    "sub_verdicts": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/sub_verdict" }
+    }
+  }
+}

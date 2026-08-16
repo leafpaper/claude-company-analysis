@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "node-quality.schema.json",
+  "title": "①质地节点 YAML verdict 块 — 是不是好公司(筛选信号,不进乘法)",
+  "allOf": [{ "$ref": "common.schema.json#/$defs/node_base" }],
+  "required": ["node", "verdict", "sub_verdicts", "red_flag_nominations", "panel"],
+  "properties": {
+    "node": { "const": "quality" },
+    "sub_verdicts": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 8,
+      "items": {
+        "allOf": [{ "$ref": "common.schema.json#/$defs/sub_verdict" }],
+        "properties": { "judgment": { "enum": ["✓", "⚠️", "✗"] } }
+      },
+      "allOf": [
+        { "contains": { "properties": { "question": { "const": "生意模式赚钱吗" } }, "required": ["question"] } },
+        { "contains": { "properties": { "question": { "const": "赚钱质量真吗" } }, "required": ["question"] } },
+        { "contains": { "properties": { "question": { "const": "护城河存在吗" } }, "required": ["question"] } },
+        { "contains": { "properties": { "question": { "const": "管理层可信吗" } }, "required": ["question"] } },
+        { "contains": { "properties": { "question": { "const": "财务底子稳吗" } }, "required": ["question"] } }
+      ]
+    },
+    "panel": {
+      "type": "object",
+      "required": ["industry_reason", "indicators"],
+      "properties": {
+        "industry_reason": { "type": "string", "minLength": 1 },
+        "indicators": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 5,
+          "items": { "$ref": "common.schema.json#/$defs/panel_indicator" }
+        }
+      }
+    }
+  }
+}

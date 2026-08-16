@@ -15,7 +15,7 @@ LLM（Phase 1/2/3）只负责**分析**，不再自己去搜索和拼凑数据�
 ### 1. 安装依赖
 
 ```bash
-pip3 install --user tushare yfinance pypdf pandas pyarrow requests
+pip3 install --user tushare yfinance pypdf pandas pyarrow requests pyyaml jsonschema
 ```
 
 ### 2. 设置 Tushare Token（必需，如果要分析 A 股/港股）
@@ -55,6 +55,8 @@ python3 -m scripts.check_env
 | `hk_collector` | 港股混合（Tushare + yfinance） | `HKCollector().collect_all("0700.HK")` |
 | `pdf_reader` | 财报 PDF 原文解析 | `PDFReader().extract_sections(pdf_path)` |
 | `derived_metrics` | 衍生指标计算 | `compute_a_share(bundle)` / `compute_us(bundle)` |
+| `verdict_block` | v8 契约:节点 md 顶部 YAML 块抽取 + schema 校验(scripts/schemas/) | `extract_yaml_block(text)`, `validate(data, name)`, CLI `--schema --file` |
+| `manifest` | v8 契约:runs/{date}/ 目录制 + 公司级 manifest.json 状态 | `create_run(dir, type)`, `load(dir)`, `latest_run(dir)` |
 
 ---
 

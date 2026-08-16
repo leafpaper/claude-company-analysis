@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "assembly.schema.json",
+  "title": "摘要层装配产物 — 决断卡/赚钱面板/Top3/主页 metadata/变化区块(增量)",
+  "type": "object",
+  "required": ["verdict_card", "panel", "top3", "metadata"],
+  "properties": {
+    "verdict_card": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "required": ["question", "verdict", "source_node"],
+        "properties": {
+          "question": { "enum": ["是不是好公司", "在变好吗", "贵不贵", "扛得住吗", "怎么办"] },
+          "verdict": { "type": "string", "minLength": 1 },
+          "source_node": { "enum": ["quality", "state", "odds", "path", "decision"] }
+        }
+      }
+    },
+    "panel": {
+      "type": "object",
+      "required": ["industry_reason", "conclusion", "indicators"],
+      "properties": {
+        "industry_reason": { "type": "string", "minLength": 1 },
+        "conclusion": {
+          "type": "object",
+          "required": ["biz_model", "quality_true"],
+          "properties": {
+            "biz_model": { "type": "string", "minLength": 1 },
+            "quality_true": { "type": "string", "minLength": 1 }
+          }
+        },
+        "indicators": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 5,
+          "items": { "$ref": "common.schema.json#/$defs/panel_indicator" }
+        }
+      }
+    },
+    "top3": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "required": ["rank", "red_flag_id", "level", "title", "evidence"],
+        "properties": {
+          "rank": { "type": "integer", "minimum": 1, "maximum": 3 },
+          "red_flag_id": { "type": "string", "minLength": 1 },
+          "level": { "enum": ["🔴", "🟠", "🟡", "🟢", "ℹ️"] },
+          "title": { "type": "string", "minLength": 1 },
+          "evidence": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "required": ["company", "date", "action_gear", "verdict_plain", "quality_field"],
+      "properties": {
+        "company": { "type": "string", "minLength": 1 },
+        "date": { "$ref": "common.schema.json#/$defs/iso_date" },
+        "action_gear": { "$ref": "common.schema.json#/$defs/action_gear" },
+        "verdict_plain": { "type": "string", "minLength": 1 },
+        "quality_field": { "type": "string", "minLength": 1 }
+      }
+    },
+    "change_block": { "$ref": "#/$defs/change_block" }
+  },
+  "$defs": {
+    "change_block": {
+      "type": "object",
+      "required": [
+        "alpha_summary", "gear_before", "gear_after",
+        "triad_before", "triad_after", "flipped_nodes",
+        "red_flag_changes", "falsification_changes", "metric_deltas",
+        "full_rerun_advice"
+      ],
+      "properties": {
+        "alpha_summary": { "type": "string", "minLength": 1 },
+        "gear_before": { "$ref": "common.schema.json#/$defs/action_gear" },
+        "gear_after": { "$ref": "common.schema.json#/$defs/action_gear" },
+        "triad_before": { "$ref": "common.schema.json#/$defs/triad" },
+        "triad_after": { "$ref": "common.schema.json#/$defs/triad" },
+        "flipped_nodes": {
+          "type": "array",
+          "items": { "enum": ["quality", "state", "odds", "path"] }
+        },
+        "red_flag_changes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "change"],
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "change": { "enum": ["triggered", "resolved", "level_changed"] },
+              "note": { "type": "string" }
+            }
+          }
+        },
+        "falsification_changes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["condition", "change"],
+            "properties": {
+              "condition": { "type": "string", "minLength": 1 },
+              "change": { "enum": ["triggered", "cleared"] }
+            }
+          }
+        },
+        "metric_deltas": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "before", "after"],
+            "properties": {
+              "name": { "type": "string", "minLength": 1 },
+              "before": { "type": "string" },
+              "after": { "type": "string" }
+            }
+          }
+        },
+        "full_rerun_advice": {
+          "type": "object",
+          "required": ["advised"],
+          "properties": {
+            "advised": { "type": "boolean" },
+            "reason": { "type": ["string", "null"] }
+          }
+        }
+      }
+    }
+  }
+}
