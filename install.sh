@@ -70,16 +70,17 @@ for agent in \
 done
 
 # ------------------------------------------------
-# [4/6] 下载 8 个参考文档
+# [4/6] 下载 9 个参考文档(v8 手册层:链手册 1 + 节点手册 4)
 # ------------------------------------------------
-echo "[4/6] 下载 8 个参考文档..."
+echo "[4/6] 下载 9 个参考文档..."
 for ref in \
     agent-protocol \
     phase-orchestration \
-    scoring-rubric \
-    qualitative-frameworks \
-    valuation-frameworks \
-    investment-decision-core \
+    judgment-chain \
+    node-quality \
+    node-state \
+    node-odds \
+    node-path \
     search-strategy \
     html-template-guide; do
   curl -fsSL "$REPO_URL/references/${ref}.md" -o "$SKILL_DIR/references/${ref}.md"

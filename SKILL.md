@@ -80,7 +80,7 @@ prompt = f"""[正常评审任务...]
 **报告结构 = 9 章节**(§一 执行摘要 / §二 公司基本面 / §三 行业与竞争对标 / §四 评分与维度证据[含 4.11 状态评估] / §五 估值、赔率与定价充分度 / §六 风险与红旗审计[含 6.4 左尾防护] / §七 投资决策内核 / §八 舆情与市场情绪 / §九 数据来源与信息缺口)。章节边界真理来源:`scripts/assemble_report.py:PART_EXPECTED_SECTIONS`。
 
 **v7.2 doc-analyst**: Phase 2 文档精析从主 agent 抽成独立 sub-agent(9→10 agent),主 agent 退回纯调度;产物路径/格式不变(`phase2-documents.md` §1-§8),Phase 3 消费无感。这是 v8 十 agent 架构的预重构第一步。
-**v7.0 决策内核**: 8→9 章节,新增 §七 投资决策内核(贝叶斯之美五篇:状态后验×赔率×路径 → 好公司/好下注/好价格三分 + 行动档位);§五 估值重做(P=F+N/反向DCF/叙事SOTP,DCF 降为交叉验证);§四 加 4.11 状态评估(λ/证据临界/身份切换/四层/右尾);§六 加 6.4 左尾防护;phase3 写手 4→5。框架定义见 `references/investment-decision-core.md`。
+**v7.0 决策内核**: 8→9 章节,新增 §七 投资决策内核(贝叶斯之美五篇:状态后验×赔率×路径 → 好公司/好下注/好价格三分 + 行动档位);§五 估值重做(P=F+N/反向DCF/叙事SOTP,DCF 降为交叉验证);§四 加 4.11 状态评估(λ/证据临界/身份切换/四层/右尾);§六 加 6.4 左尾防护;phase3 写手 4→5。框架定义见 `references/judgment-chain.md`(v8 手册层已取代旧 investment-decision-core)。
 **v6.0 精简**: 13→8 章节,合并重叠("评分总览+详细维度"→§四 / "行业+可比对标"→§三 / "估值+回报"→§五 / 风险红旗集中→§六);phase3 写手 5→4(§一 由 part1 串行链最后写)。**v5.1.4 已删** Phase 4 多角色 + Phase 5 差异化洞察。
 
 ---
@@ -115,9 +115,11 @@ prompt = f"""[正常评审任务...]
 
 ### 1.2 输入确认
 
-向用户确认:类型(创业/上市)/ 市场(A股/美股/港股)/ 股票代码 / 内部资料(可选)/ 投资金额(默认 100 万)/ 特别关注(可选)。
+向用户确认:市场(A股/美股/港股)/ 股票代码 / 内部资料(可选)/ 投资金额(默认 100 万)/ 特别关注(可选)。
 
-锁定 `{company}` / `{type}` / `{market}` / `{ticker}` / `{documents}` / `{amount}` / `{focus_points}`。
+锁定 `{company}` / `{market}` / `{ticker}` / `{documents}` / `{amount}` / `{focus_points}`。
+
+> 本 skill **只分析上市公司**——创业公司口径(C/D 轮评分、条款分析、实物期权、退出瀑布)已随 v8 框架文档重组移除,不再询问类型。
 
 ---
 
@@ -208,10 +210,13 @@ Phase 1 (data-collector) → Phase 2 (doc-analyst) → Phase 3 (5 sub-agent 串�
 |---|---|
 | **`references/agent-protocol.md`** ★ | **Agent 工具调度协议 + Fresh-Restart 规则 + 日志规范** |
 | **`references/phase-orchestration.md`** ★ | **每个 Phase 详细 checklist + reviewer 修正循环步骤** |
-| `references/scoring-rubric.md` | 10 维度评分(phase3-part3 内部读) |
-| `references/qualitative-frameworks.md` | 3 框架定性(phase3-part3 读) |
-| `references/valuation-frameworks.md` | Damodaran + v7.0 P=F+N/反向DCF/叙事SOTP(phase3-part3 读) |
-| `references/investment-decision-core.md` ★ | v7.0 投资决策内核全机制(λ/证据临界/身份切换/四层/P=F+N/赔率/路径/行动档位)——phase3-part3/4/1 读 |
+| **`references/judgment-chain.md`** ★ | **v8 判断链手册(全员必读):总公式/四问定义/决策层三元组×封顶×六档/摘要层装配/写作规范/消化路径总表** |
+| `references/node-quality.md` | ①质地证据手册(五子判定标尺 + 赚钱面板菜单)——node-quality 写手读 |
+| `references/node-state.md` | ②状态证据手册(λ/实锤分级/身份切换/四层验证/催化剂→临界点)——node-state 写手读 |
+| `references/node-odds.md` | ③赔率证据手册(P=F+N/反向DCF/叙事SOTP/DCF/区间锚/Damodaran 基准)——node-odds 写手读 |
+| `references/node-path.md` | ④路径证据手册(左尾清单/高信仰体检/回报路径成本/证伪清单)——node-path 写手读 |
+
+> **消化纪律**:节点写手只读「链手册 + 本节点手册」两份,跨节点只引用对方 verdict,不重新推导。旧的 scoring-rubric / qualitative-frameworks / valuation-frameworks / investment-decision-core 四份已在 v8 手册层重组时删除(去向见 CHANGELOG v8.0)。
 
 ### 模板与 schema
 

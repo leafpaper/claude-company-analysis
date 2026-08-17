@@ -50,7 +50,7 @@
 6. **最后给你一张「投资决断卡」。**
    5 行看懂结论：① 是不是好公司 ② 故事真不真 ③ 贵不贵 ④ 该不该买 ⑤ 该怎么办（具体动作 + 该等什么事件）。**好公司 ≠ 现在能买**，卡片把这两件事分开告诉你。
 
-> 这套方法的内核来自「贝叶斯之美」五篇（《投资是泊松过程》《喊线时代》《三大数学模型之美》《信仰投资最大陷阱》《十年十倍股》）。框架只是**内部思考引擎**，报告**输出**永远是大白话 + 具体证据 + 一句结论。完整机制见 [`references/investment-decision-core.md`](./references/investment-decision-core.md)。
+> 这套方法的内核来自「贝叶斯之美」五篇（《投资是泊松过程》《喊线时代》《三大数学模型之美》《信仰投资最大陷阱》《十年十倍股》）。框架只是**内部思考引擎**，报告**输出**永远是大白话 + 具体证据 + 一句结论。完整机制见 [`references/judgment-chain.md`](./references/judgment-chain.md) 与四份节点手册。
 
 ---
 
@@ -60,7 +60,7 @@
 |------|------|
 | **强制 PDF 精读** | 不依赖第三方摘要。年报/季报 PDF 必须下载并提取关键段落（利润表变动原因 / 子公司业绩 / MD&A / 风险因素 / 非经常损益 等），关键结论带 `[PDF:报告期, P.x]` 引用。 |
 | **数学推导优先** | 估值赔率走 **P=F+N 分解 + 反向DCF 隐含预期 + 叙事分部SOTP**（v7.0），DCF 概率加权作 F 的交叉验证；逻辑猜测不得替代算术，每块须出数字。 |
-| **决策内核（v7.0）** | 投资价值 = **状态后验 × 赔率 × 路径可承受性**，把"是不是好公司"拆成 **好公司 / 好下注 / 好价格** 三分 + 行动档位（六档）。源自"贝叶斯之美"五篇，定义见 `references/investment-decision-core.md`。 |
+| **决策内核（v7.0）** | 投资价值 = **状态后验 × 赔率 × 路径可承受性**，把"是不是好公司"拆成 **好公司 / 好下注 / 好价格** 三分 + 行动档位（六档）。源自"贝叶斯之美"五篇，定义见 `references/judgment-chain.md`（v8 手册层）。 |
 | **全说人话（v7.1）** | 框架是内部思考引擎，**报告正文不出现裸术语**（λ / P=F+N / embedded obligation 等只在小括号里标注）。每段结论先行，§一/§五/§七 正文无来源标签（机械拦截，来源统一 §九）。落到一张 **5 行投资决断卡**：是不是好公司 / 故事真不真 / 贵不贵 / 该不该买 / 该怎么办。 |
 | **11 框架防盲点** | `scripts/financial_audit.py` 自动跑 Piotroski F / Beneish M / Altman Z / DuPont / Sloan 应计 / 治理 / 关联方等 11 个框架，机械扫出红旗，进入 §六。 |
 | **定性不伪量化** | 护城河 / 管理层 / 催化剂走"看多 / 看空 / 中性-分歧"三档定性判断，**不打 `-2~+2` 分**、不做百分比修正——定性就是定性。 |
@@ -169,10 +169,11 @@ claude-company-analysis/
 ├── references/                 # 参考文档
 │   ├── agent-protocol.md           # ⭐ Agent 调度协议 + Fresh-Restart
 │   ├── phase-orchestration.md      # ⭐ 每 Phase 详细 checklist
-│   ├── scoring-rubric.md           # 10 维度事实评分标尺
-│   ├── qualitative-frameworks.md   # 3 定性框架（护城河/管理层/催化剂）
-│   ├── valuation-frameworks.md     # Damodaran 估值 + v7.0 P=F+N/反向DCF/叙事SOTP
-│   ├── investment-decision-core.md # ⭐ v7.0 投资决策内核全机制（状态后验×赔率×路径）
+│   ├── judgment-chain.md           # ⭐ v8 判断链手册（四问定义/决策层/装配规则/写作规范）
+│   ├── node-quality.md             # ①质地证据手册（五子判定 + 赚钱面板菜单）
+│   ├── node-state.md               # ②状态证据手册（λ/实锤分级/身份切换/临界点）
+│   ├── node-odds.md                # ③赔率证据手册（P=F+N/反向DCF/叙事SOTP/区间锚）
+│   ├── node-path.md                # ④路径证据手册（左尾清单/高信仰体检/证伪清单）
 │   ├── search-strategy.md          # WebSearch 辅助规范
 │   └── html-template-guide.md      # HTML 可视化规范
 │

@@ -22,6 +22,35 @@
 
 ---
 
+## [v8.0-dev] — 进行中 — 判断链收敛（分票落地，未发版）
+
+> v8.0 的完整条目在全量管线上线时补齐。以下按已完成的实现票记录。
+
+### 框架文档「1+4 节点制」（ticket 03，2026-08-17）
+
+**Added**
+- `references/judgment-chain.md` — **链手册（全员必读）**：总公式与四问定义（含 verdict 取值域、质地=筛选信号不进乘法、一处权威表）/ 决策层（三元组→六档映射、★致命红旗封顶规则、★区间锚两端同向规则、三分结论、右尾纪律、仓位唯一出处、五弊端自检）/ 摘要层机器装配规则（决断卡/面板/Top3/红标纯展示层映射/写手提名通道，字段一律引用 `scripts/schemas/*.json` 不复制）/ 写作规范（人话词典、结论先行、最硬证据制、黑白分割纪律、证据质量门控、数字唯一 home、章预算、禁止项、BEFORE→AFTER 范例）/ 消化路径总表。
+- `references/node-quality.md`（①质地：五子判定标尺 + 护城河类型表 + 财务标尺与行业基准 + 赚钱面板菜单）
+- `references/node-state.md`（②状态：λ 与分部稀释 / 实锤 vs 传闻分级 / 贝叶斯三问 / 无记忆性 / 身份切换 P1-P4 与 5 元组 / 四层验证 / 催化剂→**临界点=该等什么唯一产出处** / 赛道右尾证据）
+- `references/node-odds.md`（③赔率：P=F+N / 反向 DCF / 叙事 SOTP / DCF / **区间锚 [SOTP,DCF] 两端算法** / 估值证据菜单 / Damodaran 行业基准**唯一一份**）
+- `references/node-path.md`（④路径：左尾清单与剥离剩余资产清单 / 高信仰体检 / 回报路径成本 / **证伪与退出清单** / 风险证据标尺 / 空头逻辑链）
+- **消化纪律**：文档边界=判断节点边界=写手边界；写手只读「链手册 + 本节点手册」，跨节点只引用对方 verdict，机制文本一处安家。
+
+**Removed**（git 历史即归档，不留 archive/；去向按 `.scratch/v8-refactor/research/08-doc-mapping.md` 零孤儿映射）
+- `references/scoring-rubric.md` — 评分锚点/加权公式/投资信号表/定性叠加系数**全删**（结论假面）；各维度**证据标尺**迁入：维1/3/5/6→node-quality，维2/4→node-state，维7→node-quality 财务底子 + node-path 偿债左尾，维8→node-path，维9→node-odds，维10（上市版回报潜力）→node-path；证据质量门控→链手册 §4；上市公司财务指标行业基准→node-quality 附表。
+- `references/qualitative-frameworks.md` — 「综合方向」verdict 与三段式汇总模板**删除**（结论假面）；框架1 护城河→node-quality，框架2 管理层→node-quality（路径子项在 node-path 放引用行），框架3 催化剂→node-state；黑白分割纪律与禁止项→链手册 §4。
+- `references/valuation-frameworks.md` — 主体迁入 node-odds；**v4.2「三法差异 >20% 必须重做 DCF」红线废除**，改为区间锚两端同向规则；剥离剩余资产清单→node-path；7.4 投资回报模拟→node-path；实物期权法与条款分析框架**删除**。
+- `references/investment-decision-core.md` — 拆为链手册主体（总公式/决策合成/右尾纪律/写作规范）+ 三份节点手册（状态后验→node-state，赔率→node-odds，路径与左尾→node-path）；决断卡与四维体检模板**删除**（字段外置 schema，首页机器装配）；λ 监控段改写为"接增量复查分诊"。
+- **创业公司口径全删**：C/D 轮评分标准、早期公司适配指南、实物期权、条款分析、退出瀑布；`SKILL.md` 输入确认不再问「类型(创业/上市)」，`{type}` 变量移除。
+
+**Changed**
+- `install.sh` 参考文档 8→9（手册层 1+4 取代旧四份），`REF_COUNT` 期望同步；`SKILL.md` / `README.md` 参考索引改指手册层。
+
+### 契约层（ticket 01，2026-08-16）
+- `scripts/schemas/` 八个 schema（common / node-{quality,state,odds,path} / node-decision / assembly / manifest）+ `scripts/verdict_block.py`（顶部 fenced YAML 块抽取与校验）+ `scripts/manifest.py`（runs 日期目录制、增量计数、公司级状态唯一源）+ `init_run --run-type`。契约测试 43/43 绿。
+
+---
+
 ## [v7.0] — 2026-06-22 — 投资决策内核（贝叶斯之美五篇融入）
 
 > **主题**: 把"贝叶斯之美/BayesCrest"五篇投资理念（《投资是泊松过程》《喊线时代》《三大数学模型之美》《信仰投资最大陷阱》《十年十倍股》）落成 skill 的判断逻辑链。核心公式 **投资价值 = 状态后验 × 赔率 × 路径可承受性**，把"是不是好公司"拆成 **好公司 / 好下注 / 好价格** 三分。根治旧版"DCF 单锚 lowball + 贵=回避"的 Issue 1。
