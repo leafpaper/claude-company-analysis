@@ -11,6 +11,14 @@
       "minItems": 1,
       "items": { "$ref": "common.schema.json#/$defs/sub_verdict" }
     },
+    "current_price": {
+      "type": "object",
+      "required": ["value"],
+      "properties": {
+        "value": { "type": "number" },
+        "unit": { "type": "string" }
+      }
+    },
     "anchor_range": {
       "type": "object",
       "required": ["low", "high", "same_direction"],

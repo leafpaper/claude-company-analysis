@@ -58,6 +58,13 @@ def _grep_float(text: str, pattern: str, default: float | None = None) -> float 
 
 # ---------- 语气推断 ----------
 
+# v8: 行动档位(六档)→ 卡片语气; v8 报告无综合评分, tone 直接由档位决定
+GEAR_TONE = {
+    "核心仓": "bullish", "期权仓": "neutral", "等证据临界": "neutral",
+    "不追高": "neutral", "减仓": "bearish", "回避": "bearish",
+}
+
+
 def _infer_tone(verdict: str, score: float | None) -> str:
     """根据 verdict 文本 + 评分推断 tone(bullish/neutral/bearish)."""
     v = (verdict or "").lower()
@@ -105,6 +112,7 @@ class CardMetadata:
     composite_score: float | None = None
     verdict: str = ""
     verdict_tone: str = "neutral"
+    quality_field: str = ""      # v8: 质地字段(是不是好公司), 与 verdict 并列上卡片
     valuation_tag: str = ""
     one_liner: str = ""
     metrics: list[dict] = None
@@ -187,9 +195,11 @@ def extract_metadata(md_path: Path, company_name: str) -> CardMetadata:
     meta.market = _detect_market(meta.ticker, company_name)
     meta.slug = _slug_from_company(company_name, meta.ticker)
 
-    # 版本号(从 title 后的 v4.1 等)或从正文找最末的 "v4.1 修订"
+    # 版本号: v8 由装配写进 CARD_METADATA; 否则从 title 的 v4.1 等或正文末尾找
     vm = re.search(r"\bv(\d+\.\d+)\b", title) or re.search(r"附录.*v(\d+\.\d+)", text)
-    if vm:
+    if card_block.get("version"):
+        meta.version = card_block["version"]
+    elif vm:
         meta.version = f"v{vm.group(1)}"
 
     # 综合评分
@@ -201,7 +211,8 @@ def extract_metadata(md_path: Path, company_name: str) -> CardMetadata:
     # 投资方向(verdict) — v7.1: 优先 RATING_TRIO_DATA.verdict (part1 权威填写的行动档位, 如"等证据临界(不追高)");
     #   再退到 §一 决断卡"本案落「X」"; 兼容旧"投资方向综合判定"; 最后用一句话结论前缀。
     #   ★ 不再用裸"行动档位"正则匹配正文——会误抓"行动档位六档：核心仓/期权仓/…"菜单行。
-    verdict = (rating_block.get("verdict") or "").strip()
+    #   ★ v8: 装配脚本把行动档位人话写进 CARD_METADATA.verdict(RATING_TRIO_DATA 已随判断链收敛删除)。
+    verdict = (rating_block.get("verdict") or card_block.get("verdict") or "").strip()
     if not verdict:
         verdict = _grep(text, r"本案落[「『\"]?\s*([^」』\"\n（(]+)")
     if not verdict:
@@ -209,7 +220,12 @@ def extract_metadata(md_path: Path, company_name: str) -> CardMetadata:
     if not verdict:
         verdict = _grep(text, r"\*\*一句话结论\*\*:\s*\*\*([^*]+)\*\*")
     meta.verdict = verdict or "–"
-    meta.verdict_tone = (rating_block.get("verdict_tone") or "").strip() or _infer_tone(verdict, score)
+    meta.quality_field = (card_block.get("quality") or "").strip()
+    meta.verdict_tone = (
+        (rating_block.get("verdict_tone") or "").strip()
+        or GEAR_TONE.get((card_block.get("action_gear") or "").strip(), "")
+        or _infer_tone(verdict, score)
+    )
 
     # 估值锚 / 期望收益
     anchor_price = rating_block.get("anchor_price") or _grep(text, r"估值锚\*?\*?:?\s*\*?\*?[^\n元]*?([\d.]+)\s*元")
@@ -287,6 +303,8 @@ def extract_metadata(md_path: Path, company_name: str) -> CardMetadata:
     meta.badges = [
         {"label": f"{meta.verdict} {score}/10" if score else meta.verdict, "variant": "amber"},
     ]
+    if meta.quality_field:      # v8: 质地字段与行动档位并列(卡片版式改造归实现票 07)
+        meta.badges.append({"label": f"质地 {meta.quality_field}", "variant": "amber"})
     if meta.valuation_tag:
         meta.badges.append({"label": meta.valuation_tag, "variant": "amber"})
 
@@ -358,7 +376,12 @@ def main():
     md_path = None
     for c in candidates:
         if c.exists():
-            mds = sorted(c.glob(f"{c.name}-analysis-*.md"), reverse=True)
+            # v7 报告在公司目录根; v8 报告落 runs/{date}/ —— 两处一起找, 按文件名(含日期)取最新
+            mds = sorted(
+                list(c.glob(f"{c.name}-analysis-*.md")) + list(c.glob(f"runs/*/{c.name}-analysis-*.md")),
+                key=lambda p: p.name,
+                reverse=True,
+            )
             if mds:
                 company_dir = c
                 md_path = mds[0]

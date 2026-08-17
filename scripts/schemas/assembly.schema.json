@@ -64,12 +64,69 @@
         "date": { "$ref": "common.schema.json#/$defs/iso_date" },
         "action_gear": { "$ref": "common.schema.json#/$defs/action_gear" },
         "verdict_plain": { "type": "string", "minLength": 1 },
-        "quality_field": { "type": "string", "minLength": 1 }
+        "quality_field": { "type": "string", "minLength": 1 },
+        "next_disclosure_date": {
+          "anyOf": [
+            { "$ref": "common.schema.json#/$defs/iso_date" },
+            { "type": "null" }
+          ]
+        }
       }
     },
-    "change_block": { "$ref": "#/$defs/change_block" }
+    "front_page_intro": { "type": "string", "minLength": 1 },
+    "change_block": { "$ref": "#/$defs/change_block" },
+    "red_flags": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/red_flag_item" }
+    },
+    "red_mark_map": {
+      "type": "object",
+      "required": ["by_metric", "by_indicator"],
+      "properties": {
+        "by_metric": { "type": "object", "additionalProperties": { "$ref": "#/$defs/red_mark" } },
+        "by_indicator": { "type": "object", "additionalProperties": { "$ref": "#/$defs/red_mark" } }
+      }
+    },
+    "appendices": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["key", "title", "mounted"],
+        "properties": {
+          "key": { "enum": ["A", "B", "C", "D", "E"] },
+          "title": { "type": "string", "minLength": 1 },
+          "mounted": { "type": "array", "items": { "type": "string" } },
+          "missing": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
   },
   "$defs": {
+    "red_mark": {
+      "type": "object",
+      "required": ["mark", "level", "flags"],
+      "properties": {
+        "mark": { "enum": ["red", "yellow"] },
+        "level": { "enum": ["🔴", "🟠", "🟡"] },
+        "flags": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["id", "level", "title", "evidence", "source", "node", "anchor"],
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "level": { "enum": ["🔴", "🟠", "🟡", "🟢", "ℹ️"] },
+              "title": { "type": "string", "minLength": 1 },
+              "evidence": { "type": "string", "minLength": 1 },
+              "source": { "enum": ["script", "nomination"] },
+              "node": { "enum": ["quality", "state", "odds", "path"] },
+              "anchor": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    },
     "change_block": {
       "type": "object",
       "required": [

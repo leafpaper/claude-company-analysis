@@ -57,6 +57,9 @@ python3 -m scripts.check_env
 | `derived_metrics` | 衍生指标计算 | `compute_a_share(bundle)` / `compute_us(bundle)` |
 | `verdict_block` | v8 契约:节点 md 顶部 YAML 块抽取 + schema 校验(scripts/schemas/) | `extract_yaml_block(text)`, `validate(data, name)`, CLI `--schema --file` |
 | `manifest` | v8 契约:runs/{date}/ 目录制 + 公司级 manifest.json 状态 | `create_run(dir, type)`, `load(dir)`, `latest_run(dir)` |
+| `red_flags` | v8 附录D:脚本 audit ⊕ 写手提名两源合并 / Top3 / 红标反查 | `normalize_audit(j)`, `merge(a, b)`, `top3(flags)`, `red_mark_map(flags, inds)` |
+| `assembly` | v8 摘要层装配:决断卡/面板/Top3/主页 metadata/变化区块 | `load_nodes(dir)`, `build_assembly(...)`, `build_change_block(...)` |
+| `assemble_report_v8` | v8 报告渲染 CLI:首页 + 五章 + 附录A-E 挂载 | `assemble_run(run_dir, company, date)`, CLI `--run-dir --company --date` |
 
 ---
 

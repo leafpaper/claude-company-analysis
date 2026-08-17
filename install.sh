@@ -127,6 +127,9 @@ for py in \
     report_parser \
     monitor \
     assemble_report \
+    red_flags \
+    assembly \
+    assemble_report_v8 \
     anti_lazy_lint \
     review_loop \
     lessons_manager \
@@ -136,7 +139,7 @@ for py in \
 done
 curl -fsSL "$REPO_URL/scripts/requirements.txt" -o "$SKILL_DIR/scripts/requirements.txt"
 curl -fsSL "$REPO_URL/scripts/README.md" -o "$SKILL_DIR/scripts/README.md"
-# v8 契约层 schema(节点×4 + decision + assembly + manifest + common)
+# v8 契约层 schema(节点×4 + decision + assembly + appendix-d + manifest + common)
 mkdir -p "$SKILL_DIR/scripts/schemas"
 for schema in \
     common \
@@ -146,6 +149,7 @@ for schema in \
     node-path \
     node-decision \
     assembly \
+    appendix-d \
     manifest; do
   curl -fsSL "$REPO_URL/scripts/schemas/${schema}.schema.json" -o "$SKILL_DIR/scripts/schemas/${schema}.schema.json"
 done
@@ -158,9 +162,12 @@ AGENT_COUNT=$(find "$SKILL_DIR/agents" -name "*.md" 2>/dev/null | wc -l | tr -d 
 REF_COUNT=$(find "$SKILL_DIR/references" -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
 SCRIPT_COUNT=$(find "$SKILL_DIR/scripts" -name "*.py" 2>/dev/null | wc -l | tr -d ' ')
 ASSETS_COUNT=$(find "$SKILL_DIR/assets" -type f 2>/dev/null | wc -l | tr -d ' ')
-# v7.0 期望: 5 phases + 9 agents + 8 refs + 25 scripts + 6 assets + 1 SKILL.md
+# v7.2 期望: 5 phases + 10 agents + 9 refs + 30 scripts + 6 assets + 1 SKILL.md
+# (v7.1→v7.2 变更: agents 9→10 新增 doc-analyst;scripts 25→27 新增 v8 契约层 verdict_block/manifest,
+#  27→30 新增 v8 装配层 red_flags/assembly/assemble_report_v8;
+#  refs 8→9 v8 手册层 1+4 取代旧四份框架文档)
 
-if [ "$PHASE_COUNT" -eq "5" ] && [ "$AGENT_COUNT" -eq "9" ] && [ "$REF_COUNT" -eq "8" ] && [ "$SCRIPT_COUNT" -eq "25" ] && [ "$ASSETS_COUNT" -eq "6" ]; then
+if [ "$PHASE_COUNT" -eq "5" ] && [ "$AGENT_COUNT" -eq "10" ] && [ "$REF_COUNT" -eq "9" ] && [ "$SCRIPT_COUNT" -eq "30" ] && [ "$ASSETS_COUNT" -eq "6" ]; then
     echo ""
     echo "============================================"
     echo "  ✅ 安装成功！(v7.2)"

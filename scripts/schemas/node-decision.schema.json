@@ -48,6 +48,7 @@
         "reason": { "type": ["string", "null"] }
       }
     },
+    "front_page_intro": { "type": "string", "minLength": 1 },
     "sub_verdicts": {
       "type": "array",
       "items": { "$ref": "common.schema.json#/$defs/sub_verdict" }
