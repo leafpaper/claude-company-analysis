@@ -1,4 +1,4 @@
-# Phase 调度详细 Checklist (v6.0)
+# Phase 调度详细 Checklist (v7.2)
 
 > 本文件由主智能体在 Step 3 加载,详细说明每个 Phase 的调度顺序、工具调用方式、判定标准。SKILL.md 只引用本文件不重复。
 >
@@ -26,16 +26,26 @@
 
 ---
 
-## Phase 2: 文档精析(主 agent 自跑)
+## Phase 2: 文档精析 (Agent 工具 → doc-analyst)
+
+> v7.2 起从"主 agent 自跑"改为独立 sub-agent。主 agent **不读 PDF、不读 pdf_sections_*.json、不写 phase2-documents.md**,只调度 + 复核门控。
 
 **调度 checklist**:
 
-1. 主 agent 读 `pdfs/*.pdf` + `pdf_sections_*.json`
-2. 精读 6 个高价值 section(income_statement_changes / subsidiaries / MD&A / 风险因素 / 非经常性损益 / 关联交易)
-3. 写 `output/{company}/phase2-documents.md`
-4. 跑 `{PYBIN} -m scripts.check_phase2 --md output/{company}/phase2-documents.md`;退出 1 → 补写后重跑
+1. 用 Agent 工具启动 doc-analyst:
+   - subagent_type = `doc-analyst`
+   - prompt 含 `output_dir / company / ticker / market / date / {PYBIN}` + 用户额外文档路径(若有)
+2. 等 sub-agent 完成(前台,等响应)
+3. 直接从响应文本读出 `**判定**:` 与 `**check_phase2**:` 两行(响应就在你的上下文里,无需 shell)
+4. **复核**跑一次同一条门控命令(便宜且确定,不信任自证):
 
-**质量门控**:`check_phase2` 退出码 0(§1-§8 齐全 + §2 [PDF:] 原文引用≥3 + §8 锚点≥5);每份 PDF 都被列出
+   ```
+   {PYBIN} -m scripts.check_phase2 --md output/{company}/phase2-documents.md
+   ```
+5. 把判定 + 降级标注写入 main-log.md
+6. 退出码 0 且判定 PASS / 部分降级 → Phase 3;退出码 1 或判定 FAIL → **fresh-restart doc-analyst 一次**(prompt 注入 check_phase2 的三行 R 结果 + "上轮 FAIL"),仍失败 → 转人工。**主 agent 不自己补写 phase2-documents.md**
+
+**质量门控**:doc-analyst `**判定**: PASS / 部分降级` + 主 agent 复核 `check_phase2` 退出码 0(§1-§8 齐全 + §2 [PDF:] 原文引用≥3 + §8 锚点≥5);每份 PDF 都在 §1 被列出
 
 ---
 

@@ -1,15 +1,16 @@
-"""check_phase2 — Phase 2 文档精析机器门控 (v6.0)
+"""check_phase2 — Phase 2 文档精析机器门控 (v7.2)
 
-Phase 2 由主 agent 自跑、产出 phase2-documents.md。此前它是全流程唯一"无机器门控"
-的阶段(质量要求只写在 phases/phase2-document-analysis.md 文件内, 全靠主 agent 自觉)。
-本脚本把那几条硬要求变成确定性的退出码检查, 与 check_env / anti_lazy_lint 同构。
+Phase 2 产出 phase2-documents.md。此前它是全流程唯一"无机器门控"的阶段(质量要求
+只写在 phases/phase2-document-analysis.md 文件内, 全靠自觉)。本脚本把那几条硬要求
+变成确定性的退出码检查, 与 check_env / anti_lazy_lint 同构。
 
-调用(主 agent 在 Phase 2 写完 phase2-documents.md 后跑):
+调用(v7.2 起双跑: doc-analyst 写完自跑自补 ≤3 轮, 主 agent 收到响应后复核一次):
   python3 -m scripts.check_phase2 --md output/{company}/phase2-documents.md
 
 退出码:
   0 = 全部硬规则通过
-  1 = 任一硬规则违规(主 agent 据此回去补 phase2-documents.md 再跑)
+  1 = 任一硬规则违规(doc-analyst 据此回去补 phase2-documents.md 再跑;
+      主 agent 复核红了则 fresh-restart doc-analyst, 不自己补写)
 
 硬规则:
   R1  §1-§8 八个章节标题齐全
@@ -107,6 +108,13 @@ def lint_phase2(md_path: Path) -> tuple[bool, str]:
 
 
 def main() -> int:
+    # 报告含 ✅/❌ 等非 ASCII;Windows 控制台默认 GBK 会 UnicodeEncodeError 崩在 print 上,
+    # 被 doc-analyst 误读成"门控红了"并空转 3 轮补写。强制 UTF-8 输出。
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, OSError):     # 非 TextIOWrapper(被重定向/包装)时跳过
+        pass
+
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--md", required=True, help="phase2-documents.md 路径")
     ap.add_argument("--quiet", action="store_true", help="仅退出码, 不打印报告")

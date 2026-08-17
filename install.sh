@@ -15,6 +15,7 @@ echo "================================================"
 echo "  Claude Code — 投资分析 Skill 安装程序 v6.0"
 echo "  结构化数据 + PDF 精析 + 11 大师框架审计"
 echo "  v7.0: 9 章节报告(含投资决策内核) + 5 part 写手编排"
+echo "  v7.2: Phase 2 文档精析独立化 (doc-analyst, 10 sub-agent)"
 echo "  支持 A 股 / 美股 / 港股"
 echo "================================================"
 echo ""
@@ -42,9 +43,9 @@ curl -fsSL "$REPO_URL/CHANGELOG.md" -o "$SKILL_DIR/CHANGELOG.md"
 curl -fsSL "$REPO_URL/.env.sample" -o "$SKILL_DIR/.env.sample"
 
 # ------------------------------------------------
-# [3/6] 下载 5 个阶段文件 + 9 个 sub-agent
+# [3/6] 下载 5 个阶段文件 + 10 个 sub-agent
 # ------------------------------------------------
-echo "[3/6] 下载 5 个阶段文件 + 9 个 sub-agent..."
+echo "[3/6] 下载 5 个阶段文件 + 10 个 sub-agent..."
 for phase in \
     phase1-data-collection \
     phase2-document-analysis \
@@ -56,6 +57,7 @@ done
 
 for agent in \
     data-collector \
+    doc-analyst \
     phase3-part1 \
     phase3-part2 \
     phase3-part3 \
@@ -160,7 +162,7 @@ ASSETS_COUNT=$(find "$SKILL_DIR/assets" -type f 2>/dev/null | wc -l | tr -d ' ')
 if [ "$PHASE_COUNT" -eq "5" ] && [ "$AGENT_COUNT" -eq "9" ] && [ "$REF_COUNT" -eq "8" ] && [ "$SCRIPT_COUNT" -eq "25" ] && [ "$ASSETS_COUNT" -eq "6" ]; then
     echo ""
     echo "============================================"
-    echo "  ✅ 安装成功！(v7.0)"
+    echo "  ✅ 安装成功！(v7.2)"
     echo "============================================"
     echo ""
     echo "  协调器:  SKILL.md"
@@ -198,7 +200,7 @@ if [ "$PHASE_COUNT" -eq "5" ] && [ "$AGENT_COUNT" -eq "9" ] && [ "$REF_COUNT" -e
 else
     echo ""
     echo "❌ 错误：安装不完整"
-    echo "  预期(v7.0): phases=5 agents=9 refs=8 scripts=25 assets=6"
+    echo "  预期(v7.2): phases=5 agents=10 refs=9 scripts=27 assets=6"
     echo "  实际:       phases=$PHASE_COUNT agents=$AGENT_COUNT refs=$REF_COUNT scripts=$SCRIPT_COUNT assets=$ASSETS_COUNT"
     exit 1
 fi

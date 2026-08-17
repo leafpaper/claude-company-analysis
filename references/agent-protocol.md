@@ -222,5 +222,6 @@ recent=$({PYBIN} -m scripts.lessons_manager recent --category <sub_agent_name> -
 | v5.0 | sub-agent 模板 + Agent() 调用方式 |
 | v5.1.0-1 | (失败)假设 Resume / ID 探测 / 伪函数协议 — 实际 API 不支持 |
 | **v5.1.3** | **删除不存在的 API,改 Fresh-Restart + Context Injection + 真脚本 review_loop.py** |
-| v5.2 (规划) | SubagentStop hook 自动写日志 / Phase 2-5 sub-agent 化 |
+| **v7.2** | **Phase 2 抽成 `doc-analyst` sub-agent(9→10),主 agent 退回纯调度;门控 sub-agent 自补 + 主 agent 复核** |
+| v5.2 (规划) | SubagentStop hook 自动写日志 |
 | v5.3 (规划) | 真量化系统(因子模型 + IC 检验) |

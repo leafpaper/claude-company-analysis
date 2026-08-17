@@ -4,6 +4,24 @@
 
 ---
 
+## [v7.2] — 2026-08-17 — Phase 2 文档精析独立化（doc-analyst，v8 预重构）
+
+> **主题**: v8 目标架构是 10 个 agent、主 agent 纯调度。本版先把最容易剥离的一块——Phase 2 文档精析——从主 agent 抽成独立 sub-agent，**跑在现行 v7 管线上**（先把变更做容易，再做容易的变更）。产物路径与格式不变，Phase 3 消费无感。对应 v8 实现票 02。
+
+### Added
+- **`agents/doc-analyst.md`**（sub-agent 9→10）: 输入 PDF 清单 + 公司上下文，精读 `pdf_sections_*.json`（section 缺失时回原件 `pdf_reader --search` / 直接 Read PDF），产 `phase2-documents.md`（§1-§8），**自跑 `check_phase2` 并自补 ≤3 轮**，只回报路径 + 判定 + 门控结果。工具集不含 WebSearch/WebFetch（离线纪律：补料是 Phase 1 的职责，缺料 = 降级标注）。
+
+### Changed
+- **主 agent 退回纯调度**: SKILL.md「❌ 不做的事」新增"不自跑 Phase 2 / 不读 PDF 与 pdf_sections"；Phase 2 由 `Agent(subagent_type="doc-analyst")` 调起，主 agent 只读 `**判定**:` + **复核**跑一次 `check_phase2`（不自己补写，红了 fresh-restart doc-analyst 一次）。
+- `references/phase-orchestration.md` Phase 2 段改写为 Agent 调度 checklist（6 步）；`references/agent-protocol.md` 版本演进登记 v7.2。
+- `phases/phase2-document-analysis.md` 定位为 doc-analyst 内部指令（执行者标注 + Step 6 门控改"自跑自补 + 主 agent 复核"）；Step 1 盘点去 `ls -la` 改 `Glob`（跨平台）。
+- `install.sh` agent 列表加 `doc-analyst`；安装校验期望 agents 9→10、scripts 25→27（补上 v8 契约层 `verdict_block`/`manifest` 加入下载列表后未同步的计数，此前会误报"安装不完整"）。
+
+### Fixed
+- **`scripts/check_phase2.py` 强制 UTF-8 输出**: 报告含 ✅/❌，Windows 控制台默认 GBK 时 `print` 抛 `UnicodeEncodeError` 崩出退出码 1 —— doc-analyst 会误读成"门控红了"并空转 3 轮补写。
+
+---
+
 ## [v7.0] — 2026-06-22 — 投资决策内核（贝叶斯之美五篇融入）
 
 > **主题**: 把"贝叶斯之美/BayesCrest"五篇投资理念（《投资是泊松过程》《喊线时代》《三大数学模型之美》《信仰投资最大陷阱》《十年十倍股》）落成 skill 的判断逻辑链。核心公式 **投资价值 = 状态后验 × 赔率 × 路径可承受性**，把"是不是好公司"拆成 **好公司 / 好下注 / 好价格** 三分。根治旧版"DCF 单锚 lowball + 贵=回避"的 Issue 1。

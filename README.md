@@ -77,7 +77,7 @@ Step 0-2：环境自检 + 输入确认 + 建目录
    ↓
 Phase 1 数据采集        （data-collector：Tushare + yfinance + 港股 + PDF 下载解析 + 11 框架 audit + peer / capital_flow / technical 快照）
    ↓
-Phase 2 文档精析        （主 agent 自跑：精读 PDF 关键段落，提取原文引用）
+Phase 2 文档精析        （doc-analyst：精读 PDF 关键段落，提取原文引用 + 自跑 check_phase2 门控）
    ↓
 Phase 3 综合分析与报告  （phase3-part{1,2,3,4,5} 5 个串行写手 → assemble_report 拼成 9 章节）
    ↓
@@ -89,7 +89,7 @@ Phase 7 量化监控        （/company-analysis <公司> --monitor）
 
 > 编号沿用历史（原 Phase 4 多角色、Phase 5 差异化洞察已在 v5.1.4 删除，不再占用阶段）。完整调度协议 / 质量门控 / 异常处理见 [SKILL.md](./SKILL.md) + [references/phase-orchestration.md](./references/phase-orchestration.md)。
 
-**9 个 sub-agent**：`data-collector`（1）+ `phase3-part{1,2,3,4,5}`（5 个串行写手，§一执行摘要由 part1 在链尾汇总、§七 投资决策内核由 part4 合成）+ `reviewer-{narrative,valuation,redflag}`（3 个并行评审）。
+**10 个 sub-agent**：`data-collector`（1）+ `doc-analyst`（1，v7.2 新增：Phase 2 文档精析独立化，主 agent 退回纯调度）+ `phase3-part{1,2,3,4,5}`（5 个串行写手，§一执行摘要由 part1 在链尾汇总、§七 投资决策内核由 part4 合成）+ `reviewer-{narrative,valuation,redflag}`（3 个并行评审）。
 
 ---
 
@@ -144,11 +144,12 @@ claude-company-analysis/
 ├── CHANGELOG.md                # 版本演进
 ├── LICENSE                     # MIT
 ├── .env.sample                 # 环境变量模板
-├── SKILL.md                    # ⭐ 协调器主智能体（调度 9 sub-agent）
+├── SKILL.md                    # ⭐ 协调器主智能体（调度 10 sub-agent）
 ├── install.sh / uninstall.sh   # 一键安装 / 卸载
 │
-├── agents/                     # 9 个 sub-agent 定义
+├── agents/                     # 10 个 sub-agent 定义
 │   ├── data-collector.md           # Phase 1 数据采集
+│   ├── doc-analyst.md              # Phase 2 文档精析（PDF 精读 + check_phase2 自门控）
 │   ├── phase3-part1.md             # 写手：§一 执行摘要（链尾汇总，决策结论照抄 §七）
 │   ├── phase3-part2.md             # 写手：§二 基本面 / §三 行业
 │   ├── phase3-part3.md             # 写手：§四 评分+4.11状态 / §五 估值赔率
@@ -226,7 +227,7 @@ curl -fsSL https://raw.githubusercontent.com/leafpaper/claude-company-analysis/m
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
-装到 `~/.claude/skills/company-analysis/` + 9 个 sub-agent 到 `~/.claude/agents/company-analysis/`。
+装到 `~/.claude/skills/company-analysis/` + 10 个 sub-agent 到 `~/.claude/agents/company-analysis/`。
 
 ### 2. 安装 Python 依赖
 
