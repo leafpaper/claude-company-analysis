@@ -325,10 +325,16 @@
 
 ---
 
-## Step 3: 衍生指标计算
+## Step 3: 衍生指标计算 + 红旗清单（★ v8）
 
 ```
 {PYBIN} -m scripts.derived_metrics output/{company}/raw_data/ --market {a|us|hk}
+
+# 11 框架审计：markdown 给人读，--json 给机器读
+{PYBIN} -m scripts.financial_audit output/{company}/raw_data --json output/{company}/audit_report.json
+
+# 红旗清单（稳定 id）：写手面板的 red_flag_ref、决策层封顶检查、附录D 的脚本源都取这里
+{PYBIN} -m scripts.red_flags --audit-json output/{company}/audit_report.json --out output/{company}/red_flags.json
 ```
 
 生成 `output/{company}/metrics.json`，包含：
@@ -522,7 +528,7 @@
 
 ---
 
-## §11 信息缺口清单（★主报告 §八 + Phase 6 Part D 缺口补查强接口）
+## §11 信息缺口清单（★附录E + 质量环缺口补查强接口）
 
 ### 11.1 强制要求
 
@@ -564,19 +570,18 @@
 
 ---
 
-## Step 7: 创业公司模式（非上市）
+## Step 7: 附录底稿拆分（★ v8 新增，装配零写手的前提）
 
-无 Tushare / yfinance / PDF 可用，退化为**纯 WebSearch 模式**（参考 v1 的 7 轮搜索模板）：
+装配脚本把附录 C / E 直接挂载采集产物，所以把 phase1-data.md 里的两节**另存为独立文件**（内容同源，不重写、不加新判断）：
 
-- Round 1: 公司基本信息与最新动态
-- Round 2: 市场与竞争格局
-- Round 3: 增长与财务指标
-- Round 4: 风险与负面信号
-- Round 5: 网络评价与市场情绪
-- Round 5.5: 融资条款与交易信息
-- Round 6: WebFetch 3-6 个关键页面
+| 文件 | 内容 | 挂到 |
+|---|---|---|
+| `output/{company}/sentiment.md` | §8 社交媒体与投资社区舆情（看好派/看衰派各 ≥3 条，带平台、日期、原文链接） | 附录C 舆情与资金底稿（与 capital_flow.md 同章） |
+| `output/{company}/data_sources.md` | §11 信息缺口清单 + 本次数据来源与口径（Tushare 接口名 / PDF 文件与页码 / WebSearch 时间戳） | 附录E 数据来源与信息缺口 |
 
-但**舆情、估值、条款三条必须有原始来源 URL**（不能是二手聚合）。
+两份分别以 `# 舆情底稿` / `# 数据来源与信息缺口` 起头（装配会自动下沉标题层级）。缺任一 → 主报告对应附录会打 `⚠️ 未找到` 告警。
+
+> **创业公司口径已移除**（v8）：本 skill 只分析上市公司，原"非上市纯 WebSearch 模式"随框架文档重组删除。
 
 ---
 
@@ -591,4 +596,6 @@
 - [ ] §8 舆情 ≥ 8 条、覆盖 ≥ 2 个独立平台
 - [ ] 所有关键财务数据都附 `[Tushare:*]` 或 `[PDF:*]` 标签
 - [ ] 无任何 `[证券之星算法]` / `[财经网摘要]` 充当关键数据来源
-- [ ] §11 信息缺口清单为主报告 §八 + Phase 6 缺口补查准备好入口
+- [ ] §11 信息缺口清单为附录E + 质量环缺口补查准备好入口
+- [ ] ★ v8 `audit_report.json` + `red_flags.json` 已生成（写手引用红旗 id 的唯一来源）
+- [ ] ★ v8 `sentiment.md` + `data_sources.md` 已拆分落盘（附录 C / E 的挂载源）

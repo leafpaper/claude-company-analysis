@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Claude Code 投资分析 Skill — 一键安装 (v6.0)
+# Claude Code 投资分析 Skill — 一键安装 (v8.0)
 #
 # 使用方法：
 #   curl -fsSL https://raw.githubusercontent.com/leafpaper/claude-company-analysis/main/install.sh | bash
@@ -12,10 +12,10 @@ SKILL_DIR="$HOME/.claude/skills/company-analysis"
 REPO_URL="https://raw.githubusercontent.com/leafpaper/claude-company-analysis/main"
 
 echo "================================================"
-echo "  Claude Code — 投资分析 Skill 安装程序 v6.0"
+echo "  Claude Code — 投资分析 Skill 安装程序 v8.0"
 echo "  结构化数据 + PDF 精析 + 11 大师框架审计"
-echo "  v7.0: 9 章节报告(含投资决策内核) + 5 part 写手编排"
-echo "  v7.2: Phase 2 文档精析独立化 (doc-analyst, 10 sub-agent)"
+echo "  v8.0: 判断链五节点(质地/状态/赔率/路径/怎么办) + 依赖图两波调度"
+echo "        首页一眼决断与附录全部机器装配"
 echo "  支持 A 股 / 美股 / 港股"
 echo "================================================"
 echo ""
@@ -28,7 +28,6 @@ mkdir -p "$SKILL_DIR/agents"
 mkdir -p "$SKILL_DIR/phases"
 mkdir -p "$SKILL_DIR/references"
 mkdir -p "$SKILL_DIR/scripts"
-mkdir -p "$SKILL_DIR/assets/templates"
 mkdir -p "$SKILL_DIR/assets/html"
 mkdir -p "$SKILL_DIR/assets/validation"
 mkdir -p "$HOME/投资报告"
@@ -43,26 +42,25 @@ curl -fsSL "$REPO_URL/CHANGELOG.md" -o "$SKILL_DIR/CHANGELOG.md"
 curl -fsSL "$REPO_URL/.env.sample" -o "$SKILL_DIR/.env.sample"
 
 # ------------------------------------------------
-# [3/6] 下载 5 个阶段文件 + 10 个 sub-agent
+# [3/6] 下载 4 个阶段文件 + 10 个 sub-agent
 # ------------------------------------------------
-echo "[3/6] 下载 5 个阶段文件 + 10 个 sub-agent..."
+echo "[3/6] 下载 4 个阶段文件 + 10 个 sub-agent..."
 for phase in \
     phase1-data-collection \
     phase2-document-analysis \
-    phase3-analysis-report \
-    phase6-review-publish \
-    phase7-quantitative-monitor; do
+    phase3-node-writing \
+    phase6-review-publish; do
   curl -fsSL "$REPO_URL/phases/${phase}.md" -o "$SKILL_DIR/phases/${phase}.md"
 done
 
 for agent in \
     data-collector \
     doc-analyst \
-    phase3-part1 \
-    phase3-part2 \
-    phase3-part3 \
-    phase3-part4 \
-    phase3-part5 \
+    node-quality \
+    node-odds \
+    node-path \
+    node-state \
+    decision-writer \
     reviewer-narrative \
     reviewer-valuation \
     reviewer-redflag; do
@@ -87,12 +85,9 @@ for ref in \
 done
 
 # ------------------------------------------------
-# [5/6] 下载 assets/ (报告骨架 + HTML 模板 + 审核 schema)
+# [5/6] 下载 assets/ (HTML 模板 + 审核 schema)
 # ------------------------------------------------
-echo "[5/6] 下载 assets/（9 章节骨架强制）..."
-# 2 个模板
-curl -fsSL "$REPO_URL/assets/templates/report-skeleton.md"     -o "$SKILL_DIR/assets/templates/report-skeleton.md"
-curl -fsSL "$REPO_URL/assets/templates/exec-summary-schema.md" -o "$SKILL_DIR/assets/templates/exec-summary-schema.md"
+echo "[5/6] 下载 assets/（HTML 模板 + 审核 schema）..."
 # 3 个 HTML
 curl -fsSL "$REPO_URL/assets/html/base.html"       -o "$SKILL_DIR/assets/html/base.html"
 curl -fsSL "$REPO_URL/assets/html/styles.css"      -o "$SKILL_DIR/assets/html/styles.css"
@@ -126,7 +121,7 @@ for py in \
     legacy_quote \
     report_parser \
     monitor \
-    assemble_report \
+    node_graph \
     red_flags \
     assembly \
     assemble_report_v8 \
@@ -162,15 +157,16 @@ AGENT_COUNT=$(find "$SKILL_DIR/agents" -name "*.md" 2>/dev/null | wc -l | tr -d 
 REF_COUNT=$(find "$SKILL_DIR/references" -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
 SCRIPT_COUNT=$(find "$SKILL_DIR/scripts" -name "*.py" 2>/dev/null | wc -l | tr -d ' ')
 ASSETS_COUNT=$(find "$SKILL_DIR/assets" -type f 2>/dev/null | wc -l | tr -d ' ')
-# v7.2 期望: 5 phases + 10 agents + 9 refs + 30 scripts + 6 assets + 1 SKILL.md
-# (v7.1→v7.2 变更: agents 9→10 新增 doc-analyst;scripts 25→27 新增 v8 契约层 verdict_block/manifest,
-#  27→30 新增 v8 装配层 red_flags/assembly/assemble_report_v8;
-#  refs 8→9 v8 手册层 1+4 取代旧四份框架文档)
+# v8.0 期望: 4 phases + 10 agents + 9 refs + 30 scripts + 4 assets + 1 SKILL.md
+# (v7.2→v8.0 变更: phases 5→4 删 phase3-analysis-report/phase7-quantitative-monitor, 新增 phase3-node-writing;
+#  agents 删 phase3-part1-5、新增 node-{quality,odds,path,state} + decision-writer(仍 10, reviewer 待质量环重写);
+#  scripts 删 assemble_report、新增 node_graph(仍 30);
+#  assets 6→4 删 9 章节骨架与执行摘要 schema —— 章节结构改由链手册与装配层定义)
 
-if [ "$PHASE_COUNT" -eq "5" ] && [ "$AGENT_COUNT" -eq "10" ] && [ "$REF_COUNT" -eq "9" ] && [ "$SCRIPT_COUNT" -eq "30" ] && [ "$ASSETS_COUNT" -eq "6" ]; then
+if [ "$PHASE_COUNT" -eq "4" ] && [ "$AGENT_COUNT" -eq "10" ] && [ "$REF_COUNT" -eq "9" ] && [ "$SCRIPT_COUNT" -eq "30" ] && [ "$ASSETS_COUNT" -eq "4" ]; then
     echo ""
     echo "============================================"
-    echo "  ✅ 安装成功！(v7.2)"
+    echo "  ✅ 安装成功！(v8.0)"
     echo "============================================"
     echo ""
     echo "  协调器:  SKILL.md"
@@ -178,7 +174,7 @@ if [ "$PHASE_COUNT" -eq "5" ] && [ "$AGENT_COUNT" -eq "10" ] && [ "$REF_COUNT" -
     echo "  子智能体: $AGENT_COUNT 个 (agents/)"
     echo "  框架:    $REF_COUNT 个 (references/)"
     echo "  脚本:    $SCRIPT_COUNT 个 Python 模块 (scripts/)"
-    echo "  资产:    $ASSETS_COUNT 个 (assets/ - 9 章节骨架 + HTML 模板 + 审核 schema)"
+    echo "  资产:    $ASSETS_COUNT 个 (assets/ - HTML 模板 + 审核 schema)"
     echo "  输出目录: ~/投资报告/"
     echo ""
     echo "============================================"
@@ -198,7 +194,6 @@ if [ "$PHASE_COUNT" -eq "5" ] && [ "$AGENT_COUNT" -eq "10" ] && [ "$REF_COUNT" -
     echo "  4. 重启 Claude Code，然后使用："
     echo ""
     echo "     /company-analysis <公司名称>"
-    echo "     /company-analysis <公司名称> --monitor   # 量化监控"
     echo ""
     echo "示例："
     echo "  /company-analysis 贵州茅台 600519.SH     # A 股"
@@ -208,7 +203,7 @@ if [ "$PHASE_COUNT" -eq "5" ] && [ "$AGENT_COUNT" -eq "10" ] && [ "$REF_COUNT" -
 else
     echo ""
     echo "❌ 错误：安装不完整"
-    echo "  预期(v7.2): phases=5 agents=10 refs=9 scripts=27 assets=6"
+    echo "  预期(v8.0): phases=4 agents=10 refs=9 scripts=30 assets=4"
     echo "  实际:       phases=$PHASE_COUNT agents=$AGENT_COUNT refs=$REF_COUNT scripts=$SCRIPT_COUNT assets=$ASSETS_COUNT"
     exit 1
 fi

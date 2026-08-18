@@ -26,6 +26,32 @@
 
 > v8.0 的完整条目在全量管线上线时补齐。以下按已完成的实现票记录。
 
+### 全量写手管线：四节点写手 + decision-writer + 依赖图两波（ticket 05，2026-08-18）
+
+**Added**
+- **五个写作 agent**：`agents/node-quality.md`（①质地五子判定 + 赚钱面板选 3-5 指标）/ `agents/node-odds.md`（③赔率三件套 + **区间锚 [SOTP,DCF] 与同向标记**）/ `agents/node-path.md`（④路径左尾清单 + **证伪/退出清单**）/ `agents/node-state.md`（②状态 λ 与稀释 / 实锤 vs 传闻 / **临界点=该等什么**，第二波引用③ verdict）/ `agents/decision-writer.md`（⑤三元组→六档 + **封顶检查** + 仓位唯一出处 + 首页 3-5 句导读）。每个写手**只读「链手册 + 本节点手册」两份**，产 `runs/{date}/nodes/node-{node}.md`（顶部 fenced YAML verdict 块 + 正文 verdict 先行 + 最硬证据子判定表），自跑 `verdict_block` schema 校验（≤3 轮自补）+ 章预算自检。
+- **`scripts/node_graph.py`** — 判断链依赖图：把**任意节点子集**排成执行波次（全量 `--all` → 质地∥赔率∥路径 → 状态 → 决策；增量 `--nodes {标脏集合}`，子集外依赖记进 `external_deps` 供调度校验"上版复用块是否就位"）。全量与增量复查共用这一套，不维护两条流水线。
+- **`phases/phase3-node-writing.md`** — Phase 3 执行细则（**主 agent 读**）：波次计算 / 三波 prompt 模板 / 逐波 `verdict_block` 复核 / 装配命令与验收 / 失败处理 / 增量复查差异预留。
+- **`scripts/tests/test_node_graph.py`** — 17 项：全量三波、②状态永不与③赔率同波、research/03 场景 A/B 的标脏子集波次、`external_deps` 与复用集合、旧 part 名必须报错。
+- 采集侧补齐（装配的前提）：`financial_audit --json` → **`red_flags.json`**（稳定 id，写手面板 `red_flag_ref` 与决策层封顶检查的唯一来源）+ 拆出 **`sentiment.md` / `data_sources.md`**（附录C / 附录E 的挂载源）。
+
+**Changed**
+- `SKILL.md` 改写为 v8 判断链调度器：五节点报告结构、run 目录产物清单、逐波质量门控表、"不写任何判断 / 不手改 YAML 块 / 不手写首页"三条硬边界；`--monitor` 改为退役提示（增量复查 `--review` 待后续版本）。
+- `references/phase-orchestration.md` 重写：v8 目录结构约定（`{artifacts_dir}` 公司级 / `{run_dir}` 判断链产物）+ Phase 1/2/3 checklist + Phase 3 三波不变量；Phase 6 标注 v8 质量环施工中（v7 lint 与 3 reviewer 校验 9 章节结构，对 v8 报告会误判，不拿它卡 v8 run）。
+- `references/agent-protocol.md`：v8 sub-agent 名册、节点写手完成报告 schema（含 `**verdict**:` 行）、波次门控与 reviewer 修正循环分列、修正循环落点改为节点 md（判断类 FIX 走写手 fresh-restart，主 agent 只改表述）。
+- `agents/data-collector.md` + `phases/phase1-data-collection.md`：路径参数化为 `{output_dir}`、新增 audit `--json` / `red_flags` / 附录底稿两步与对应质量门控；phase1 残留的创业公司口径（非上市纯 WebSearch 模式）随 v8 删除。
+- `README.md` 流水线/报告结构/产物树/仓库结构改判断链版；`install.sh` phases 5→4、agents 换五写手、scripts 换 `node_graph`、assets 6→4，安装校验计数同步。
+
+**Removed**（git 历史即归档）
+- `agents/phase3-part{1,2,3,4,5}.md` — 5 个 part 写手（§一由 part1 抄写 §七、§四评分与定性综合方向等结论假面随判断链收敛退役）。
+- `phases/phase3-analysis-report.md`（9 章节写作指令）、`phases/phase7-quantitative-monitor.md`（量化监控，职责由增量复查分诊接管）。
+- `assets/templates/report-skeleton.md`（9 章节严格骨架）+ `assets/templates/exec-summary-schema.md`（§一 7 字段）—— 章节结构改由链手册定义、首页改由装配层生成，两份模板已无权威性。
+- `scripts/assemble_report.py` + `scripts/tests/test_assemble_report.py` —— v7 五 part 拼接器；票 04 原计划留到 08 删，05 删掉 part 写手后它已无输入，提前删（v8 装配走 `assemble_report_v8`）。
+
+**Notes**
+- **东山精密 dry-run 验收**（golden 五节点块 + 真实采集产物）：五块 `verdict_block` 全过 → 波次 = research/09 §A → `assemble_report_v8` 装出的**决断卡五行与 research/02 §6 逐行零漂移**（部分好·真卡位+平庸财务 / ↑变好但未确认 / 买完完美未来·锚区间 57-89 vs 现价 273 / 高尾险·扛不住 5/5 / 先观察等证据临界·期权小仓 ≤2-3%），Top3 两源同池机器带出，主页 verdict = 行动档位人话，附录 A/B/C 挂上真实采集产物。
+- **采集产物落点**：collectors 的写死路径决定采集产物仍落公司级 `output/{company}/`（跨 run 共享），`runs/{date}/` 只放判断链与装配产物；与 research/09 表里"采集落 run 目录"的写法不同，**生产者与零孤儿映射不变**。run 目录内的 `raw_data/` 预留给增量复查的证据快照。
+
 ### 框架文档「1+4 节点制」（ticket 03，2026-08-17）
 
 **Added**

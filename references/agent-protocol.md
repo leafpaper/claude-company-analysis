@@ -1,6 +1,8 @@
-# Agent 调度协议 (v5.1.3)
+# Agent 调度协议 (v8.0)
 
 主智能体(SKILL.md)与所有 sub-agent 之间的统一调度规范。**已对照 Claude Code 真实工具 schema 修订** — v5.1.0 ~ v5.1.2 的 `Agent(resume=...)` / ID 探测 / 伪函数协议**已删除**,因为 Agent 工具实际不支持。
+
+**v8.0 的 sub-agent 名册**:`data-collector` / `doc-analyst` / `node-quality` / `node-odds` / `node-path` / `node-state` / `decision-writer`(质量环的 reviewer 随 v8 质量环落地)。旧的 `phase3-part{1-5}` 五个写手已随判断链收敛删除。
 
 ---
 
@@ -38,26 +40,30 @@
    - 关键上下文输入路径(主报告 / artifacts dir)
    - 上轮历史摘要(判定 + FIX 列表 / 已修改文件路径)
 
-### 示例: Phase 6 reviewer Round 2
+### 示例: 节点写手 schema 门控失败后的重启
 
 ```python
-# 主 agent 已存好 round_1 响应到文件 + 应用过 FIX + 重 assemble 完成
-prev_fix_md = bash("cat output/{company}/reviewer_responses/round_1_merged_fix.md")
-
+# 主 agent 复核 verdict_block 时拿到报错原文(sub-agent 自证 PASS 也不算数)
 Agent(
-    subagent_type="reviewer-narrative",
-    run_in_background=True,
-    description="reviewer-narrative round 2",
-    prompt=f"""评审 output/{company}/{company}-analysis-{date}.md 维度 1 叙事一致性。
+    subagent_type="node-odds",
+    run_in_background=False,
+    description="node-odds retry",
+    prompt=f"""重写③赔率节点。
+run_dir       = output/{company}/runs/{date}/
 artifacts_dir = output/{company}/
+company={company} ticker={ticker} market={market} date={date} PYBIN={PYBIN}
 
-★ 这是 Round 2 重审。上一轮判定 FAIL,主 agent 已按以下 FIX 修过 phase3-partN.md 并重 assemble:
+★ 这是重跑。上一轮 {run_dir}/nodes/node-odds.md 未过 schema 校验:
 
-{prev_fix_md}
+anchor_range: 'divergence_note' is a required property
+sub_verdicts/0/hardest_evidence/0: 'mechanism' is a required property
 
-请只看当前文件状态(忽略上轮原报告),重新独立评审本维度 5 项检查。"""
+请只看当前文件状态,按 references/judgment-chain.md + references/node-odds.md 重写并自跑
+verdict_block 校验通过后再回报。"""
 )
 ```
+
+**修正循环的落点(v8)**:reviewer 的 FIX 指向**节点 md**(`runs/{date}/nodes/node-{node}.md`),不是已删除的 `phase3-partN.md`。判断本身(YAML 块的 verdict / 子判定)由**写手 fresh-restart 改**,主 agent 不手改;纯文字表述类 FIX 才由主 agent 用 Edit 改正文。改完必须重跑 `assemble_report_v8`。
 
 ### 多花的 token 是值得的
 
@@ -110,17 +116,24 @@ Fresh-restart 每次重传完整任务描述 + 上轮 FIX(~500-2000 token),换�
 
 ---
 
-## 4. reviewer 修正循环协议(v5.1.3 新)
+## 4. 两类循环:波次门控 与 reviewer 修正
 
-完整步骤见 `references/phase-orchestration.md` §Phase 6 Part A.5。本节只列**关键不变量**。
+### 4.1 Phase 3 波次门控(v8)
 
-### 不变量
+1. 每波的写手用同一批 prompt 字段(`run_dir` / `artifacts_dir` / `company` / `ticker` / `market` / `date` / `PYBIN`),第一波三个 `run_in_background=True` 并行,第二、三波前台。
+2. **主 agent 复核 schema**:`{PYBIN} -m scripts.verdict_block --schema node-X --file {run_dir}/nodes/node-X.md`;退出 0 才进下一波(sub-agent 的自证不算数)。
+3. 波次顺序由 `{PYBIN} -m scripts.node_graph`(全量 `--all` / 增量 `--nodes …`)算出,不手写。
+4. 单个写手最多 fresh-restart 1 次;仍红 → 转人工,**不许主 agent 手改 YAML 块**。
 
-1. **3 个 reviewer 并行**(`run_in_background=True`),不是串行
-2. 主 agent **必须保存** 3 份响应到 `output/{company}/reviewer_responses/round_N_{reviewer}.md`(不依赖 context)
+### 4.2 reviewer 修正循环(v5.1.3 起的不变量)
+
+完整步骤见 `references/phase-orchestration.md` §Phase 6。**关键不变量**:
+
+1. **reviewer 并行**(`run_in_background=True`),不是串行
+2. 主 agent **必须保存**每份响应到 `runs/{date}/reviewer_responses/round_N_{reviewer}.md`(不依赖 context)
 3. **判定 + FIX 合并** 由 `scripts/review_loop.py` 处理,主 agent 只看 JSON 输出
-4. **FIX 应用** 由主 agent 用 `Edit` 工具做(脚本不改 part 文件,因为需要 LLM 语义理解)
-5. **diff signature 对抗检测**:Round N+1 的 5 个 part md5 拼接 == Round N → 自动转人工
+4. **FIX 应用**:判断类 FIX → fresh-restart 对应节点写手;表述类 FIX → 主 agent 用 `Edit` 改节点 md 正文;两者都要重跑装配
+5. **diff signature 对抗检测**:Round N+1 的节点 md md5 拼接 == Round N → 自动转人工
 
 ### round 上限
 
@@ -142,12 +155,25 @@ Fresh-restart 每次重传完整任务描述 + 上轮 FIX(~500-2000 token),换�
 
 主 agent 直接从响应文本读出 `**判定**:` 字段(响应就在你的上下文里, 无需 shell)。
 
-**reviewer 特例**(3 个 reviewer 用不同 schema):
+**节点写手特例**(五个写手用同一骨架,字段随节点略有差异,详见各 agent 定义):
+
+```markdown
+### {①质地/②状态/③赔率/④路径/⑤决策}节点 完成报告
+**判定**: PASS / FAIL / 部分降级
+**verdict**: {本节点 verdict 取值域之一}——{一句话}
+**artifacts**: {run_dir}/nodes/node-{node}.md ({N} 行正文)
+**schema 校验**: exit 0 [重跑 {k} 轮]
+**降级标注**: 无 / {缺什么、什么事件能补上}
+```
+
+主 agent 读 `**判定**:` 与 `**verdict**:` 两行即可(verdict 之后要与决断卡对照);**不读节点 md 全文**。
+
+**reviewer 特例**(reviewer 用不同 schema):
 ```markdown
 ### 维度 {N} {名称}: PASS / FAIL
 
 ### FIX 指令(FAIL 时必填,每条单行)
-- [FIX-P{1-5}-§{X}] {问题} → {建议}
+- [FIX-{node}-§{X}] {问题} → {建议}
 ```
 
 `review_loop.py` 已经处理两种 schema(grep `^### 维度` 或 `^### 总体`)。
@@ -223,5 +249,6 @@ recent=$({PYBIN} -m scripts.lessons_manager recent --category <sub_agent_name> -
 | v5.1.0-1 | (失败)假设 Resume / ID 探测 / 伪函数协议 — 实际 API 不支持 |
 | **v5.1.3** | **删除不存在的 API,改 Fresh-Restart + Context Injection + 真脚本 review_loop.py** |
 | **v7.2** | **Phase 2 抽成 `doc-analyst` sub-agent(9→10),主 agent 退回纯调度;门控 sub-agent 自补 + 主 agent 复核** |
+| **v8.0** | **Phase 3 五个 part 写手 → 判断链四节点写手 + decision-writer;依赖图两波调度(`node_graph`)+ 每波 `verdict_block` schema 门控;写手响应加 `**verdict**:` 字段;修正循环落点改为节点 md** |
 | v5.2 (规划) | SubagentStop hook 自动写日志 |
 | v5.3 (规划) | 真量化系统(因子模型 + IC 检验) |

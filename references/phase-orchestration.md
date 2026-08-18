@@ -1,12 +1,34 @@
-# Phase 调度详细 Checklist (v7.2)
+# Phase 调度详细 Checklist (v8.0)
 
 > 本文件由主智能体在 Step 3 加载,详细说明每个 Phase 的调度顺序、工具调用方式、判定标准。SKILL.md 只引用本文件不重复。
 >
 > **关键设计**(对照 v5.1.x 失败教训):
 > - ❌ **不使用 `Agent(resume=...)` 参数** — 该参数不存在,Agent 工具实际 schema 仅含 description/isolation/model/prompt/run_in_background/subagent_type
 > - ✅ **Fresh-Restart with Context Injection** — 修正循环时启动全新 sub-agent,prompt 注入上轮 FIX 列表 + 已修改文件路径
-> - ❌ **不再写伪代码"函数"**(`apply_fix_to_parts()` / `wait_all_background_agents()` 都不存在)— 所有循环逻辑下沉到 `scripts/review_loop.py`
-> - ✅ **自然语言 checklist + 真实工具**(Agent / Bash / Edit / Read)
+> - ✅ **自然语言 checklist + 真实工具**(Agent / Bash / Edit / Read),循环逻辑下沉到脚本
+>
+> **v8.0 变更**:Phase 3 由"5 个 part 串行写手"改为"判断链五节点 + 依赖图两波";报告首页与附录**机器装配**;
+> 状态落 `runs/{date}/` + `manifest.json`。Phase 7 量化监控退役(增量复查 `--review` 取而代之)。
+
+---
+
+## 目录结构约定(v8)
+
+```
+output/{company}/
+├── manifest.json               公司级状态唯一源(runs 列表 / 增量计数 / 上次全量 / 预约披露日 / 对比组)
+├── main-log.md                 双层调度日志
+├── data_snapshot.md / audit_report.{md,json} / red_flags.json /
+│   peer_analysis.md / capital_flow.md / technical_analysis.md /
+│   phase1-data.md / sentiment.md / data_sources.md / phase2-documents.md   ← 采集与精析产物(跨 run 共享)
+└── runs/{date}/                本次 run(旧 run 整目录即留档)
+    ├── nodes/node-{quality,state,odds,path,decision}.md    五个判断节点(顶部 YAML verdict 块)
+    ├── assembly/assembly.json  装配产物(决断卡/面板/Top3/metadata/变化区块)
+    ├── reviewer_responses/     质量环往返
+    └── {company}-analysis-{date}.md   主报告
+```
+
+`{artifacts_dir}` = `output/{company}/`;`{run_dir}` = `output/{company}/runs/{date}/`。两个路径都要写进每个 sub-agent 的 prompt。
 
 ---
 
@@ -16,170 +38,94 @@
 
 1. 用 Agent 工具启动 data-collector:
    - subagent_type = `data-collector`
-   - prompt 含 ticker / company / market / output_dir
+   - prompt 含 `ticker / company / market / output_dir(= {artifacts_dir}) / {PYBIN}`
 2. 等 sub-agent 完成(前台,等响应)
 3. 直接从响应文本读出"判定"字段(响应就在你的上下文里,无需 shell)
-4. 把判定写入 main-log.md(暂手工,v5.1.3 后续配置 hook 自动)
+4. 把判定写入 main-log.md
 5. PASS / 部分降级 → Phase 2;FAIL → 中止 + 给用户报错
 
-**质量门控**:`**判定**: PASS / 部分降级`
+**质量门控**:`**判定**: PASS / 部分降级` + `red_flags.json` 存在(v8 写手引用红旗 id 的来源)
 
 ---
 
 ## Phase 2: 文档精析 (Agent 工具 → doc-analyst)
 
-> v7.2 起从"主 agent 自跑"改为独立 sub-agent。主 agent **不读 PDF、不读 pdf_sections_*.json、不写 phase2-documents.md**,只调度 + 复核门控。
+> 主 agent **不读 PDF、不读 pdf_sections_*.json、不写 phase2-documents.md**,只调度 + 复核门控。
 
 **调度 checklist**:
 
-1. 用 Agent 工具启动 doc-analyst:
-   - subagent_type = `doc-analyst`
-   - prompt 含 `output_dir / company / ticker / market / date / {PYBIN}` + 用户额外文档路径(若有)
-2. 等 sub-agent 完成(前台,等响应)
-3. 直接从响应文本读出 `**判定**:` 与 `**check_phase2**:` 两行(响应就在你的上下文里,无需 shell)
-4. **复核**跑一次同一条门控命令(便宜且确定,不信任自证):
+1. 启动 doc-analyst:prompt 含 `output_dir(= {artifacts_dir}) / company / ticker / market / date / {PYBIN}` + 用户额外文档路径(若有)
+2. 等响应,读 `**判定**:` 与 `**check_phase2**:` 两行
+3. **复核**跑一次同一条门控命令(便宜且确定,不信任自证):
 
    ```
-   {PYBIN} -m scripts.check_phase2 --md output/{company}/phase2-documents.md
+   {PYBIN} -m scripts.check_phase2 --md {artifacts_dir}/phase2-documents.md
    ```
-5. 把判定 + 降级标注写入 main-log.md
-6. 退出码 0 且判定 PASS / 部分降级 → Phase 3;退出码 1 或判定 FAIL → **fresh-restart doc-analyst 一次**(prompt 注入 check_phase2 的三行 R 结果 + "上轮 FAIL"),仍失败 → 转人工。**主 agent 不自己补写 phase2-documents.md**
+4. 判定 + 降级标注写入 main-log.md
+5. 退出码 0 且判定 PASS / 部分降级 → Phase 3;否则 **fresh-restart doc-analyst 一次**(注入三行 R 结果),仍失败 → 转人工。**主 agent 不自己补写**
 
-**质量门控**:doc-analyst `**判定**: PASS / 部分降级` + 主 agent 复核 `check_phase2` 退出码 0(§1-§8 齐全 + §2 [PDF:] 原文引用≥3 + §8 锚点≥5);每份 PDF 都在 §1 被列出
+**质量门控**:doc-analyst `**判定**: PASS / 部分降级` + 主 agent 复核 `check_phase2` 退出码 0
 
 ---
 
-## Phase 3: 综合分析(5 个 phase3-part sub-agent 串行 + assemble)
+## Phase 3: 判断链写作与装配(五节点 + 依赖图两波 + 装配)
 
-**串行顺序固定**:`part2 → part3 → part4 → part5 → part1`(part1 最后,§一 决策结论照抄 §七 7.4;§七 由 part4 合成 §四状态/§五赔率/§六路径)
+**详细执行细则见 `phases/phase3-node-writing.md`**(prompt 模板 / 逐波验收 / 装配命令 / 失败处理);本节只列不变量。
 
-**章节边界**(真理来源 `scripts/assemble_report.py:PART_EXPECTED_SECTIONS`):
-part1=§一 · part2=§二/§三 · part3=§四/§五 · part4=§六/§七 · part5=§八/§九。
+**波次由脚本算,不手写顺序**:
 
-**调度 checklist**:
+```
+{PYBIN} -m scripts.node_graph --all
+→ 第1波(并行): ①质地 ∥ ③赔率 ∥ ④路径   第2波: ②状态   第3波: ⑤决策
+```
 
-对每个 N ∈ [2, 3, 4, 5, 1] 顺序:
+| 波 | 谁 | 产物 | 验收 |
+|:-:|---|---|---|
+| 1 | node-quality ∥ node-odds ∥ node-path(3 个 `run_in_background=True`) | `{run_dir}/nodes/node-{quality,odds,path}.md` | 三条 `verdict_block --schema node-X` 退出 0 |
+| 2 | node-state(前台;引用③ verdict) | `node-state.md`(含 `critical_point`) | `verdict_block --schema node-state` 退出 0 |
+| 3 | decision-writer(前台;只读四个 YAML 块) | `node-decision.md`(含 `gear_cap` / `front_page_intro`) | `verdict_block --schema node-decision` 退出 0 + triad 与②③④同源 + 有 🔴 必封顶 |
+| — | 装配脚本 | `assembly/assembly.json` + 主报告 md | `assemble_report_v8` 退出 0 + Top3 非空 + 无缺附录告警 |
 
-1. 用 Agent 工具启动 `phase3-part{N}`:
-   - prompt 含 `output_dir / company / date / type / market / ticker / amount`
-2. 等响应,直接从响应文本读出"判定"字段(响应就在你的上下文里,无需 shell)
-3. **判定 = PASS / 部分降级** → 进下一个 part
-4. **判定 = FAIL** → fresh-restart 同一 subagent_type(不是 Resume!):
-   - 启动新 phase3-partN sub-agent
-   - prompt 注入"上一轮判定 FAIL,问题点: {主 agent 审到的具体问题}, 请重写"
-   - 最多 1 次 fresh-restart;仍 FAIL → 转人工
-5. 5 个 part 全部 PASS 后,用 Bash 跑 assemble_report.py:
+**不变量**:
 
-   ```
-   {PYBIN} -m scripts.assemble_report \
-       --company "{company}" --date "{date}" \
-       --parts-dir "output/{company}/" \
-       --out "output/{company}/{company}-analysis-{date}.md"
-   ```
-6. 检查脚本退出码 + 主报告 section 数 = 9
-
-**质量门控**:每 part 自检 PASS + assemble 退出码 0 + 9 章节齐全 + Audit 红旗全部被引用 + §七 决策三元组齐
+1. **写手只读两份手册**(链手册 + 自己那份节点手册),跨节点只引用 verdict——主 agent 派活时不要把别人的手册或正文塞进 prompt。
+2. **主 agent 复核 schema**,不信 sub-agent 自证(同 Phase 2 的门控哲学)。
+3. **装配零人工抄写**:决断卡 / 面板 / Top3 / 主页 metadata / 附录 A-E 全部脚本生成;主 agent **不手改节点 md 的 YAML 块**——判断是写手的,要改就 fresh-restart 写手。
+4. 每波结束写一行 main-log.md(`- {ts} Phase 3 第N波 完成,判定 …`)。
 
 ---
 
-## Phase 6: 审核发布
+## Phase 6: 质量环与发布
 
-> v5.1.4 删除 Phase 4(多角色)+ Phase 5(差异化洞察)。Phase 3 完成后直接进 Phase 6 审核。
+> 🚧 **v8 质量环施工中**:v8 lint(schema 校验 / 红旗闭环机检 / 数字唯一 home / 章预算 / 区间锚同向)
+> 与 reviewer-{logic,delivery} 尚未落地。v7 的 `anti_lazy_lint` 与 3 个 reviewer 校验的是 9 章节报告结构,
+> **对 v8 报告会误判**,在 v8 质量环上线前不要拿它们卡 v8 的 run。
+>
+> 在此之前,Phase 3 装配通过 = 本次 v8 全量 run 的终点;HTML 与发布(Part B/C)按 v8 交付形态另行落地。
 
+v8 质量环上线后本节的形状(先记在这,便于对齐):
 
-
-### Part A: 18 项审核 + Part D 缺口补查 + anti_lazy_lint
-
-主 agent 加载 `phases/phase6-review-publish.md` Part A 流程,然后跑:
-
-```
-{PYBIN} -m scripts.anti_lazy_lint output/{company}/{company}-analysis-{date}.md
-```
-
-退出码 0 → 进 Part A.5;退出码 1 → 主 agent Edit 修对应 part,重 assemble,重跑 lint,最多 3 次。
-
-### Part A.5: reviewer 3 维度并行 + 修正循环(v5.1.3 重写)
-
-**Round 1** checklist:
-
-1. 主 agent **并行**启动 3 个 reviewer(都 `run_in_background=True`):
-
-   ```python
-   Agent(subagent_type="reviewer-narrative",  run_in_background=True,
-         prompt=f"评审 ...{company}-analysis-{date}.md, artifacts_dir=...")
-   Agent(subagent_type="reviewer-valuation",  run_in_background=True, prompt=...)
-   Agent(subagent_type="reviewer-redflag",    run_in_background=True, prompt=...)
-   ```
-2. 等 3 个完成(系统通过 task-notification 自动通知)
-3. 主 agent 把 3 份响应**保存为文件**:
-
-   ```
-   # 主 agent 把每份 response 文本 Write 到:
-   output/{company}/reviewer_responses/round_1_narrative.md
-   output/{company}/reviewer_responses/round_1_valuation.md
-   output/{company}/reviewer_responses/round_1_redflag.md
-   ```
-4. **调用 `review_loop.py`** 合并判定 + 处理 FIX:
-
-   ```
-   {PYBIN} -m scripts.review_loop \
-       --company "{company}" --date "{date}" \
-       --output-dir "output/{company}/" \
-       --round 1
-   ```
-
-   脚本会:
-   - 读 round_1_*.md 提取 PASS/FAIL + FIX 列表
-   - 合并 FIX(P1-P5 分组,去重)
-   - 计算 part 文件 diff signature(md5)
-   - 如果是 round > 1:对比上轮 signature → 若重复标 "diff_repeat"
-   - 输出 JSON: `{"overall_pass": bool, "fix_applied": int, "diff_repeat": bool, "fix_list_path": "..."}`
-5. 主 agent 读 JSON,决定下一步:
-   - `overall_pass = true` → 进 Part B(HTML 生成)
-   - `diff_repeat = true` → 转人工(LLM 反复对抗)+ 输出累计 FIX 给用户
-   - 否则,主 agent 用 Edit 工具按 review_loop.py 输出的 FIX 列表 改 phase3-partN.md(脚本只输出 FIX 列表,实际 Edit 由主 agent 做)
-6. 主 agent 重新跑 `assemble_report.py` + `anti_lazy_lint`
-7. 进 **Round 2**:重新并行启动 3 个 reviewer(全部 fresh,prompt 注入"上轮 FIX 已应用如下: {list},请重审")
-8. 重复 Round 2 / Round 3 直到 PASS 或转人工
-
-**round 上限**:3 轮(超过转人工)
-
-### Part B: HTML 生成
-
-```
-{PYBIN} -m scripts.build_html --md output/{company}/{company}-analysis-{date}.md \
-    --out output/{company}/{date}.html
-```
-
-### Part C: 推送 GitHub Pages
-
-> 本发布步骤为**可选**;`$INVES_REPORT_DIR` 路径可配置(环境变量;Mac/Linux 默认 /tmp/Inves-Report,Windows 设为如 C:\Inves-Report)。
-
-```
-{PYBIN} -m scripts.update_index ...    # 更新 reports.json
-git -C $INVES_REPORT_DIR add reports/*.html reports.json index.html
-git -C $INVES_REPORT_DIR commit -m "..." && git -C $INVES_REPORT_DIR push
-```
-
-**质量门控**:anti_lazy_lint 4 项 PASS + reviewer 3 维度 PASS + HTML section 数 = 8
+1. **机器门控**:`v8 lint`(fail:五块 schema / 红旗一处归家 + Top3 一致 / 数字唯一 home / 区间锚同向标记;warn:章预算)
+2. **LLM reviewer 2 并行**:`reviewer-logic`(跨节点引用不重推 / 影子结论 / verdict-正文自洽 / 最硬证据真硬)∥ `reviewer-delivery`(结论先行 / 全说人话 / 成品 HTML 390px 手机走查)
+3. **修正循环**:fresh-restart + 注入上轮 FIX,3 轮上限;FIX 落到**对应节点 md**(不是已删的 part 文件),改完重跑装配
+4. **Part B/C**:`build_html` 渲染 + `update_index` + 推送 Inves-Report
 
 ---
 
 ## 主 agent 通用规则(贯穿全 Phase)
 
-1. **不读 sub-agent 响应全文**,直接从响应文本读出关键字段(判定 / `### 维度` / `[FIX-P` 等;响应就在你的上下文里,无需 shell)
-2. **修正循环只能 fresh-restart**,不要尝试 `Agent(resume=...)`(该参数不存在,会被忽略 → sub-agent 起新实例丢上下文)
-3. **状态持久化**: 任何要跨循环保留的状态(reviewer 响应 / FIX 列表 / diff signature)都**写文件**(`output/{company}/reviewer_responses/...`),不要靠 context 记忆
-4. **日志双层**:
-   - 当前(v5.1.3 过渡):主 agent 在 Phase 启停 / sub-agent 调用前后 / 判定时,**用 Edit 工具**追加 main-log.md 一行(格式 `- {yymmdd hhmm} {事件}`)
-   - 未来(v5.2 规划):SubagentStop hook 自动追加(待 verify hook 环境变量后启用)
-5. **失败处理**:每个 Phase 失败时,主 agent 先尝试 1 次 fresh-restart 同 subagent_type;仍失败则用 PushNotification 通知用户 + 把累计的 FIX 列表 / 错误信息保存到 `output/{company}/_failure_report.md`
+1. **不读 sub-agent 响应全文**,直接从响应文本读关键字段(`**判定**:` / `**verdict**:` / `[FIX-` 等)
+2. **修正循环只能 fresh-restart**,不要尝试 `Agent(resume=...)`(该参数不存在)
+3. **状态持久化**:要跨循环保留的状态(reviewer 响应 / FIX 列表 / diff signature)一律写文件(`{run_dir}/reviewer_responses/…`),不靠 context 记忆
+4. **日志双层**:Phase 启停 / sub-agent 完成 / 判定 / 转人工,用 Edit 追加 `main-log.md` 一行(`- {yymmdd hhmm} {事件}`)
+5. **失败处理**:先 fresh-restart 同 subagent_type 一次;仍失败 → PushNotification + `{run_dir}/_failure_report.md`(累计 FIX / 响应路径 / main-log tail 30 行 / 建议下一步)
 
 ---
 
 ## 引用
 
 - 工具 schema 真实参数:见 SKILL.md 顶部"调度协议"段(本文件不重复)
-- reviewer FIX 指令 schema:`reviewer-{narrative,valuation,redflag}.md` 各自定义
-- 章节 → Part 映射:`scripts/assemble_report.py` 的 `PART_EXPECTED_SECTIONS`(真理来源)
-- review_loop.py 接口:见 `scripts/review_loop.py` 头部 docstring
+- 判断链规则(四问 / 决策层 / 装配 / 写作规范):`references/judgment-chain.md`(唯一真理源)
+- 节点 → 写手 → 手册 → schema 的绑定表:`references/judgment-chain.md` §5 消化路径总表
+- 依赖图与波次:`scripts/node_graph.py`(全量与增量共用,票 09 的子集调度复用同一套)
+- 装配产物字段:`scripts/schemas/assembly.schema.json`(文档不复制字段表)

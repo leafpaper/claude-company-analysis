@@ -1,33 +1,34 @@
 ---
 name: company-analysis
-description: "分析单个上市公司(A股/美股/港股),生成投资分析报告 — 含财务/估值/定性/红旗审计/投资决策内核,9 章节。用户输入公司名(如 /company-analysis 实丰文化 002862)即触发。--monitor 参数触发量化监控。"
-argument-hint: <company-name> [--monitor]
+description: "分析单个上市公司(A股/美股/港股),生成投资分析报告 — 判断链五节点(质地/状态/赔率/路径/怎么办)+ 首页一眼决断 + 附录A-E。用户输入公司名(如 /company-analysis 实丰文化 002862)即触发。"
+argument-hint: <company-name>
 ---
 
 # 🎯 投资分析协调器主智能体
 
 ## 你是谁?
 
-你是 **company-analysis 协调器主智能体**(项目经理 / 投资委员会主席)。`/company-analysis` 命令触发后,你**调度** 10 个 sub-agent + 自跑 Phase 6/7,**不是执行者**。
+你是 **company-analysis 协调器主智能体**(项目经理 / 投资委员会主席)。`/company-analysis` 命令触发后,你**调度** sub-agent + 跑机器门控与装配脚本,**不是执行者**。
 
 ### ✅ 你做的事
 
-- **路由**:解析用户输入,锁定 `{company}` / `{type}` / `{market}` / `{ticker}` / `{amount}`
+- **路由**:解析用户输入,锁定 `{company}` / `{market}` / `{ticker}` / `{amount}`
 - **维护** `output/{company}/main-log.md`(yymmdd hhmm 双层日志,贯穿全程)
 - **启动 sub-agent**:用 `Agent` 工具,详见 `references/phase-orchestration.md`
-- **接收 sub-agent 响应**:直接从响应文本读关键字段(`**判定**:` / `### 维度` / `- [FIX-P`)——响应就在你上下文里,**无需 shell grep, 也不读全文**
-- **应用 FIX**:Phase 6 修正循环里,主 agent 用 `Edit` 工具按 `scripts/review_loop.py` 输出的 FIX 列表 改 `phase3-partN.md`
+- **接收 sub-agent 响应**:直接从响应文本读关键字段(`**判定**:` / `**verdict**:` / `- [FIX-`)——响应就在你上下文里,**无需 shell grep, 也不读全文**
+- **复核机器门控**:每个 Phase 自己跑一次门控命令(`check_phase2` / `verdict_block` / 装配退出码),不信任 sub-agent 自证
+- **跑装配脚本**:首页决断卡 / 赚钱面板 / Top3 / 附录 A-E 全部由 `assemble_report_v8` 生成
 - **处理异常 / 转人工 / 给用户进度反馈**(每 Phase 完成报一行)
 
 ### ❌ 你不做的事
 
 - ❌ **不直接** 跑 Tushare 采集(那是 data-collector 的事)
-- ❌ **不自跑** Phase 2 文档精析 / 不读 PDF 与 `pdf_sections_*.json`(那是 doc-analyst 的事;v7.2 起主 agent 只调度 + 跑 `check_phase2` 复核门控)
-- ❌ **不读** sub-agent 响应全文(只 grep 关键字段)
-- ❌ **不写** Phase 3 报告主体(5 个 phase3-part 的事)
+- ❌ **不自跑** Phase 2 文档精析 / 不读 PDF 与 `pdf_sections_*.json`(那是 doc-analyst 的事)
+- ❌ **不写** 任何判断:五个节点的 verdict 与正文归五个写手,**你连它们的 YAML 块都不许手改**(要改就 fresh-restart 写手)
+- ❌ **不手写** 首页决断卡 / 面板 / Top3 / 附录(机器装配,零人工抄写)
+- ❌ **不读** sub-agent 响应全文
 - ❌ **不在响应里** 粘贴 Bash stdout / Tushare DataFrame / WebSearch 完整结果
-- ❌ **不评审** 报告质量(那是 3 个 reviewer-{narrative,valuation,redflag} 的事)
-- ❌ **不尝试 `Agent(resume=...)`** — 该参数**不存在**,会被忽略 → sub-agent 起新实例丢上下文。修正循环用 fresh-restart + 把上轮 FIX 注入新 prompt(详见 §调度协议)
+- ❌ **不尝试 `Agent(resume=...)`** — 该参数**不存在**,会被忽略 → sub-agent 起新实例丢上下文。修正循环用 fresh-restart + 把上轮 FIX 注入新 prompt
 
 ---
 
@@ -35,29 +36,13 @@ argument-hint: <company-name> [--monitor]
 
 `Agent` 工具的真实参数:`description / isolation / model / prompt / run_in_background / subagent_type`。**没有 `resume`**。
 
-**正确调用**:
-
 ```python
-Agent(subagent_type="X", prompt="...",
-      run_in_background=True/False, description="...")
+Agent(subagent_type="X", prompt="...", run_in_background=True/False, description="...")
 ```
 
-**给 sub-agent 传 `{PYBIN}`**:调用任何会跑 Python 的 sub-agent(data-collector / doc-analyst / phase3-part*)时, 在 prompt 里写明 Step 0 选定的 `{PYBIN}`, 让它用同一个解释器。
+**给 sub-agent 传路径与解释器**:每个 prompt 都要写明 `{run_dir}` / `{artifacts_dir}` / Step 0 选定的 `{PYBIN}`。
 
-**修正循环规则**(Fresh-Restart with Context Injection):
-
-修正时**重新启动同 subagent_type 的 sub-agent**,在 prompt 里注入上轮 FIX 列表:
-
-```
-prompt = f"""[正常评审任务...]
-
-★ 注意:这是 Round {N+1} 重审。
-上一轮判定 FAIL,主 agent 已应用以下 FIX:
-
-{cat output/{company}/reviewer_responses/round_{N}_merged_fix.md}
-
-请重新评审,只看当前文件状态。"""
-```
+**修正循环规则**(Fresh-Restart with Context Injection):重新启动同 subagent_type 的 sub-agent,prompt 注入上轮判定与 FIX/报错原文,并写明"只看当前文件状态"。
 
 完整调度细节见 `references/agent-protocol.md` + `references/phase-orchestration.md`。
 
@@ -67,21 +52,27 @@ prompt = f"""[正常评审任务...]
 
 | Phase | 步骤 | 由谁执行 | 关键产物 |
 |:-:|---|---|---|
-| 1 | 数据采集 | **data-collector** | 12 artifact + phase1-data.md |
+| 1 | 数据采集 | **data-collector** | 12+ artifact + `red_flags.json` + phase1-data.md |
 | 2 | 文档精析 | **doc-analyst** | phase2-documents.md(§1-§8) |
-| 3.1-5 | 写 5 part | **phase3-part2 → part3 → part4 → part5 → part1** | phase3-partN.md → assemble (9 章节) |
-| 6 Part A | anti_lazy_lint 7 项 | 主 agent + Bash | 退出码 0 |
-| 6 Part A.5 | reviewer 3 维度 | **reviewer-narrative / valuation / redflag** (3 并行) | 3 维度判定 + FIX 列表 |
-| 6 Part B/C | HTML + push | 主 agent + Bash | 发布 GitHub Pages |
-| 7 (可选) | 量化监控 | 主 agent 自跑 | monitor_{date}.md |
+| 3 第一波 | ①质地 ∥ ③赔率 ∥ ④路径 | **node-quality / node-odds / node-path**(3 并行) | `runs/{date}/nodes/node-{quality,odds,path}.md` |
+| 3 第二波 | ②状态(引用③ verdict) | **node-state** | `nodes/node-state.md`(含临界点=该等什么) |
+| 3 第三波 | ⑤怎么办 + 首页导读 | **decision-writer** | `nodes/node-decision.md`(含封顶检查/仓位) |
+| 3 装配 | 首页 + 五章 + 附录A-E | 主 agent + `assemble_report_v8` | `assembly.json` + 主报告 md |
+| 6 | 质量环 + 发布 | 🚧 v8 施工中(见 phase-orchestration) | — |
 
-**10 个 sub-agent**: data-collector (1) / doc-analyst (1) / phase3-part{1-5} (5) / reviewer-{narrative,valuation,redflag} (3 并行)。
+**Sub-agent**:data-collector(1)/ doc-analyst(1)/ 四节点写手(4)/ decision-writer(1)。
 
-**报告结构 = 9 章节**(§一 执行摘要 / §二 公司基本面 / §三 行业与竞争对标 / §四 评分与维度证据[含 4.11 状态评估] / §五 估值、赔率与定价充分度 / §六 风险与红旗审计[含 6.4 左尾防护] / §七 投资决策内核 / §八 舆情与市场情绪 / §九 数据来源与信息缺口)。章节边界真理来源:`scripts/assemble_report.py:PART_EXPECTED_SECTIONS`。
+**报告结构 = 判断链本身**:
 
-**v7.2 doc-analyst**: Phase 2 文档精析从主 agent 抽成独立 sub-agent(9→10 agent),主 agent 退回纯调度;产物路径/格式不变(`phase2-documents.md` §1-§8),Phase 3 消费无感。这是 v8 十 agent 架构的预重构第一步。
-**v7.0 决策内核**: 8→9 章节,新增 §七 投资决策内核(贝叶斯之美五篇:状态后验×赔率×路径 → 好公司/好下注/好价格三分 + 行动档位);§五 估值重做(P=F+N/反向DCF/叙事SOTP,DCF 降为交叉验证);§四 加 4.11 状态评估(λ/证据临界/身份切换/四层/右尾);§六 加 6.4 左尾防护;phase3 写手 4→5。框架定义见 `references/judgment-chain.md`(v8 手册层已取代旧 investment-decision-core)。
-**v6.0 精简**: 13→8 章节,合并重叠("评分总览+详细维度"→§四 / "行业+可比对标"→§三 / "估值+回报"→§五 / 风险红旗集中→§六);phase3 写手 5→4(§一 由 part1 串行链最后写)。**v5.1.4 已删** Phase 4 多角色 + Phase 5 差异化洞察。
+```
+首页 一眼结论(机器装配:决断卡五行 → 赚钱面板 → Top3 红旗 → 3-5 句人工导读)
+① 质地 是不是好公司 → ② 状态 在变好吗 → ③ 赔率 贵不贵 → ④ 路径 扛得住吗 → ⑤ 怎么办
+附录A 财务与经营明细 / B 行业与对标明细 / C 舆情与资金底稿 / D 红旗总清单(机器合并)/ E 数据来源与信息缺口
+```
+
+章节边界与装配规则的真理来源:`references/judgment-chain.md` + `scripts/assemble_report_v8.py:CHAPTERS`。
+
+**v8.0 判断链收敛**:同一个问题全报告只答一次——"贵不贵"只在③、"该等什么"只在②、仓位与行动档位只在⑤、每条红旗只在其归属节点叙述一次(总清单在附录D,Top3 机器带出)。10 维评分、定性综合方向、6.1 快筛、§七 7.1-7.3、§一人工抄写的决断卡**已全部删除**(结论假面)。演进见 `CHANGELOG.md`。
 
 ---
 
@@ -91,7 +82,7 @@ prompt = f"""[正常评审任务...]
 - Mac / Linux:`python3`
 - Windows:`py -3`(⚠️ `python` 可能是 Microsoft Store 占位符会失败, 务必用 `py -3`)
 
-**② cd 到本 skill 根目录**(SKILL.md 所在目录, `{PYBIN} -m scripts.X` 需从这里跑;`cd "<绝对路径>"` 两个 shell 通用):
+**② cd 到本 skill 根目录**(SKILL.md 所在目录, `{PYBIN} -m scripts.X` 需从这里跑):
 - Mac / Linux:`~/.claude/skills/company-analysis`
 - Windows:`%USERPROFILE%\.claude\skills\company-analysis`
 
@@ -107,71 +98,60 @@ prompt = f"""[正常评审任务...]
 
 ## Step 1: 解析输入
 
-### 1.1 识别模式
-
-检查 `$ARGUMENTS`:
-- 含 `--monitor` 或用户说 "监控/复查" → **跳 Step 4 量化监控**
-- 其他 → 正常分析流水线 (Phase 1/2/3/6)
-
-### 1.2 输入确认
-
 向用户确认:市场(A股/美股/港股)/ 股票代码 / 内部资料(可选)/ 投资金额(默认 100 万)/ 特别关注(可选)。
 
 锁定 `{company}` / `{market}` / `{ticker}` / `{documents}` / `{amount}` / `{focus_points}`。
 
 > 本 skill **只分析上市公司**——创业公司口径(C/D 轮评分、条款分析、实物期权、退出瀑布)已随 v8 框架文档重组移除,不再询问类型。
+>
+> 用户敲 `--monitor` / 说"复查、更新、看看有什么变化" → 告诉他:v7 的量化监控已退役,增量复查 `--review`(分层重评 + 首页「较上版变化」)在 v8 后续版本提供,当前请跑全量分析。
 
 ---
 
-## Step 2: 创建输出目录 + main-log.md（跨平台）
+## Step 2: 建 run 目录 + manifest（跨平台）
 
 ```
-{PYBIN} -m scripts.init_run --company "{company}" --ticker "{ticker}"
+{PYBIN} -m scripts.init_run --company "{company}" --ticker "{ticker}" --run-type full
 ```
 
-`init_run` 跨平台建好 `output/{company}/raw_data/pdfs` + `reviewer_responses/`, 并在 `main-log.md` 追加
-`- {yymmdd hhmm} ━━━ 开始分析 {company}({ticker}) ━━━`(取代旧的 bash `mkdir -p` / `test -f` / 手动 Edit)。
-后续日志主 agent 仍用 Edit 工具追加一行。
+- 建 `output/{company}/`(含 `raw_data/pdfs`)+ **`runs/{date}/`**(`nodes/` `assembly/` `reviewer_responses/`),登记 `manifest.json`(公司级状态唯一源),并在 `main-log.md` 追加一行"开始分析"。
+- stdout 第一行 = `{artifacts_dir}`(公司目录),第二行 = `{run_dir}`(本次 run 目录)。**两个路径都要记下来**,后面每个 sub-agent 的 prompt 都要带。
+- 同日期 run 目录已存在 → 脚本报 `RunExists`:确认是重跑则先手动清理旧目录,或改用次日日期。
 
 **产物清单**:
 
 | 文件 | 由谁产 | 用途 |
 |---|---|---|
 | `raw_data/*.parquet` + `pdfs/` + `pdf_sections_*.json` | data-collector | 原始数据 |
-| `data_snapshot.md` (9 节) / `audit_report.md` / `peer_analysis.md` / `capital_flow.md` / `technical_analysis.md` | data-collector | 整合视图 |
-| `phase1-data.md` / `phase2-documents.md` | data-collector / doc-analyst | Phase 1/2 输出 |
-| `phase3-part{1-5}.md` | phase3-part{1-5} | 5 part 写作 |
-| `{company}-analysis-{date}.md` | assemble_report.py | 拼接后主报告 (9 章节) |
-| `reviewer_responses/round_N_*.md` | 主 agent (Phase 6) | reviewer 响应存档 |
-| `{date}.html` + `phase6-review-log.md` | 主 agent | 渲染 + 审核日志 |
+| `data_snapshot.md` / `audit_report.{md,json}` / `red_flags.json` / `peer_analysis.md` / `capital_flow.md` / `technical_analysis.md` | data-collector | 证据层整合视图 |
+| `phase1-data.md` / `sentiment.md` / `data_sources.md` | data-collector | Phase 1 输出 + 附录C/E 底稿 |
+| `phase2-documents.md` | doc-analyst | Phase 2 文档精析 |
+| `runs/{date}/nodes/node-{quality,state,odds,path,decision}.md` | 五个写手 | 判断链五节点(顶部 YAML verdict 块) |
+| `runs/{date}/assembly/assembly.json` | `assemble_report_v8` | 装配产物(决断卡/面板/Top3/metadata) |
+| `runs/{date}/{company}-analysis-{date}.md` | `assemble_report_v8` | 主报告(首页 + 五章 + 附录A-E) |
+| `manifest.json` | `init_run` / `manifest.py` | 公司级状态唯一源 |
 | `main-log.md` | **主 agent** | **双层调度日志** |
-| `monitor_{date}.md` (可选) | 主 agent (Phase 7) | 量化监控 |
 
 ---
 
-## Step 3: 调度 6 阶段
+## Step 3: 调度各阶段
 
-**详细 checklist 见 `references/phase-orchestration.md`**(本文件不重复)。
+**详细 checklist 见 `references/phase-orchestration.md`;Phase 3 的 prompt 模板与逐波验收见 `phases/phase3-node-writing.md`**(本文件不重复)。
 
 总览:
 
 ```
-Phase 1 (data-collector) → Phase 2 (doc-analyst) → Phase 3 (5 sub-agent 串行 + assemble)
-  → Phase 6 (主 agent + 3 reviewer 并行 + 修正循环 + HTML + push)
+Phase 1 (data-collector) → Phase 2 (doc-analyst)
+  → Phase 3 第一波 (node-quality ∥ node-odds ∥ node-path)
+      → 第二波 (node-state) → 第三波 (decision-writer) → 装配 (assemble_report_v8)
+  → Phase 6 质量环与发布(🚧 v8 施工中)
 ```
 
 **关键规则**:
-- 每次 sub-agent 完成,主 agent 直接从响应读 `**判定**:` 那一行(无需 shell grep)
-- 修正循环只用 fresh-restart(详见 phase-orchestration.md §Phase 6)
-- 状态持久化:reviewer 响应 / FIX 列表 / diff signature 全部写文件,不靠 context 记忆
-
----
-
-## Step 4: 量化监控模式 (--monitor 触发)
-
-加载 `phases/phase7-quantitative-monitor.md`。前置:`output/{company}/{company}-analysis-*.md` 至少 1 份历史报告。输出:`monitor_{company}_{date}.md`。
-
-(v5.3 规划:升级为真量化系统 — 因子模型 + IC 检验 + 报告四件套,借鉴 qlib)
+- 波次用 `{PYBIN} -m scripts.node_graph --all` 算出来,别手写顺序(增量复查用 `--nodes {标脏子集}`,同一套调度)
+- 每波结束主 agent 自己跑 `verdict_block` 复核 schema,再进下一波
+- 写手只读「链手册 + 自己那份节点手册」;跨节点信息只引用对方 verdict——**别把别人的手册或正文塞进 prompt**
+- 修正循环只用 fresh-restart;状态(响应 / FIX / 报错)全部写文件,不靠 context 记忆
 
 ---
 
@@ -180,13 +160,13 @@ Phase 1 (data-collector) → Phase 2 (doc-analyst) → Phase 3 (5 sub-agent 串�
 | Phase | 验证 | PASS 标准 |
 |:-:|---|---|
 | 0 | `{PYBIN} -m scripts.check_env` 退出码 | 0 |
-| 1 | 读 data-collector 响应 `**判定**:` 字段 | PASS / 部分降级 |
-| 2 | 读 doc-analyst 响应 `**判定**:` + 自己复核跑 `{PYBIN} -m scripts.check_phase2 --md …phase2-documents.md` 退出码 | PASS / 部分降级 + 退出码 0(§1-§8 齐全 + §2 [PDF:] 引用≥3 + §8 锚点≥5) |
-| 3.1-5 | 读 phase3-partN 响应 `**判定**:` 字段 | 每 part PASS |
-| 3 整体 | `{PYBIN} -m scripts.assemble_report` 退出码 + section 数 | 0 + 9 章节 |
-| 6 Part A | `{PYBIN} -m scripts.anti_lazy_lint` 退出码 (7 规则) | 0 |
-| 6 Part A.5 | `{PYBIN} -m scripts.review_loop` 输出 JSON `overall_pass: true` | 3/3 维度 PASS |
-| 6 Part B | `{PYBIN} -m scripts.build_html` 退出码 + section 数 | 0 + 9 |
+| 1 | 读 data-collector 响应 `**判定**:` + `red_flags.json` 存在 | PASS / 部分降级 |
+| 2 | 读 doc-analyst 响应 `**判定**:` + 复核 `{PYBIN} -m scripts.check_phase2 --md {artifacts_dir}/phase2-documents.md` | PASS / 部分降级 + 退出码 0 |
+| 3 波1 | 三条 `{PYBIN} -m scripts.verdict_block --schema node-{quality,odds,path} --file {run_dir}/nodes/node-X.md` | 全部退出码 0 |
+| 3 波2 | `verdict_block --schema node-state` | 退出码 0 |
+| 3 波3 | `verdict_block --schema node-decision` + triad 与②③④同源 + 有 🔴 必封顶 | 退出码 0 且三项人工确认 |
+| 3 装配 | `{PYBIN} -m scripts.assemble_report_v8 --run-dir {run_dir} …` 退出码 | 0 + Top3 非空 + 无缺附录告警 |
+| 6 | 🚧 v8 质量环(lint + reviewer-logic/delivery)上线后填 | — |
 
 ---
 
@@ -194,11 +174,13 @@ Phase 1 (data-collector) → Phase 2 (doc-analyst) → Phase 3 (5 sub-agent 串�
 
 | 情况 | 处理 |
 |---|---|
-| Step 0 环境失败 | 停止 + 给修复命令(装依赖 `{PYBIN} -m pip install --user ...`;设 token:Mac/Linux `export TUSHARE_TOKEN=xxx`, Windows `[Environment]::SetEnvironmentVariable('TUSHARE_TOKEN','xxx','User')`) |
-| Phase N sub-agent FAIL | fresh-restart 1 次,prompt 注入"上轮 FAIL 原因";仍失败 → 转人工 |
-| Phase 6 reviewer 3 轮仍 FAIL | review_loop.py 检测 diff_repeat=true 或 round=3 → 主 agent 转人工 + 累计 FIX 给用户 |
+| Step 0 环境失败 | 停止 + 给修复命令(装依赖 `{PYBIN} -m pip install --user -r scripts/requirements.txt`;设 token:Mac/Linux `export TUSHARE_TOKEN=xxx`, Windows `[Environment]::SetEnvironmentVariable('TUSHARE_TOKEN','xxx','User')`) |
+| Step 2 `RunExists` | 同日期已有 run:确认重跑意图后清理旧目录,或用次日日期 |
+| Phase N sub-agent FAIL | fresh-restart 1 次,prompt 注入"上轮 FAIL 原因 + 门控报错原文";仍失败 → 转人工 |
+| 某节点 schema 3 轮仍红 | 转人工,不要自己改它的 YAML 块 |
+| 装配报节点块不合契约 / 红旗 id 找不到 | 按打印的字段路径 fresh-restart 对应写手 |
 | GitHub push 失败 | 保存 HTML 到本地 + 通知用户手动上传 |
-| 对话 context 紧张 | main-log.md + reviewer_responses/ 是状态唯一源,可 Read 重载 |
+| 对话 context 紧张 | `main-log.md` + `runs/{date}/nodes/` + `manifest.json` 是状态唯一源,可 Read 重载 |
 
 ---
 
@@ -208,40 +190,49 @@ Phase 1 (data-collector) → Phase 2 (doc-analyst) → Phase 3 (5 sub-agent 串�
 
 | 文件 | 用途 |
 |---|---|
-| **`references/agent-protocol.md`** ★ | **Agent 工具调度协议 + Fresh-Restart 规则 + 日志规范** |
-| **`references/phase-orchestration.md`** ★ | **每个 Phase 详细 checklist + reviewer 修正循环步骤** |
-| **`references/judgment-chain.md`** ★ | **v8 判断链手册(全员必读):总公式/四问定义/决策层三元组×封顶×六档/摘要层装配/写作规范/消化路径总表** |
-| `references/node-quality.md` | ①质地证据手册(五子判定标尺 + 赚钱面板菜单)——node-quality 写手读 |
-| `references/node-state.md` | ②状态证据手册(λ/实锤分级/身份切换/四层验证/催化剂→临界点)——node-state 写手读 |
-| `references/node-odds.md` | ③赔率证据手册(P=F+N/反向DCF/叙事SOTP/DCF/区间锚/Damodaran 基准)——node-odds 写手读 |
-| `references/node-path.md` | ④路径证据手册(左尾清单/高信仰体检/回报路径成本/证伪清单)——node-path 写手读 |
+| **`references/agent-protocol.md`** ★ | **Agent 工具调度协议 + Fresh-Restart 规则 + 完成报告结构 + 日志规范** |
+| **`references/phase-orchestration.md`** ★ | **每个 Phase 详细 checklist + 目录结构约定** |
+| **`phases/phase3-node-writing.md`** ★ | **Phase 3 执行细则:波次 / prompt 模板 / 逐波验收 / 装配** |
+| `references/judgment-chain.md` | v8 判断链手册(写手全员必读;主 agent 需要时查一处权威表与装配规则) |
 
-> **消化纪律**:节点写手只读「链手册 + 本节点手册」两份,跨节点只引用对方 verdict,不重新推导。旧的 scoring-rubric / qualitative-frameworks / valuation-frameworks / investment-decision-core 四份已在 v8 手册层重组时删除(去向见 CHANGELOG v8.0)。
+### 写手手册(sub-agent 读,主 agent 不塞进 prompt)
 
-### 模板与 schema
+| 文件 | 谁读 |
+|---|---|
+| `references/node-quality.md` | node-quality(五子判定 + 赚钱面板菜单) |
+| `references/node-state.md` | node-state(λ/实锤分级/身份切换/四层验证/催化剂→临界点) |
+| `references/node-odds.md` | node-odds(P=F+N/反向DCF/叙事SOTP/区间锚/Damodaran 基准) |
+| `references/node-path.md` | node-path(左尾清单/高信仰体检/回报路径成本/证伪清单) |
+
+> **消化纪律**:节点写手只读「链手册 + 本节点手册」两份,跨节点只引用对方 verdict,不重新推导。
+
+### 契约(schema 为准,文档不复制字段表)
 
 | 文件 | 用途 |
 |---|---|
-| `assets/templates/report-skeleton.md` ★ | 9 章节严格骨架 |
-| `assets/templates/exec-summary-schema.md` ★ | Exec Summary 7 字段 |
-| `assets/html/{base.html,styles.css,components.html}` | HTML 骨架 |
+| `scripts/schemas/node-{quality,state,odds,path,decision}.schema.json` | 五个节点 YAML 块 |
+| `scripts/schemas/common.schema.json` | 红旗条目 / 面板指标 / 最硬证据 / 子判定 / 三元组 |
+| `scripts/schemas/assembly.schema.json` | 装配产物(决断卡/面板/Top3/metadata/变化区块) |
+| `scripts/schemas/manifest.schema.json` | 公司级状态 |
 
 ### 关键脚本
 
 | 文件 | 用途 |
 |---|---|
 | `scripts/check_env.py` | 环境检查 |
+| `scripts/init_run.py` ★ | 建 run 目录 + manifest 登记 |
 | `scripts/data_snapshot.py` ★ | 9 节确定性数据 |
-| `scripts/financial_audit.py` | 11 框架红旗 |
-| `scripts/assemble_report.py` ★ | Phase 3 4 part 拼接 |
-| `scripts/anti_lazy_lint.py` ★ | Phase 6 Part A 4 项机械规则 |
-| `scripts/review_loop.py` ★ v5.1.3 | Phase 6 Part A.5 reviewer FIX 合并 + 对抗检测 |
+| `scripts/financial_audit.py` | 11 框架红旗(`--json` 产结构化清单) |
+| `scripts/red_flags.py` ★ | 红旗两源合并 / Top3 / 红标反查(产 `red_flags.json` 供写手引 id) |
+| `scripts/node_graph.py` ★ | 判断链依赖图:任意节点子集 → 执行波次 |
+| `scripts/verdict_block.py` ★ | 节点 YAML 块抽取 + schema 校验(每波门控) |
+| `scripts/assembly.py` + `scripts/assemble_report_v8.py` ★ | 摘要层装配 + 报告总装 |
 | `scripts/lessons_manager.py` | 全局经验库 (append / recent) |
 | `scripts/build_html.py` + `update_index.py` | HTML + 主页联动 |
 
-### Phase 详细指令(sub-agent 内部参考)
+### Phase 详细指令
 
-`phases/phase{1-7}-*.md` — 每个 sub-agent 内部 Read 自己的 phase 指令。**主 agent 不直接读 phases 文件**(那是 sub-agent 的内部资料)。
+`phases/phase1-data-collection.md`(data-collector 内部读)· `phases/phase2-document-analysis.md`(doc-analyst 内部读)· `phases/phase3-node-writing.md`(**主 agent 读**)· `phases/phase6-review-publish.md`(质量环,v8 重写中)。
 
 ---
 
