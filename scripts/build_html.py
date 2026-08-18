@@ -911,7 +911,7 @@ def main():
     ap.add_argument("--out", help="输出 HTML 路径 (默认同目录同名 .html)")
     ap.add_argument("--ticker", default="", help="ticker(默认从 MD title / CARD_METADATA 抽)")
     ap.add_argument("--version", default="", help="skill 版本号(默认 v8 报告 v8.0 / v7 报告 v6.0)")
-    ap.add_argument("--skip-lint", action="store_true", help="跳过 anti_lazy_lint(不推荐, 仅 debug 用)")
+    ap.add_argument("--skip-lint", action="store_true", help="跳过 v8 lint 门控(不推荐, 仅 debug 用)")
     args = ap.parse_args()
 
     # 定位 MD
@@ -950,9 +950,28 @@ def main():
 
     print(f"📖 读取 MD: {md_path}")
 
-    # ---- v8 通道: 有装配产物就走 B 仪表盘(v7 的 anti_lazy_lint 已被 v8 lint 取代, 归实现票 06) ----
+    # ---- v8 通道: 有装配产物就走 B 仪表盘 ----
     product, nodes = load_v8_context(md_path, Path(args.run_dir) if args.run_dir else None)
     if product is not None:
+        run_dir = Path(args.run_dir) if args.run_dir else md_path.parent
+        # 出片前先过机器门控(Phase 6 Step 0 的同一条规则集; fail 阻断, warn 只提示)
+        if not args.skip_lint:
+            from .lint_v8 import lint_run
+            try:
+                lint_result = lint_run(run_dir, md_path=md_path)
+            except (FileNotFoundError, ValueError) as e:
+                print(f"❌ lint_v8 判不了这个 run: {e}", file=sys.stderr)
+                return 1
+            if not lint_result.passed:
+                print("❌ lint_v8 FAIL — 质量环机器门控未过, 中断 HTML 生成")
+                print(lint_result.report)
+                print("\n💡 按 FAIL 项修完重跑(改判断 fresh-restart 写手 → 重跑 assemble_report_v8), "
+                      "或加 --skip-lint 跳过(不推荐)")
+                return 1
+            warned = len(lint_result.warnings)
+            print(f"✅ lint_v8 PASS (fail 项全过{f', {warned} 项 warn 见下' if warned else ''})")
+            for rule in lint_result.warnings:
+                print(f"   ⚠️ {rule.name}: {rule.detail}")
         try:
             html = build_html_v8(
                 md_path, product, nodes=nodes,
@@ -983,21 +1002,8 @@ def main():
             return 2
         return 0
 
-    # ---- v7 通道 ----
-    # v4.7: 写 HTML 前先跑 anti_lazy_lint, 任一规则违规则阻断
-    if not args.skip_lint:
-        try:
-            from .anti_lazy_lint import lint_md
-            lint_result = lint_md(md_path)
-            if not lint_result.passed:
-                print("❌ anti_lazy_lint FAIL — 主报告未通过深度检查, 中断 HTML 生成")
-                print(lint_result.report)
-                print("\n💡 修复后重跑, 或加 --skip-lint 跳过(不推荐)")
-                return 1
-            else:
-                print(f"✅ anti_lazy_lint PASS ({len(lint_result.rules)} 条规则全过)")
-        except ImportError:
-            print("⚠️  anti_lazy_lint 模块未找到, 跳过深度检查")
+    # ---- v7 通道(旧报告重出片; 无判断链节点块, v8 lint 判不了, 只做渲染) ----
+    print("ℹ️  v7 兼容通道: 无装配产物, 跳过质量门控(v8 lint 的判定对象是 runs/{date}/ 的节点块)")
 
     try:
         html = build_html(

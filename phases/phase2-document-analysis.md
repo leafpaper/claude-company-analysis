@@ -226,4 +226,4 @@ Glob(pattern="output/{company}/raw_data/pdf_sections_*.json")
 
 确定性校验 3 条硬规则：§1-§8 章节齐全 / §2 带 `[PDF:]` 原文引用 ≥3 行 / §8 锚点表 ≥5 行带来源标签。
 退出码 0 → 在完成报告里回报 `**判定**: PASS`；退出码 1 → 按报告 Edit 补写后重跑，**最多 3 轮**，仍红则判定 FAIL 并把三行 R 结果带回主 agent。
-**这取代了 Phase 2 旧的"全靠自查"——现在和 check_env / anti_lazy_lint 一样是机器门控。**主 agent 收到响应后跑同一条命令复核一次（不自己补写，红了就 fresh-restart doc-analyst）。
+**这取代了 Phase 2 旧的"全靠自查"——现在和 check_env / lint_v8 一样是机器门控。**主 agent 收到响应后跑同一条命令复核一次（不自己补写，红了就 fresh-restart doc-analyst）。

@@ -86,12 +86,15 @@ Phase 3 判断链写作 （依赖图两波，波次由 scripts/node_graph.py 算
      第三波          decision-writer（三元组 → 行动档位 + 封顶检查 + 首页导读）
      装配            assemble_report_v8：首页（决断卡/面板/Top3）+ 五章 + 附录A-E
    ↓
-Phase 6 质量环与发布（v8 lint + reviewer 并行 + 修正循环 + build_html + GitHub Pages）
+Phase 6 质量环与发布
+     机器门控        lint_v8：10 条规则（schema/红旗闭环/数字唯一home/区间锚/封顶/越权/同步…）
+     LLM 评审        reviewer-logic ∥ reviewer-delivery（并行，FIX 分诊回节点写手 / 主 agent）
+     出片发布        build_html（B 仪表盘）+ update_index + GitHub Pages
 ```
 
 > 每波结束由主 agent 复核 `verdict_block` schema 门控，过了才进下一波；写手只读「链手册 + 自己那份节点手册」，跨节点只引用对方 verdict。完整调度协议 / 质量门控 / 异常处理见 [SKILL.md](./SKILL.md) + [references/phase-orchestration.md](./references/phase-orchestration.md) + [phases/phase3-node-writing.md](./phases/phase3-node-writing.md)。
 
-**sub-agent**：`data-collector`（1）+ `doc-analyst`（1）+ **判断链四节点写手** `node-{quality,state,odds,path}`（4）+ `decision-writer`（1）+ 质量环 reviewer。全量与增量复查共用同一套「按依赖图跑任意节点子集」的调度。
+**sub-agent（9 个）**：`data-collector`（1）+ `doc-analyst`（1）+ **判断链四节点写手** `node-{quality,state,odds,path}`（4）+ `decision-writer`（1）+ 质量环 `reviewer-{logic,delivery}`（2）。全量与增量复查共用同一套「按依赖图跑任意节点子集」的调度。
 
 ---
 
@@ -158,13 +161,14 @@ claude-company-analysis/
 │   ├── node-path.md                # 写手：④路径 扛得住吗（+ 左尾/证伪清单）
 │   ├── node-state.md               # 写手：②状态 在变好吗（+ 临界点=该等什么，第二波）
 │   ├── decision-writer.md          # 写手：⑤怎么办（三元组→档位+封顶+仓位）+ 首页导读
-│   └── reviewer-*.md               # 质量环评审（v8 质量环重写中）
+│   ├── reviewer-logic.md           # 质量环评审：判断链逻辑（引用不重推/影子结论/证据真硬）
+│   └── reviewer-delivery.md        # 质量环评审：可读性与交付（结论先行/人话/390px 走查）
 │
 ├── phases/                     # 阶段执行指令
 │   ├── phase1-data-collection.md   # data-collector 内部读
 │   ├── phase2-document-analysis.md # doc-analyst 内部读
 │   ├── phase3-node-writing.md      # ⭐ 主 agent 读：波次 / prompt 模板 / 逐波验收 / 装配
-│   └── phase6-review-publish.md    # 质量环与发布
+│   └── phase6-review-publish.md    # ⭐ 主 agent 读：机器门控 + 两 reviewer + 出片发布
 │
 ├── references/                 # 参考文档
 │   ├── agent-protocol.md           # ⭐ Agent 调度协议 + Fresh-Restart
@@ -178,8 +182,7 @@ claude-company-analysis/
 │   └── html-template-guide.md      # HTML 可视化规范
 │
 ├── assets/
-│   ├── html/                       # base.html / styles.css / components.html
-│   └── validation/                 # report-checklist.json
+│   └── html/                       # report-v8.html/css（v8 仪表盘）+ base/styles/components（v7 兼容）
 │
 └── scripts/                    # ⭐ Python 数据层
     ├── config.py               # Token / 缓存 / 速率
@@ -204,8 +207,8 @@ claude-company-analysis/
     ├── assembly.py             # ⭐ 摘要层装配（决断卡/面板/Top3/变化区块）
     ├── assemble_report_v8.py   # ⭐ 报告总装（首页 + 五章 + 附录A-E）
     ├── schemas/                # 契约层 JSON Schema（节点×5 + assembly + manifest + common）
-    ├── anti_lazy_lint.py       # ⭐ 质量环机械规则
-    ├── review_loop.py          # ⭐ reviewer FIX 合并 + 对抗检测
+    ├── lint_v8.py              # ⭐ 质量环机器门控（10 条：schema/红旗闭环/数字home/封顶/越权…）
+    ├── review_loop.py          # ⭐ 两 reviewer 判定合并 + FIX 分诊 + 对抗检测
     ├── build_html.py           # HTML 渲染
     ├── update_index.py         # 主页索引联动
     ├── lessons_manager.py      # 全局经验库
@@ -291,7 +294,7 @@ Phase 6 自动把 HTML 推到 Inves-Report 仓库。
 
 | 版本 | 发布 | 关键变化 |
 |------|------|---------|
-| **v8.0** | 施工中 | 判断链收敛: 9 章节 → 首页一眼结论 + 五章（①质地/②状态/③赔率/④路径/⑤怎么办）+ 附录A-E; 一处权威（删 10 维评分/定性综合方向/快筛章节/§七 7.1-7.3/§一人工抄本）; 5 个 part 写手 → 四节点写手 + decision-writer，依赖图两波调度; 首页与附录机器装配（YAML verdict 块为唯一数据源）; 框架文档 4 份 → 链手册 1 + 节点手册 4; runs/{date}/ + manifest 状态制 |
+| **v8.0** | 施工中 | 判断链收敛: 9 章节 → 首页一眼结论 + 五章（①质地/②状态/③赔率/④路径/⑤怎么办）+ 附录A-E; 一处权威（删 10 维评分/定性综合方向/快筛章节/§七 7.1-7.3/§一人工抄本）; 5 个 part 写手 → 四节点写手 + decision-writer，依赖图两波调度; 首页与附录机器装配（YAML verdict 块为唯一数据源）; 框架文档 4 份 → 链手册 1 + 节点手册 4; runs/{date}/ + manifest 状态制; 质量环重写（anti_lazy_lint → lint_v8 十条机器规则，reviewer 3→2 并行 + FIX 判断/表述分诊）|
 | **v7.1** | 2026-06-23 | 可读性重写（全说人话）: 框架退为内部思考引擎，正文大白话 + 证据 + **5 行投资决断卡**（分开"是不是好公司"与"现在该不该买"）+ §四 四维体检（懂财报/叙事/估值/热点）+ 实锤/传闻表; §七 短合成（7.1-7.3 一句话+详见，重心压到 7.4 决策）; "谁在买"统一归 §八; anti_lazy_lint Rule5 = §一/§五/§七 正文无来源标签; 项目更名 **YEZHI Company Analysis** |
 | **v7.0** | 2026-06-22 | 投资决策内核（贝叶斯之美五篇）: 8→9 章新增 §七 投资决策内核（状态后验×赔率×路径 → 好公司/好下注/好价格三分 + 行动档位）; §五 估值重做（P=F+N/反向DCF/叙事SOTP，DCF 降为交叉验证）; §四 加 4.11 状态评估; §六 加 6.4 左尾防护; anti_lazy_lint +Rule6/7; phase3 写手 4→5 |
 | **v6.0** | 2026-06-20 | 13→8 章节精简: 合并"评分总览+详细维度"/"行业+对标"/"估值+回报", 风险红旗集中; phase3 写手 5→4; 清理 Phase4/5 残留 + 删 LEGACY 模板 |

@@ -26,6 +26,33 @@
 
 > v8.0 的完整条目在全量管线上线时补齐。以下按已完成的实现票记录。
 
+### 质量环：v8 lint + reviewer 3→2（ticket 06，2026-08-18）
+
+**Added**
+- **`scripts/lint_v8.py`** — 机器门控重写，判定对象从"9 章节主报告"换成 **run 目录契约**（五个节点 YAML 块 + 装配产物 + 装配后的报告）。10 条规则：
+  - `R1` 五块 schema 校验 · `R2` **红旗闭环**（Top3 与红旗清单按节点块**重算比对**；🔴 致命红旗必须在归属节点叙述过，🟠 未叙述记 warn）· `R3` **数字唯一 home**（同一数字跨章出现时异地必须带出处引用；首页机器装配与附录豁免）· `R5` **区间锚**（同向标记必填、不同向必写分歧原因、两端不倒置、verdict 与现价方向不自相矛盾）· `R7` **决策字段 + 致命红旗封顶**（有 🔴 → 档位强制「回避」且 `gear_cap.triggered`）· `R8` **越权发声**（仓位/行动档位/买卖建议只在⑤，写明「归⑤」的引用行豁免）· `R10` **报告与节点同步**（改了节点没重装配 = 脱节）—— 以上 fail 阻断；
+  - 留改自 v7：`R6` 外链引用（指向本报告附录的 `#锚点` 合法）· `R9` 无记忆性反例；
+  - `R4` 章预算 = **warn**（70/60/70/60/50 行上限 + 主体 400 行，**没有下限**）。
+- **`agents/reviewer-logic.md`**（维度 1）：跨节点引用不重推 / 影子结论 / verdict-正文自洽 / 最硬证据真硬 / 叙事 SOTP 与 N 有据；**`agents/reviewer-delivery.md`**（维度 2）：结论先行 / 全说人话 / 成品 HTML 的 390px 与明暗主题走查清单。两份都明写"机器已经查过的别重复"，并要求 FIX 带落点与类型。
+- **`scripts/tests/test_quality_loop_v8.py`** — 41 项（东山 golden fixture 进，lint 判定出）：越预算 / 缺字段 / 异地裸数字 / 红旗无家四类正反例齐全，另加封顶、Top3 漂移、提名后未重装配、报告脱节、越权与豁免、外链与锚点、无记忆性与元讨论豁免、CLI 三种退出码，以及 review_loop 的解析/去重/分诊/对抗检测。
+
+**Changed**
+- **`scripts/review_loop.py` 重写**：reviewer 3→2（`logic` ∥ `delivery`）、入参 `--output-dir` → `--run-dir`、diff signature 从 `phase3-part{1-5}.md` 改为五个节点 md。FIX 行格式加**类型字段**：`- [FIX-{node}-{判断|表述}] 问题 → 建议`（`node` 含 `front` 首页导读与 `delivery` HTML 交付），脚本据此**分诊**并直接给出 `restart_writers`（判断类 → fresh-restart 写手）/ `edit_targets`（表述类 → 主 agent Edit 正文）/ `delivery_fixes`（改模板），主 agent 只读 JSON。
+- **`scripts/build_html.py`**：v8 通道出片前内置跑一次 `lint_v8`（fail 阻断、warn 打印）；v7 兼容通道不再跑 lint（无节点块可判，只做渲染）。
+- `phases/phase6-review-publish.md` 重写为 v8 质量环（Step 0 机器门控规则表与修复指引 / 两 reviewer prompt 模板 / `review_loop` JSON 决策表 / 修正循环三类落点 / 出片发布 / **Part D 缺口补查改触发式**，补到的证据回到节点或采集产物而不是只改附录）。
+- `references/phase-orchestration.md` Phase 6 从「🚧 施工中」改为可执行 checklist；`references/agent-protocol.md` 名册 9 个 agent、reviewer 响应 schema 带 `kind` 分诊字段、失败处理改指 `lint_v8`。
+- `SKILL.md` Phase 6 行、质量门控汇总补三行（门控/评审/出片）、异常处理补 lint fail 与 3 轮上限、脚本索引换 `lint_v8`；`README.md` 流水线与目录树同步；`install.sh` agents 10→9、scripts 换 `lint_v8`、assets 6→5，校验计数同步。
+
+**Removed**（git 历史即归档）
+- `scripts/anti_lazy_lint.py` + `scripts/tests/test_anti_lazy_lint_v7.py` —— 章节字数下限与 artifact 关键短语覆盖率**与 v8 的「章预算是上限 + 全表下沉附录」正面冲突**，9 章节骨架比对的对象已不存在。
+- `agents/reviewer-{narrative,valuation,redflag}.md` —— 前两个专职校验"四套机制互抄一致"（复述层已删，无对象可校），红旗闭环改机检（lint R2）。
+- `assets/validation/report-checklist.json` —— 20 项 9 章节审核清单；v8 的审核标准落在 `lint_v8` 的规则集与两个 reviewer 的定义里，不再留一份没有代码读的 JSON 当第二真相源。
+
+**Notes**
+- **门控哲学**：机器先于人——`lint_v8` 没过不派 reviewer；确定性规则挡得住的错不花 LLM 注意力，LLM 只判机器判不了的（引用是不是重推、证据硬不硬、话说得像不像人）。
+- **🟠 未归家为什么只是 warn**：归家检查靠标题词与证据数字的文本命中，对 🔴 严格（漏讲致命红旗是真错，且条数少、误判可控），对 🟠 宽松（避免文本没命中就把出片卡死），漏网的由 reviewer-logic 兜。
+- 东山 golden run 实测：fail 项全过、5 条 🟠 归家 warn（fixture 正文是 3 行桩，真实报告不会这样）；全量 `python -m unittest discover -s scripts/tests -t .` 195 项，除既有 3 个缺 pandas 的环境错外全绿。
+
 ### 全量写手管线：四节点写手 + decision-writer + 依赖图两波（ticket 05，2026-08-18）
 
 **Added**

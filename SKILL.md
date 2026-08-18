@@ -58,9 +58,9 @@ Agent(subagent_type="X", prompt="...", run_in_background=True/False, description
 | 3 第二波 | ②状态(引用③ verdict) | **node-state** | `nodes/node-state.md`(含临界点=该等什么) |
 | 3 第三波 | ⑤怎么办 + 首页导读 | **decision-writer** | `nodes/node-decision.md`(含封顶检查/仓位) |
 | 3 装配 | 首页 + 五章 + 附录A-E | 主 agent + `assemble_report_v8` | `assembly.json` + 主报告 md |
-| 6 | 质量环 + 发布 | 🚧 v8 施工中(见 phase-orchestration) | — |
+| 6 | 质量环 + 发布 | 主 agent + `lint_v8` → **reviewer-logic ∥ reviewer-delivery** → `build_html` / `update_index` | HTML + `phase6-review-log.md` + GitHub Pages |
 
-**Sub-agent**:data-collector(1)/ doc-analyst(1)/ 四节点写手(4)/ decision-writer(1)。
+**Sub-agent(9)**:data-collector(1)/ doc-analyst(1)/ 四节点写手(4)/ decision-writer(1)/ reviewer-{logic,delivery}(2)。
 
 **报告结构 = 判断链本身**:
 
@@ -144,7 +144,7 @@ Agent(subagent_type="X", prompt="...", run_in_background=True/False, description
 Phase 1 (data-collector) → Phase 2 (doc-analyst)
   → Phase 3 第一波 (node-quality ∥ node-odds ∥ node-path)
       → 第二波 (node-state) → 第三波 (decision-writer) → 装配 (assemble_report_v8)
-  → Phase 6 质量环与发布(🚧 v8 施工中)
+  → Phase 6 机器门控 (lint_v8) → reviewer-logic ∥ reviewer-delivery → 修正循环 → 出片发布
 ```
 
 **关键规则**:
@@ -166,7 +166,9 @@ Phase 1 (data-collector) → Phase 2 (doc-analyst)
 | 3 波2 | `verdict_block --schema node-state` | 退出码 0 |
 | 3 波3 | `verdict_block --schema node-decision` + triad 与②③④同源 + 有 🔴 必封顶 | 退出码 0 且三项人工确认 |
 | 3 装配 | `{PYBIN} -m scripts.assemble_report_v8 --run-dir {run_dir} …` 退出码 | 0 + Top3 非空 + 无缺附录告警 |
-| 6 | 🚧 v8 质量环(lint + reviewer-logic/delivery)上线后填 | — |
+| 6 门控 | `{PYBIN} -m scripts.lint_v8 --run-dir {run_dir} --artifacts-dir {artifacts_dir}` | 退出码 0(warn 不阻断) |
+| 6 评审 | `{PYBIN} -m scripts.review_loop --run-dir {run_dir} --round N` 的 JSON | `overall_pass: true`(3 轮上限 / `diff_repeat` → 转人工) |
+| 6 出片 | `{PYBIN} -m scripts.build_html --company {company} --run-dir {run_dir}` 退出码 | 0 + 成品自检无缺项 |
 
 ---
 
@@ -179,6 +181,8 @@ Phase 1 (data-collector) → Phase 2 (doc-analyst)
 | Phase N sub-agent FAIL | fresh-restart 1 次,prompt 注入"上轮 FAIL 原因 + 门控报错原文";仍失败 → 转人工 |
 | 某节点 schema 3 轮仍红 | 转人工,不要自己改它的 YAML 块 |
 | 装配报节点块不合契约 / 红旗 id 找不到 | 按打印的字段路径 fresh-restart 对应写手 |
+| `lint_v8` fail | 判断类(R1/R2 🔴未归家/R5/R7)→ fresh-restart 写手;装配类(R2 漂移/R10)→ 重跑装配;措辞类(R3/R6/R8/R9)→ 主 agent Edit 正文后重跑装配 |
+| reviewer 3 轮仍 FAIL 或 `diff_repeat` | 转人工 + `_failure_report.md`(累计 FIX / 响应路径 / main-log tail 30 行) |
 | GitHub push 失败 | 保存 HTML 到本地 + 通知用户手动上传 |
 | 对话 context 紧张 | `main-log.md` + `runs/{date}/nodes/` + `manifest.json` 是状态唯一源,可 Read 重载 |
 
@@ -227,12 +231,14 @@ Phase 1 (data-collector) → Phase 2 (doc-analyst)
 | `scripts/node_graph.py` ★ | 判断链依赖图:任意节点子集 → 执行波次 |
 | `scripts/verdict_block.py` ★ | 节点 YAML 块抽取 + schema 校验(每波门控) |
 | `scripts/assembly.py` + `scripts/assemble_report_v8.py` ★ | 摘要层装配 + 报告总装 |
+| `scripts/lint_v8.py` ★ | 质量环机器门控(10 条:schema / 红旗闭环 / 数字唯一 home / 封顶 / 越权 / 报告同步…) |
+| `scripts/review_loop.py` | 两 reviewer 判定合并 + FIX 分诊(判断类→写手 / 表述类→主 agent) |
 | `scripts/lessons_manager.py` | 全局经验库 (append / recent) |
 | `scripts/build_html.py` + `update_index.py` | HTML + 主页联动 |
 
 ### Phase 详细指令
 
-`phases/phase1-data-collection.md`(data-collector 内部读)· `phases/phase2-document-analysis.md`(doc-analyst 内部读)· `phases/phase3-node-writing.md`(**主 agent 读**)· `phases/phase6-review-publish.md`(质量环,v8 重写中)。
+`phases/phase1-data-collection.md`(data-collector 内部读)· `phases/phase2-document-analysis.md`(doc-analyst 内部读)· `phases/phase3-node-writing.md`(**主 agent 读**)· `phases/phase6-review-publish.md`(**主 agent 读**:机器门控 / reviewer / 修正循环 / 发布 / 缺口补查)。
 
 ---
 

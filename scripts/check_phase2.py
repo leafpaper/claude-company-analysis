@@ -2,7 +2,7 @@
 
 Phase 2 产出 phase2-documents.md。此前它是全流程唯一"无机器门控"的阶段(质量要求
 只写在 phases/phase2-document-analysis.md 文件内, 全靠自觉)。本脚本把那几条硬要求
-变成确定性的退出码检查, 与 check_env / anti_lazy_lint 同构。
+变成确定性的退出码检查, 与 check_env / lint_v8 同构。
 
 调用(v7.2 起双跑: doc-analyst 写完自跑自补 ≤3 轮, 主 agent 收到响应后复核一次):
   python3 -m scripts.check_phase2 --md output/{company}/phase2-documents.md

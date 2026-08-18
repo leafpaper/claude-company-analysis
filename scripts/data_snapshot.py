@@ -9,8 +9,8 @@
 设计原则:
     - 完全 Python 拼装, 无 LLM 参与 → 数据完整性 100% 确定
     - 字段 / 表格 / 行数全部固定, LLM 看到的是结构化的 markdown table
-    - 头部插入 "★ Phase 3 必读规则" 强约束, 同时在 anti_lazy_lint Rule 3 加入此 artifact 的
-      关键短语检查作为 safety net
+    - 头部插入 "★ Phase 3 必读规则" 强约束(v7 的 anti_lazy_lint 关键短语覆盖率 safety net 已随
+      v8 删除——章预算是上限、全表下沉附录, 覆盖率规则与之正面冲突; 本 artifact 现在挂在附录A)
 
 输出 8 节:
     §1 数据完整度 — 每张表行数 / end_date 区间 / 最新期

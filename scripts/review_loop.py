@@ -1,49 +1,43 @@
-"""review_loop.py — v5.1.3 reviewer 修正循环辅助脚本
+"""review_loop.py — v8 质量环:两个 reviewer 的判定合并 + FIX 分诊 + 对抗检测。
 
-设计目标:
-    替代 SKILL.md 里的伪代码 `apply_fix_to_parts()` / `wait_all_background_agents()`
-    等不存在的"函数"。主 agent 用 Bash 工具调本脚本,脚本输出 JSON 结果给主 agent
-    decide 下一步。
+主 agent 视角的工作流(细节见 `phases/phase6-review-publish.md`):
 
-工作流(主 agent 视角):
-    1. 主 agent 用 Agent 工具并行启动 3 个 reviewer (run_in_background=True)
-       — reviewer-narrative / reviewer-valuation / reviewer-redflag
-    2. 等 3 个完成,主 agent 把 3 份响应文本 Write 到:
-         output/{company}/reviewer_responses/round_{N}_narrative.md
-         output/{company}/reviewer_responses/round_{N}_valuation.md
-         output/{company}/reviewer_responses/round_{N}_redflag.md
-    3. 主 agent 用 Bash 跑:
-         python -m scripts.review_loop \\
-             --company {company} --date {date} \\
-             --output-dir output/{company}/ --round N
-    4. 脚本输出 JSON:
-       {
-         "overall_pass": false,
-         "judgments": {"narrative": "FAIL", "valuation": "PASS", "redflag": "FAIL"},
-         "fix_count": 5,
-         "fix_list_path": "output/{company}/reviewer_responses/round_N_merged_fix.md",
-         "diff_repeat": false,
-         "fix_by_part": {"P1": 2, "P4": 3}
-       }
-    5. 主 agent 看 JSON 决定:
-       - overall_pass=true → Part B
-       - diff_repeat=true → 转人工
-       - 否则: 主 agent Read fix_list_path,用 Edit 工具改 phase3-partN.md,
-         重新 assemble + lint,Round+1 重新启动 3 reviewer
+    1. 机器门控先过:`{PYBIN} -m scripts.lint_v8 --run-dir {run_dir}` 退出码 0
+    2. 并行启动两个 reviewer(`run_in_background=True`):reviewer-logic ∥ reviewer-delivery
+    3. 两份响应 Write 到:
+         {run_dir}/reviewer_responses/round_{N}_logic.md
+         {run_dir}/reviewer_responses/round_{N}_delivery.md
+    4. 跑本脚本:
+         {PYBIN} -m scripts.review_loop --run-dir {run_dir} --round N
+    5. 读它的 JSON 决定下一步:
+         overall_pass=true  → Part B 出片发布
+         diff_repeat=true   → 转人工(两轮改回原状 = 对抗)
+         否则               → 按 restart_writers / edit_targets 应用 FIX,重跑装配 + lint,Round+1
 
-为什么主 agent 不直接读响应:
-    - 主 agent context 应该保持干净,只看 JSON 决定决策
-    - 详细 FIX 列表 LLM 不需要重复"读懂",只要 Edit 应用
+**FIX 行格式**(reviewer 必须照写,本脚本按它分诊):
 
-为什么脚本不直接 Edit part 文件:
-    - 应用 FIX 需要 LLM 理解"问题简述 → 建议"语义,然后到 part 里精准 Edit
-      (位置、措辞、上下文都需判断),脚本无法干
-    - 脚本只负责: 合并 FIX 列表 / 去重 / 算 diff signature
+    - [FIX-{node}-{kind}] {问题≤30 字} → {建议≤60 字}
+
+    node ∈ quality | state | odds | path | decision | front(首页导读)| delivery(HTML 交付)
+    kind ∈ 判断 | 表述
+
+**分诊规则**(v8 修正循环的落点,agent-protocol §4.2):
+
+| kind | 落点 | 谁动手 |
+|---|---|---|
+| 判断 | 该节点的 YAML 块与正文 | **fresh-restart 对应写手**(主 agent 不许手改 YAML 块) |
+| 表述 | 该节点 md 的正文 | 主 agent 用 Edit 改措辞 |
+| node=front | 决策块的 `front_page_intro` | fresh-restart decision-writer(那是 YAML 字段) |
+| node=delivery | HTML 模板 / 渲染 | 主 agent 改 `assets/html/` 或重跑 build_html,不惊动写手 |
+
+两类 FIX 应用完都必须**重跑 `assemble_report_v8` + `lint_v8`**——报告是装配产物,改了节点不重装
+= 报告与节点脱节(lint R10 会当场抓到)。
+
+为什么脚本不直接改文件:应用 FIX 要理解「问题 → 建议」的语义再定位落点,那是 LLM 的活;
+脚本只做确定性的部分:解析、合并去重、分诊、算 diff signature。
 
 CLI:
-    python -m scripts.review_loop \\
-        --company 实丰文化 --date 2026-05-04 \\
-        --output-dir output/实丰文化/ --round 1
+    python -m scripts.review_loop --run-dir output/东山精密/runs/2026-06-22 --round 1
 """
 from __future__ import annotations
 
@@ -54,214 +48,237 @@ import re
 import sys
 from pathlib import Path
 
-# 章节 → Part 文件映射(与 assemble_report.py PART_EXPECTED_SECTIONS 一致, v7.0 — 5 part)
-PART_SECTION_MAP = {
-    "P1": ["§一"],
-    "P2": ["§二", "§三"],
-    "P3": ["§四", "§五"],
-    "P4": ["§六", "§七"],
-    "P5": ["§八", "§九"],
-}
-N_PARTS = len(PART_SECTION_MAP)
+REVIEWERS = ("logic", "delivery")
+REVIEWER_LABELS = {"logic": "reviewer-logic(判断链逻辑)", "delivery": "reviewer-delivery(可读性与交付)"}
 
-REVIEWER_NAMES = ("narrative", "valuation", "redflag")
+# FIX 的落点 → 该由哪个 sub-agent fresh-restart(delivery 无写手, 归主 agent)
+NODE_AGENTS = {
+    "quality": "node-quality",
+    "state": "node-state",
+    "odds": "node-odds",
+    "path": "node-path",
+    "decision": "decision-writer",
+    "front": "decision-writer",          # 首页导读 = 决策块的 front_page_intro 字段
+}
+NODE_LABELS = {
+    "quality": "①质地", "state": "②状态", "odds": "③赔率", "path": "④路径",
+    "decision": "⑤怎么办", "front": "首页导读", "delivery": "HTML 交付",
+}
+NODES = tuple(NODE_LABELS)
+KINDS = ("判断", "表述")
+
+FIX_RE = re.compile(
+    r"^- \[FIX-(?P<node>" + "|".join(NODES) + r")-(?P<kind>判断|表述)\][^\n]*→[^\n]*$",
+    re.MULTILINE,
+)
+JUDGMENT_RE = re.compile(
+    r"^###\s+(?:维度\s*\d*[^:：]*|总体)[:：]\s*(PASS|FAIL|部分降级)", re.MULTILINE
+)
 
 
 def parse_reviewer_response(text: str) -> dict:
-    """解析单个 reviewer 响应,提取判定 + FIX 列表。
+    """解析单个 reviewer 响应:判定 + FIX 行。
 
-    支持两种判定格式(reviewer-narrative/valuation/redflag 各自略不同):
-    - `### 维度 N {名}: PASS/FAIL`
-    - `### 总体: PASS/FAIL` (旧 reviewer 兼容)
-
-    FIX 行格式:`- [FIX-P{1-5}-§{X}] {问题} → {建议}`
+    判定行两种写法都认(`### 维度 1 …: PASS` / `### 总体: FAIL`);
+    找不到判定 → UNKNOWN(主 agent 按 FAIL 处理, 见 CLI 输出的 judgments)。
     """
-    # 判定: 找第一个 PASS/FAIL
-    judgment = "UNKNOWN"
-    m = re.search(r"^###\s+(?:维度\s*\d+[^:]*|总体)[:：]\s*(PASS|FAIL|部分降级)",
-                  text, re.MULTILINE)
-    if m:
-        judgment = m.group(1)
-
-    # FIX 列表
-    fix_lines = re.findall(r"^- \[FIX-P[1-5]-§[^\]]+\] .+ → .+$",
-                           text, re.MULTILINE)
-
-    return {"judgment": judgment, "fixes": fix_lines}
+    m = JUDGMENT_RE.search(text)
+    return {
+        "judgment": m.group(1) if m else "UNKNOWN",
+        "fixes": [m.group(0) for m in FIX_RE.finditer(text)],
+    }
 
 
-def merge_fix_lists(all_fixes_by_reviewer: dict[str, list[str]]) -> list[str]:
-    """合并 3 reviewer 的 FIX 列表,去重(同一 FIX 行只保留一次)。
-    保序: 按 reviewer 顺序(narrative → valuation → redflag),同 reviewer 内按出现顺序。
-    """
-    merged = []
-    seen = set()
-    for r in REVIEWER_NAMES:
-        for fix in all_fixes_by_reviewer.get(r, []):
+def merge_fix_lists(fixes_by_reviewer: dict[str, list[str]]) -> list[str]:
+    """合并两个 reviewer 的 FIX,逐行去重;保序(logic → delivery, 各自内部按出现序)。"""
+    merged, seen = [], set()
+    for reviewer in REVIEWERS:
+        for fix in fixes_by_reviewer.get(reviewer, []):
             if fix not in seen:
                 merged.append(fix)
                 seen.add(fix)
     return merged
 
 
-def categorize_fixes_by_part(fixes: list[str]) -> dict[str, list[str]]:
-    """把 FIX 行按 P1-P5 分组。"""
-    by_part = {p: [] for p in PART_SECTION_MAP.keys()}
+def triage(fixes: list[str]) -> dict:
+    """把 FIX 按 (落点, 类型) 分诊 → 谁 fresh-restart、谁 Edit。"""
+    by_node = {n: [] for n in NODES}
+    by_kind = {k: [] for k in KINDS}
     for fix in fixes:
-        m = re.match(r"^- \[FIX-(P[1-5])-", fix)
-        if m:
-            p = m.group(1)
-            by_part[p].append(fix)
-    return by_part
+        m = FIX_RE.match(fix)
+        if not m:
+            continue
+        by_node[m.group("node")].append(fix)
+        by_kind[m.group("kind")].append(fix)
 
-
-def compute_diff_signature(output_dir: Path) -> str:
-    """计算 phase3-part{1-5}.md 5 个文件的 md5 拼接签名。
-    用于检测 diff 对抗(连续 2 轮 signature 重复 = LLM 反复改回原状)。
-    """
-    h = hashlib.md5()
-    for n in range(1, N_PARTS + 1):
-        p = output_dir / f"phase3-part{n}.md"
-        if p.exists():
-            h.update(p.read_bytes())
+    restart, edits = [], []
+    for fix in fixes:
+        m = FIX_RE.match(fix)
+        if not m:
+            continue
+        node, kind = m.group("node"), m.group("kind")
+        if node == "delivery":
+            continue                          # 交付类不惊动写手: 主 agent 改模板 / 重跑 build_html
+        if kind == "判断" or node == "front":  # front_page_intro 在 YAML 块里, 只能写手改
+            agent = NODE_AGENTS[node]
+            if agent not in restart:
+                restart.append(agent)
         else:
-            h.update(b"<MISSING>")
+            target = f"nodes/node-{node}.md"
+            if target not in edits:
+                edits.append(target)
+    return {
+        "by_node": by_node,
+        "by_kind": by_kind,
+        "restart_writers": restart,
+        "edit_targets": edits,
+    }
+
+
+def compute_diff_signature(run_dir: Path) -> str:
+    """五个节点 md 的 md5 拼接签名(连续两轮相同 = LLM 把改动又改回去了)。"""
+    h = hashlib.md5()
+    for node in ("quality", "state", "odds", "path", "decision"):
+        p = Path(run_dir) / "nodes" / f"node-{node}.md"
+        h.update(p.read_bytes() if p.exists() else b"<MISSING>")
     return h.hexdigest()
 
 
-def write_merged_fix_md(fix_list: list[str], by_part: dict, out_path: Path,
-                       round_n: int) -> None:
-    """把合并后的 FIX 列表写为 markdown 给主 agent 读。"""
-    lines = [
-        f"# Round {round_n} 合并后 FIX 列表 (v5.1.3)",
-        "",
-        f"**共 {len(fix_list)} 条** (3 reviewer 去重合并)",
-        "",
-        "## 按 Part 分组(主 agent Edit 时按此分组应用)",
-        "",
-    ]
-    for part, fixes in by_part.items():
-        if not fixes:
-            continue
-        part_file = f"phase3-part{part[-1]}.md"
-        lines.append(f"### {part} → `{part_file}` ({len(fixes)} 条)")
-        lines.append("")
-        for fix in fixes:
-            lines.append(fix)
-        lines.append("")
-
-    if not any(by_part.values()):
-        lines.append("(无 FIX 条目)")
-
-    lines.extend([
-        "",
-        "---",
-        "",
-        "## 主 agent 应用步骤",
-        "",
-        "1. 对每个非空 Part:",
-        "   - Read 对应 `phase3-part{N}.md`",
-        "   - 按 FIX 的 `问题 → 建议` 用 Edit 工具改文件",
-        "2. 全部 FIX 应用后,运行 `{PYBIN} -m scripts.assemble_report ...` 重拼主报告({PYBIN}=你的 Python: Mac/Linux python3, Windows py -3)",
-        "3. 运行 `{PYBIN} -m scripts.anti_lazy_lint ...` 重跑机械检查",
-        "4. Round+1: 重新并行启动 3 个 reviewer (fresh-restart, prompt 注入本 FIX 列表已应用)",
-    ])
-
-    out_path.write_text("\n".join(lines), encoding="utf-8")
-
-
-def get_prev_round_signature(output_dir: Path, round_n: int) -> str | None:
-    """读上一轮的 diff signature(从 .signature 文件)。"""
+def get_prev_round_signature(run_dir: Path, round_n: int) -> str | None:
     if round_n <= 1:
         return None
-    sig_file = output_dir / "reviewer_responses" / f"round_{round_n - 1}_signature.txt"
-    if sig_file.exists():
-        return sig_file.read_text(encoding="utf-8").strip()
-    return None
+    sig_file = Path(run_dir) / "reviewer_responses" / f"round_{round_n - 1}_signature.txt"
+    return sig_file.read_text(encoding="utf-8").strip() if sig_file.exists() else None
 
 
-def save_current_signature(output_dir: Path, round_n: int, sig: str) -> None:
-    """保存本轮 signature 供下轮对比。"""
-    sig_file = output_dir / "reviewer_responses" / f"round_{round_n}_signature.txt"
+def save_current_signature(run_dir: Path, round_n: int, sig: str) -> None:
+    sig_file = Path(run_dir) / "reviewer_responses" / f"round_{round_n}_signature.txt"
     sig_file.parent.mkdir(parents=True, exist_ok=True)
     sig_file.write_text(sig, encoding="utf-8")
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser(
-        description="reviewer 3 维度判定合并 + FIX 处理 + 对抗检测 (v5.1.3)"
+def write_merged_fix_md(fixes: list[str], plan: dict, out_path: Path, round_n: int) -> None:
+    """合并后的 FIX 列表 + 应用步骤,写成 markdown 给主 agent 读。"""
+    lines = [
+        f"# Round {round_n} 合并 FIX 列表 (v8 质量环)",
+        "",
+        f"**共 {len(fixes)} 条**(reviewer-logic + reviewer-delivery 去重合并)",
+        "",
+    ]
+    for node in NODES:
+        node_fixes = plan["by_node"][node]
+        if not node_fixes:
+            continue
+        if node == "delivery":
+            where = "HTML 模板 / 渲染(assets/html/ 或 build_html)"
+        else:
+            where = f"nodes/node-{node}.md"
+        lines += [f"## {NODE_LABELS[node]} → `{where}`({len(node_fixes)} 条)", ""]
+        lines += node_fixes
+        lines.append("")
+    if not fixes:
+        lines.append("(无 FIX 条目)")
+
+    lines += [
+        "---",
+        "",
+        "## 应用步骤",
+        "",
+        "1. **判断类 FIX**(改 verdict / 子判定 / 提名 / 首页导读)→ fresh-restart 对应写手,"
+        "prompt 注入本轮 FIX 原文 + 「只看当前文件状态」;主 agent **不手改 YAML 块**。",
+    ]
+    if plan["restart_writers"]:
+        lines.append(f"   - 本轮要重启:{', '.join(plan['restart_writers'])}")
+    lines.append(
+        "2. **表述类 FIX**(措辞 / 结论先行 / 人话)→ 主 agent 用 Edit 改对应节点 md 的**正文**。"
     )
-    ap.add_argument("--company", required=True)
-    ap.add_argument("--date", required=True, help="YYYY-MM-DD")
-    ap.add_argument("--output-dir", required=True,
-                    help="output/{company}/ 目录")
-    ap.add_argument("--round", type=int, required=True,
-                    help="本轮 round 编号 (1-3)")
-    args = ap.parse_args()
+    if plan["edit_targets"]:
+        lines.append(f"   - 本轮要改:{', '.join(plan['edit_targets'])}")
+    if plan["by_node"]["delivery"]:
+        lines.append(
+            "3. **交付类 FIX**(版式 / 移动端 / 主题)→ 改 `assets/html/report-v8.{html,css}` "
+            "或 build_html 渲染,不惊动写手。"
+        )
+    lines += [
+        "",
+        "4. 全部 FIX 应用后按顺序重跑(缺一不可):",
+        "",
+        "   ```",
+        "   {PYBIN} -m scripts.assemble_report_v8 --run-dir {run_dir} --company {company} --date {date} …",
+        "   {PYBIN} -m scripts.lint_v8 --run-dir {run_dir}",
+        "   ```",
+        "",
+        "5. Round+1:重新并行启动两个 reviewer(fresh-restart,prompt 注明本轮 FIX 已应用)。",
+    ]
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
-    output_dir = Path(args.output_dir)
-    if not output_dir.exists():
-        print(json.dumps({"error": f"output-dir 不存在: {output_dir}"}))
-        return 1
 
-    resp_dir = output_dir / "reviewer_responses"
-    if not resp_dir.exists():
-        print(json.dumps({
-            "error": f"reviewer_responses/ 目录不存在,主 agent 需先把 3 reviewer 响应 Write 到此目录"
-        }))
-        return 1
+def run(run_dir: Path, round_n: int) -> dict:
+    """读两份 reviewer 响应 → 判定 / FIX 分诊 / 对抗检测。返回给主 agent 的 JSON 结构。"""
+    run_dir = Path(run_dir)
+    resp_dir = run_dir / "reviewer_responses"
+    if not resp_dir.is_dir():
+        return {"error": f"reviewer_responses/ 不存在, 先把两份响应写进去: {resp_dir}"}
 
-    # 读 3 份 reviewer 响应
-    judgments = {}
-    fixes_by_reviewer = {}
-    missing = []
-    for r in REVIEWER_NAMES:
-        path = resp_dir / f"round_{args.round}_{r}.md"
+    judgments, fixes_by_reviewer, missing = {}, {}, []
+    for reviewer in REVIEWERS:
+        path = resp_dir / f"round_{round_n}_{reviewer}.md"
         if not path.exists():
             missing.append(str(path))
             continue
         parsed = parse_reviewer_response(path.read_text(encoding="utf-8"))
-        judgments[r] = parsed["judgment"]
-        fixes_by_reviewer[r] = parsed["fixes"]
-
+        judgments[reviewer] = parsed["judgment"]
+        fixes_by_reviewer[reviewer] = parsed["fixes"]
     if missing:
-        print(json.dumps({
-            "error": "缺少 reviewer 响应文件",
-            "missing": missing,
-        }, ensure_ascii=False))
-        return 2
+        return {"error": "缺少 reviewer 响应文件", "missing": missing}
 
-    # 综合判定
-    overall_pass = all(j == "PASS" for j in judgments.values())
+    merged = merge_fix_lists(fixes_by_reviewer)
+    plan = triage(merged)
 
-    # 合并 + 分组
-    merged_fix = merge_fix_lists(fixes_by_reviewer)
-    by_part = categorize_fixes_by_part(merged_fix)
-    fix_by_part_count = {p: len(v) for p, v in by_part.items()}
+    current_sig = compute_diff_signature(run_dir)
+    prev_sig = get_prev_round_signature(run_dir, round_n)
+    save_current_signature(run_dir, round_n, current_sig)
 
-    # diff signature 对抗检测
-    current_sig = compute_diff_signature(output_dir)
-    prev_sig = get_prev_round_signature(output_dir, args.round)
-    diff_repeat = (prev_sig is not None and current_sig == prev_sig)
-    save_current_signature(output_dir, args.round, current_sig)
+    fix_md_path = resp_dir / f"round_{round_n}_merged_fix.md"
+    write_merged_fix_md(merged, plan, fix_md_path, round_n)
 
-    # 写合并后 FIX markdown
-    fix_md_path = resp_dir / f"round_{args.round}_merged_fix.md"
-    write_merged_fix_md(merged_fix, by_part, fix_md_path, args.round)
-
-    # 输出 JSON
-    result = {
-        "overall_pass": overall_pass,
+    return {
+        "overall_pass": all(j == "PASS" for j in judgments.values()),
         "judgments": judgments,
-        "fix_count": len(merged_fix),
-        "fix_by_part": fix_by_part_count,
+        "fix_count": len(merged),
+        "fix_by_node": {n: len(v) for n, v in plan["by_node"].items() if v},
+        "fix_by_kind": {k: len(v) for k, v in plan["by_kind"].items()},
+        "restart_writers": plan["restart_writers"],
+        "edit_targets": plan["edit_targets"],
+        "delivery_fixes": len(plan["by_node"]["delivery"]),
         "fix_list_path": str(fix_md_path),
-        "diff_repeat": diff_repeat,
+        "diff_repeat": prev_sig is not None and current_sig == prev_sig,
         "diff_signature": current_sig,
-        "round": args.round,
+        "round": round_n,
     }
+
+
+def main() -> int:
+    for stream in (sys.stdout, sys.stderr):      # Windows 控制台 GBK 下 print 中文/emoji 会炸
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, OSError):
+            pass
+
+    ap = argparse.ArgumentParser(description="v8 质量环: 两 reviewer 判定合并 + FIX 分诊")
+    ap.add_argument("--run-dir", required=True, help="runs/{date}/ 目录(含 reviewer_responses/)")
+    ap.add_argument("--round", type=int, required=True, help="本轮 round 编号 (1-3)")
+    args = ap.parse_args()
+
+    run_dir = Path(args.run_dir)
+    if not run_dir.exists():
+        print(json.dumps({"error": f"run-dir 不存在: {run_dir}"}, ensure_ascii=False))
+        return 1
+
+    result = run(run_dir, args.round)
     print(json.dumps(result, ensure_ascii=False, indent=2))
-    return 0
+    return 2 if result.get("error") else 0
 
 
 if __name__ == "__main__":

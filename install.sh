@@ -29,7 +29,6 @@ mkdir -p "$SKILL_DIR/phases"
 mkdir -p "$SKILL_DIR/references"
 mkdir -p "$SKILL_DIR/scripts"
 mkdir -p "$SKILL_DIR/assets/html"
-mkdir -p "$SKILL_DIR/assets/validation"
 mkdir -p "$HOME/投资报告"
 
 # ------------------------------------------------
@@ -42,9 +41,9 @@ curl -fsSL "$REPO_URL/CHANGELOG.md" -o "$SKILL_DIR/CHANGELOG.md"
 curl -fsSL "$REPO_URL/.env.sample" -o "$SKILL_DIR/.env.sample"
 
 # ------------------------------------------------
-# [3/6] 下载 4 个阶段文件 + 10 个 sub-agent
+# [3/6] 下载 4 个阶段文件 + 9 个 sub-agent
 # ------------------------------------------------
-echo "[3/6] 下载 4 个阶段文件 + 10 个 sub-agent..."
+echo "[3/6] 下载 4 个阶段文件 + 9 个 sub-agent..."
 for phase in \
     phase1-data-collection \
     phase2-document-analysis \
@@ -61,9 +60,8 @@ for agent in \
     node-path \
     node-state \
     decision-writer \
-    reviewer-narrative \
-    reviewer-valuation \
-    reviewer-redflag; do
+    reviewer-logic \
+    reviewer-delivery; do
   curl -fsSL "$REPO_URL/agents/${agent}.md" -o "$SKILL_DIR/agents/${agent}.md"
 done
 
@@ -85,17 +83,15 @@ for ref in \
 done
 
 # ------------------------------------------------
-# [5/6] 下载 assets/ (HTML 模板 + 审核 schema)
+# [5/6] 下载 assets/ (HTML 模板)
 # ------------------------------------------------
-echo "[5/6] 下载 assets/（HTML 模板 + 审核 schema）..."
+echo "[5/6] 下载 assets/（HTML 模板）..."
 # 5 个 HTML(report-v8.* = v8 B 仪表盘版式; base/styles/components = v7 兼容通道)
 curl -fsSL "$REPO_URL/assets/html/report-v8.html"  -o "$SKILL_DIR/assets/html/report-v8.html"
 curl -fsSL "$REPO_URL/assets/html/report-v8.css"   -o "$SKILL_DIR/assets/html/report-v8.css"
 curl -fsSL "$REPO_URL/assets/html/base.html"       -o "$SKILL_DIR/assets/html/base.html"
 curl -fsSL "$REPO_URL/assets/html/styles.css"      -o "$SKILL_DIR/assets/html/styles.css"
 curl -fsSL "$REPO_URL/assets/html/components.html" -o "$SKILL_DIR/assets/html/components.html"
-# 1 个 validation
-curl -fsSL "$REPO_URL/assets/validation/report-checklist.json" -o "$SKILL_DIR/assets/validation/report-checklist.json"
 
 # ------------------------------------------------
 # [6/6] 下载 Python 数据层
@@ -127,7 +123,7 @@ for py in \
     red_flags \
     assembly \
     assemble_report_v8 \
-    anti_lazy_lint \
+    lint_v8 \
     review_loop \
     lessons_manager \
     update_index \
@@ -159,14 +155,15 @@ AGENT_COUNT=$(find "$SKILL_DIR/agents" -name "*.md" 2>/dev/null | wc -l | tr -d 
 REF_COUNT=$(find "$SKILL_DIR/references" -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
 SCRIPT_COUNT=$(find "$SKILL_DIR/scripts" -name "*.py" 2>/dev/null | wc -l | tr -d ' ')
 ASSETS_COUNT=$(find "$SKILL_DIR/assets" -type f 2>/dev/null | wc -l | tr -d ' ')
-# v8.0 期望: 4 phases + 10 agents + 9 refs + 30 scripts + 6 assets + 1 SKILL.md
+# v8.0 期望: 4 phases + 9 agents + 9 refs + 30 scripts + 5 assets + 1 SKILL.md
 # (v7.2→v8.0 变更: phases 5→4 删 phase3-analysis-report/phase7-quantitative-monitor, 新增 phase3-node-writing;
-#  agents 删 phase3-part1-5、新增 node-{quality,odds,path,state} + decision-writer(仍 10, reviewer 待质量环重写);
-#  scripts 删 assemble_report、新增 node_graph(仍 30);
-#  assets 6→4 删 9 章节骨架与执行摘要 schema —— 章节结构改由链手册与装配层定义;
-#  交付票 +2 v8 模板 report-v8.html/css → 6)
+#  agents 删 phase3-part1-5 与 reviewer-{narrative,valuation,redflag}、新增 node-{quality,odds,path,state} +
+#    decision-writer + reviewer-{logic,delivery} → 9;
+#  scripts 删 assemble_report/anti_lazy_lint、新增 node_graph/lint_v8(仍 30);
+#  assets 6→4 删 9 章节骨架与执行摘要 schema、交付票 +2 v8 模板 → 6, 质量环票删 report-checklist.json → 5
+#    —— 章节结构由链手册与装配层定义, 审核清单由 lint_v8 + 两个 reviewer 定义, 不再留第二份 JSON 真相源)
 
-if [ "$PHASE_COUNT" -eq "4" ] && [ "$AGENT_COUNT" -eq "10" ] && [ "$REF_COUNT" -eq "9" ] && [ "$SCRIPT_COUNT" -eq "30" ] && [ "$ASSETS_COUNT" -eq "6" ]; then
+if [ "$PHASE_COUNT" -eq "4" ] && [ "$AGENT_COUNT" -eq "9" ] && [ "$REF_COUNT" -eq "9" ] && [ "$SCRIPT_COUNT" -eq "30" ] && [ "$ASSETS_COUNT" -eq "5" ]; then
     echo ""
     echo "============================================"
     echo "  ✅ 安装成功！(v8.0)"
@@ -177,7 +174,7 @@ if [ "$PHASE_COUNT" -eq "4" ] && [ "$AGENT_COUNT" -eq "10" ] && [ "$REF_COUNT" -
     echo "  子智能体: $AGENT_COUNT 个 (agents/)"
     echo "  框架:    $REF_COUNT 个 (references/)"
     echo "  脚本:    $SCRIPT_COUNT 个 Python 模块 (scripts/)"
-    echo "  资产:    $ASSETS_COUNT 个 (assets/ - HTML 模板 + 审核 schema)"
+    echo "  资产:    $ASSETS_COUNT 个 (assets/ - HTML 模板)"
     echo "  输出目录: ~/投资报告/"
     echo ""
     echo "============================================"
@@ -206,7 +203,7 @@ if [ "$PHASE_COUNT" -eq "4" ] && [ "$AGENT_COUNT" -eq "10" ] && [ "$REF_COUNT" -
 else
     echo ""
     echo "❌ 错误：安装不完整"
-    echo "  预期(v8.0): phases=4 agents=10 refs=9 scripts=30 assets=6"
+    echo "  预期(v8.0): phases=4 agents=9 refs=9 scripts=30 assets=5"
     echo "  实际:       phases=$PHASE_COUNT agents=$AGENT_COUNT refs=$REF_COUNT scripts=$SCRIPT_COUNT assets=$ASSETS_COUNT"
     exit 1
 fi

@@ -95,20 +95,28 @@ output/{company}/
 
 ---
 
-## Phase 6: 质量环与发布
+## Phase 6: 质量环与发布(机器门控 + 两 reviewer 并行 + 出片发布)
 
-> 🚧 **v8 质量环施工中**:v8 lint(schema 校验 / 红旗闭环机检 / 数字唯一 home / 章预算 / 区间锚同向)
-> 与 reviewer-{logic,delivery} 尚未落地。v7 的 `anti_lazy_lint` 与 3 个 reviewer 校验的是 9 章节报告结构,
-> **对 v8 报告会误判**,在 v8 质量环上线前不要拿它们卡 v8 的 run。
->
-> 在此之前,Phase 3 装配通过 = 本次 v8 全量 run 的终点;HTML 与发布(Part B/C)按 v8 交付形态另行落地。
+**详细执行细则见 `phases/phase6-review-publish.md`**(lint 规则表 / reviewer prompt / FIX 分诊 / 发布步骤 /
+缺口补查);本节只列不变量。
 
-v8 质量环上线后本节的形状(先记在这,便于对齐):
+| 步 | 谁 | 命令 / 工具 | 验收 |
+|:-:|---|---|---|
+| 0 | 主 agent | `{PYBIN} -m scripts.lint_v8 --run-dir {run_dir} --artifacts-dir {artifacts_dir}` | 退出 0(fail 项全过;warn 记账不阻断) |
+| 1 | reviewer-logic ∥ reviewer-delivery(2 个 `run_in_background=True`) | Agent 工具 | 两份响应落 `{run_dir}/reviewer_responses/round_{N}_{logic,delivery}.md` |
+| 2 | 主 agent | `{PYBIN} -m scripts.review_loop --run-dir {run_dir} --round {N}` | 读 JSON:`overall_pass` / `diff_repeat` / `restart_writers` / `edit_targets` |
+| 3 | 写手 fresh-restart(判断类)+ 主 agent Edit(表述类) | Agent / Edit | 改完**必须**重跑 `assemble_report_v8` + `lint_v8` |
+| B | 主 agent | `{PYBIN} -m scripts.build_html --company {company} --run-dir {run_dir}` | 退出 0(脚本内置再跑一次 lint,fail 阻断) |
+| C | 主 agent | `{PYBIN} -m scripts.update_index --company {company} --repo $INVES_REPORT_DIR --force` + git push | 卡片 + `data/reports.json` 已更新 |
 
-1. **机器门控**:`v8 lint`(fail:五块 schema / 红旗一处归家 + Top3 一致 / 数字唯一 home / 区间锚同向标记;warn:章预算)
-2. **LLM reviewer 2 并行**:`reviewer-logic`(跨节点引用不重推 / 影子结论 / verdict-正文自洽 / 最硬证据真硬)∥ `reviewer-delivery`(结论先行 / 全说人话 / 成品 HTML 390px 手机走查)
-3. **修正循环**:fresh-restart + 注入上轮 FIX,3 轮上限;FIX 落到**对应节点 md**(不是已删的 part 文件),改完重跑装配
-4. **Part B/C**:`build_html` 渲染 + `update_index` + 推送 Inves-Report
+**不变量**:
+
+1. **机器先于人**:`lint_v8` 没过就不派 reviewer——确定性规则挡得住的错,不花 LLM 的注意力。
+2. **两个 reviewer 并行**,不是串行;判定与 FIX 一律落文件,不靠 context 记忆。
+3. **FIX 落点 = 节点 md**(`{run_dir}/nodes/node-{node}.md`),不是已删除的 `phase3-partN.md`:
+   判断类 → fresh-restart 写手(主 agent **不改 YAML 块**);表述类 → 主 agent 改正文;交付类 → 改 HTML 模板。
+4. **3 轮上限 + diff 对抗检测**:`diff_repeat=true`(两轮之间节点 md 一个字没变)或 round 3 仍 FAIL → 转人工。
+5. 每轮写一行 `main-log.md`(`- {ts} reviewer Round N 综合判定 …,FIX 数 M`)。
 
 ---
 
