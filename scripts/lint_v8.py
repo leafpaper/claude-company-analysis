@@ -186,8 +186,9 @@ def rule_red_flag_closure(
     fails: list[str] = []
     warns: list[str] = []
 
-    expected_top3 = rf.top3(flags)
-    if product is not None:
+    # 清单为空 = 没跑 audit 也没人提名(装配本身也过不去), 交给 R2s warn 说话, 别在这里炸
+    expected_top3 = rf.top3(flags) if flags else []
+    if product is not None and flags:
         got_ids = {f["id"] for f in product.get("red_flags") or []}
         want_ids = {f["id"] for f in flags}
         if got_ids != want_ids:
@@ -515,10 +516,19 @@ def lint_run(run_dir, md_path=None, artifacts_dir=None, audit_json=None) -> Lint
     search_dirs = [Path(artifacts_dir)] if artifacts_dir else []
     search_dirs += [run_dir, run_dir.parent.parent]      # runs/{date} → output/{company}
     script_flags = render.load_audit_flags(Path(audit_json) if audit_json else None, search_dirs)
-    flags = rf.merge(script_flags, rf.collect_nominations(nodes))
     product = load_assembly(run_dir)
 
-    closure_fail, closure_warn = rule_red_flag_closure(bodies, flags, product)
+    try:
+        flags = rf.merge(script_flags, rf.collect_nominations(nodes))
+        closure_fail, closure_warn = rule_red_flag_closure(bodies, flags, product)
+    except rf.RedFlagError as exc:
+        # id 撞车 / 级别或归属非法 —— 写手提名的问题, 按 fail 报出来(装配同样会拒绝产出)
+        flags = []
+        closure_fail = RuleResult(
+            name="R2 红旗闭环", passed=False,
+            detail="红旗清单合并失败(写手提名与脚本红旗冲突)", findings=[str(exc)],
+        )
+        closure_warn = RuleResult(name="R2w 🟠 高级红旗归家", severity=WARN, skipped=True)
     anchor_fail, anchor_warn = rule_anchor(nodes)
     decision_fail, decision_warn = rule_decision(nodes, flags)
     result.rules += [

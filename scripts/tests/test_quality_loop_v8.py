@@ -170,6 +170,18 @@ class TestRedFlagClosure(_Run):
         self.assertFalse(r2.passed)
         self.assertTrue(any("Top3 漂移" in f for f in r2.findings), r2.findings)
 
+    def test_colliding_nomination_id_is_a_fail_not_a_crash(self):
+        """写手提名的 id 与脚本红旗撞车 → R2 fail(装配同样会拒绝, 但 lint 要先说人话)。"""
+        script_id = fx.GOODWILL_FLAG_ID
+        self.nodes["path"]["red_flag_nominations"].append({
+            "id": script_id, "level": "🟠", "title": "商誉对赌(重复 id)",
+            "evidence": "写手抄了脚本红旗的 id", "source": "nomination", "node": "path",
+        })
+        result = self.lint(assemble=False)
+        r2 = self.rule(result, "R2 ")
+        self.assertFalse(r2.passed)
+        self.assertTrue(any(script_id in f for f in r2.findings), r2.findings)
+
     def test_nomination_added_after_assembly_fails(self):
         """节点新提名了一条红旗却没重跑装配 → 清单不一致 = fail。"""
         run_dir = self.build()
