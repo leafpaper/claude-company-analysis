@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{company_name}}（{{ticker}}）投资分析报告 — {{report_date}}</title>
+<style>
+<!-- PLACEHOLDER: styles -->
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     顶栏 — 判断链五节点锚点 + 附录 + 明暗主题切换
+     (移动端改为静态不吸顶: 见 report-v8.css @media max-width:720px)
+     ============================================================ -->
+<nav class="topbar">
+  <a class="brand" href="../../index.html">叶纸的投资报告</a>
+  <a href="#front">一眼结论</a>
+  <a href="#ch-quality">①质地</a>
+  <a href="#ch-state">②状态</a>
+  <a href="#ch-odds">③赔率</a>
+  <a href="#ch-path">④路径</a>
+  <a href="#ch-decision">⑤怎么办</a>
+  <a href="#appendices">附录</a>
+  <span class="spacer"></span>
+  <button class="themetoggle" id="themetoggle" type="button" aria-label="切换明暗主题">🌓 主题</button>
+</nav>
+
+<div class="wrap">
+
+<!-- ============================================================
+     Hero — 公司 + 基准日 + 决策事实条(全部来自装配契约字段)
+     ============================================================ -->
+<header class="hero">
+  <h1>{{company_name}}</h1>
+  <span class="code">{{ticker}}</span>
+  <span class="asof">基准日 {{report_date}} · company-analysis {{skill_version}}</span>
+</header>
+<div class="facts">
+<!-- PLACEHOLDER: hero_facts -->
+</div>
+
+<!-- ============================================================
+     首页 一眼结论 — 决断卡 → 赚钱面板 → Top3 → 导读 [→ 较上版变化]
+     全部机器装配自 assembly.json, 零人工抄写(导读除外)
+     ============================================================ -->
+<section id="front">
+<div class="secl"><span class="t">投资决断卡</span> <span class="chip">机器装配</span></div>
+<div class="cards5">
+<!-- PLACEHOLDER: verdict_card -->
+</div>
+
+<!-- PLACEHOLDER: panel -->
+
+<div class="secl"><span class="t">Top 3 风险</span> <span class="chip">机器带出 · 附录D</span></div>
+<div class="risks">
+<!-- PLACEHOLDER: top3 -->
+</div>
+
+<!-- PLACEHOLDER: intro -->
+
+<!-- PLACEHOLDER: change_block -->
+</section>
+
+<!-- ============================================================
+     判断链正文 — ①质地 ②状态 ③赔率 ④路径 ⑤怎么办
+     ============================================================ -->
+<div class="secl"><span class="t">判断链正文</span></div>
+<!-- PLACEHOLDER: chapters -->
+
+<!-- ============================================================
+     附录 A-E — 证据底稿(全表下沉, 宽表在横滚容器内)
+     ============================================================ -->
+<div class="secl" id="appendices"><span class="t">附录 · 证据底稿</span></div>
+<div class="appxnav">
+<!-- PLACEHOLDER: appendix_nav -->
+</div>
+<!-- PLACEHOLDER: appendices -->
+
+<footer>
+  本报告由 Claude Code company-analysis skill {{skill_version}} 生成 · 判断链五节点 + 红旗两源制装配<br>
+  数据源：Tushare Pro / yfinance / 巨潮资讯 PDF / WebSearch · 不构成投资建议<br>
+  <a href="https://github.com/leafpaper/claude-company-analysis">skill 代码</a> · <a href="https://github.com/leafpaper/Inves-Report">报告归档</a>
+</footer>
+
+</div>
+
+<script>
+/* 明暗主题: 默认跟随系统(不写 data-theme), 手动切换后记住选择。 */
+(function(){
+  var KEY = 'ca-theme', root = document.documentElement, btn = document.getElementById('themetoggle');
+  try { var saved = localStorage.getItem(KEY); if (saved) root.setAttribute('data-theme', saved); } catch (e) {}
+  function current(){
+    var explicit = root.getAttribute('data-theme');
+    if (explicit) return explicit;
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  btn && btn.addEventListener('click', function(){
+    var next = current() === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem(KEY, next); } catch (e) {}
+    btn.setAttribute('aria-pressed', next === 'dark' ? 'true' : 'false');
+  });
+})();
+</script>
+</body>
+</html>

@@ -52,6 +52,22 @@
 - **东山精密 dry-run 验收**（golden 五节点块 + 真实采集产物）：五块 `verdict_block` 全过 → 波次 = research/09 §A → `assemble_report_v8` 装出的**决断卡五行与 research/02 §6 逐行零漂移**（部分好·真卡位+平庸财务 / ↑变好但未确认 / 买完完美未来·锚区间 57-89 vs 现价 273 / 高尾险·扛不住 5/5 / 先观察等证据临界·期权小仓 ≤2-3%），Top3 两源同池机器带出，主页 verdict = 行动档位人话，附录 A/B/C 挂上真实采集产物。
 - **采集产物落点**：collectors 的写死路径决定采集产物仍落公司级 `output/{company}/`（跨 run 共享），`runs/{date}/` 只放判断链与装配产物；与 research/09 表里"采集落 run 目录"的写法不同，**生产者与零孤儿映射不变**。run 目录内的 `raw_data/` 预留给增量复查的证据快照。
 
+### 交付形态「B 仪表盘 · 一眼决断」（ticket 07，2026-08-17）
+
+**Added**
+- `assets/html/report-v8.html` + `assets/html/report-v8.css` — v8 报告版式（定稿基线 = 07 prototype 第二套 B，无杂交）：决断卡 = 5 张 verdict 瓦片、赚钱面板 = stat tiles + 红标角标、Top3 = 风险卡；明暗双主题（系统跟随 + 手动切换记忆）。
+- `scripts/build_html.py` **v8 通道**：结构化件（决断卡/面板/Top3/变化区块/红标反查）读 `assembly/assembly.json`，正文与附录读主报告 md —— HTML 层是纯展示，零新增阈值、零新结论。
+  - **红标三通道**：emoji + 文字级别词 + 底纹，任一通道单独可读；🔴/🟠 红色系、🟡 黄色系（级别靠 emoji 分）。
+  - **反查一套实现**：红标本身即链接 → 点击直达附录D 条目锚点（触屏/窄屏走这条）；桌面悬停/键盘聚焦弹浮层给五要素（标题/级别/一句证据/来源/归属节点）；`title` 属性兜底（浮层被横滚容器裁掉时仍可反查）。
+  - **正文自动反查**：按红旗清单逐字命中标红（写手不手涂，见 `references/node-quality.md`），短于 4 字的词（FCF/ROE）不进词表；附录D 本体不自标。
+  - CLI 新增 `--run-dir`；有装配产物即走 v8 通道，否则回落 v7 槽位填充。
+- `scripts/tests/test_delivery_html_v8.py` — 42 个用例（东山 fixture 全链路：run 目录 → 装配 → 成品 HTML）。含明暗两主题的 WCAG 对比度计算（正文/次要文字对页面、卡片、红/黄底纹全部 ≥4.5:1；链接与红标封条 ≥3:1）。
+
+**Changed**
+- **移动端升为一等场景**：瓦片/风险卡/附录卡窄屏单列重排；所有表格强制 `overflow-x` 横滚容器；窄屏顶导航由吸顶改静态（v7 吃掉约 10% 屏的痛点）；**媒体查询里一处 font-size 都没有**（改结构不缩字号，机检兜底）；`.wrap{overflow-x:clip}` 保证绝对定位浮层不把页面撑横。
+- `scripts/update_index.py` **v8 卡片版式**：verdict = 行动档位人话，新增 `quality_field` / `action_gear` / `next_disclosure_date`（站点陈旧警示的基准）；v8 无综合评分/期望收益，三块 metrics 改为 行动档位 / 质地 / 贵不贵，badges 同步；一句话结论回落到写手导读首段。
+- `install.sh` assets 4→6（新增两个 v8 模板文件；templates/ 两份骨架已随 ticket 05 删除），安装校验计数同步。
+
 ### 框架文档「1+4 节点制」（ticket 03，2026-08-17）
 
 **Added**

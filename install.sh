@@ -88,7 +88,9 @@ done
 # [5/6] 下载 assets/ (HTML 模板 + 审核 schema)
 # ------------------------------------------------
 echo "[5/6] 下载 assets/（HTML 模板 + 审核 schema）..."
-# 3 个 HTML
+# 5 个 HTML(report-v8.* = v8 B 仪表盘版式; base/styles/components = v7 兼容通道)
+curl -fsSL "$REPO_URL/assets/html/report-v8.html"  -o "$SKILL_DIR/assets/html/report-v8.html"
+curl -fsSL "$REPO_URL/assets/html/report-v8.css"   -o "$SKILL_DIR/assets/html/report-v8.css"
 curl -fsSL "$REPO_URL/assets/html/base.html"       -o "$SKILL_DIR/assets/html/base.html"
 curl -fsSL "$REPO_URL/assets/html/styles.css"      -o "$SKILL_DIR/assets/html/styles.css"
 curl -fsSL "$REPO_URL/assets/html/components.html" -o "$SKILL_DIR/assets/html/components.html"
@@ -157,13 +159,14 @@ AGENT_COUNT=$(find "$SKILL_DIR/agents" -name "*.md" 2>/dev/null | wc -l | tr -d 
 REF_COUNT=$(find "$SKILL_DIR/references" -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
 SCRIPT_COUNT=$(find "$SKILL_DIR/scripts" -name "*.py" 2>/dev/null | wc -l | tr -d ' ')
 ASSETS_COUNT=$(find "$SKILL_DIR/assets" -type f 2>/dev/null | wc -l | tr -d ' ')
-# v8.0 期望: 4 phases + 10 agents + 9 refs + 30 scripts + 4 assets + 1 SKILL.md
+# v8.0 期望: 4 phases + 10 agents + 9 refs + 30 scripts + 6 assets + 1 SKILL.md
 # (v7.2→v8.0 变更: phases 5→4 删 phase3-analysis-report/phase7-quantitative-monitor, 新增 phase3-node-writing;
 #  agents 删 phase3-part1-5、新增 node-{quality,odds,path,state} + decision-writer(仍 10, reviewer 待质量环重写);
 #  scripts 删 assemble_report、新增 node_graph(仍 30);
-#  assets 6→4 删 9 章节骨架与执行摘要 schema —— 章节结构改由链手册与装配层定义)
+#  assets 6→4 删 9 章节骨架与执行摘要 schema —— 章节结构改由链手册与装配层定义;
+#  交付票 +2 v8 模板 report-v8.html/css → 6)
 
-if [ "$PHASE_COUNT" -eq "4" ] && [ "$AGENT_COUNT" -eq "10" ] && [ "$REF_COUNT" -eq "9" ] && [ "$SCRIPT_COUNT" -eq "30" ] && [ "$ASSETS_COUNT" -eq "4" ]; then
+if [ "$PHASE_COUNT" -eq "4" ] && [ "$AGENT_COUNT" -eq "10" ] && [ "$REF_COUNT" -eq "9" ] && [ "$SCRIPT_COUNT" -eq "30" ] && [ "$ASSETS_COUNT" -eq "6" ]; then
     echo ""
     echo "============================================"
     echo "  ✅ 安装成功！(v8.0)"
@@ -203,7 +206,7 @@ if [ "$PHASE_COUNT" -eq "4" ] && [ "$AGENT_COUNT" -eq "10" ] && [ "$REF_COUNT" -
 else
     echo ""
     echo "❌ 错误：安装不完整"
-    echo "  预期(v8.0): phases=4 agents=10 refs=9 scripts=30 assets=4"
+    echo "  预期(v8.0): phases=4 agents=10 refs=9 scripts=30 assets=6"
     echo "  实际:       phases=$PHASE_COUNT agents=$AGENT_COUNT refs=$REF_COUNT scripts=$SCRIPT_COUNT assets=$ASSETS_COUNT"
     exit 1
 fi

@@ -112,7 +112,9 @@ class CardMetadata:
     composite_score: float | None = None
     verdict: str = ""
     verdict_tone: str = "neutral"
-    quality_field: str = ""      # v8: 质地字段(是不是好公司), 与 verdict 并列上卡片
+    quality_field: str = ""            # v8: 质地字段(是不是好公司), 与 verdict 并列上卡片
+    action_gear: str = ""              # v8: 行动档位(六档原词, 供站点按档位分组/配色)
+    next_disclosure_date: str = ""     # v8: 下次预约披露日(站点超龄/陈旧警示的基准)
     valuation_tag: str = ""
     one_liner: str = ""
     metrics: list[dict] = None
@@ -162,6 +164,57 @@ def _parse_structured_block(text: str, block_name: str) -> dict[str, str]:
             if val and not val.startswith("{{"):
                 result[key] = val
     return result
+
+
+def _load_assembly(md_path: Path) -> dict | None:
+    """v8 卡片优先读装配产物(唯一契约), 找不到再退回解析主报告正文。"""
+    for candidate in (md_path.parent / "assembly" / "assembly.json", md_path.parent / "assembly.json"):
+        if candidate.exists():
+            try:
+                return json.loads(candidate.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                return None
+    return None
+
+
+def _verdict_card_rows(text: str, product: dict | None) -> dict[str, str]:
+    """决断卡「问题 → 判定」。有 assembly.json 用它, 否则解析首页决断卡表格。"""
+    if product:
+        return {row["question"]: row["verdict"] for row in product.get("verdict_card", [])}
+    rows = {}
+    for m in re.finditer(r"^\|\s*[①②③④⑤]\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|", text, re.MULTILINE):
+        rows[m.group(1).strip()] = m.group(2).strip()
+    return rows
+
+
+def _v8_card_layout(meta: CardMetadata, text: str, product: dict | None) -> None:
+    """v8 卡片版式(实现票 07):verdict = 行动档位人话, 质地字段并列, 三块 metrics 换成判断链口径。
+
+    v8 报告没有综合评分/期望收益, 卡片改陈述判断链结论:行动档位 / 质地 / 贵不贵。
+    """
+    rows = _verdict_card_rows(text, product)
+    odds = (rows.get("贵不贵") or "").split(";")[0].split("；")[0].strip()
+
+    if not meta.one_liner:
+        intro = (product or {}).get("front_page_intro") or _grep(
+            text, r"### 导读\s*\n+([^\n<][^\n]*)"
+        )
+        meta.one_liner = re.sub(r"\s+", " ", re.sub(r"\*\*([^*]+)\*\*", r"\1", intro)).strip()[:300]
+
+    tone_variant = {"bullish": "green", "bearish": "red"}.get(meta.verdict_tone, "amber")
+    meta.metrics = [{"label": "行动档位", "value": meta.action_gear or meta.verdict,
+                     "tone": {"bullish": "positive", "bearish": "negative"}.get(meta.verdict_tone, "neutral")}]
+    if meta.quality_field:
+        meta.metrics.append({"label": "质地", "value": meta.quality_field, "tone": "neutral"})
+    if odds:
+        meta.metrics.append({"label": "贵不贵", "value": odds, "tone": "neutral"})
+        meta.valuation_tag = meta.valuation_tag or odds
+
+    meta.badges = [{"label": meta.verdict, "variant": tone_variant}]
+    if meta.quality_field:
+        meta.badges.append({"label": f"质地 {meta.quality_field}", "variant": "amber"})
+    if odds:
+        meta.badges.append({"label": f"赔率 {odds}", "variant": "amber"})
 
 
 def extract_metadata(md_path: Path, company_name: str) -> CardMetadata:
@@ -221,6 +274,8 @@ def extract_metadata(md_path: Path, company_name: str) -> CardMetadata:
         verdict = _grep(text, r"\*\*一句话结论\*\*:\s*\*\*([^*]+)\*\*")
     meta.verdict = verdict or "–"
     meta.quality_field = (card_block.get("quality") or "").strip()
+    meta.action_gear = (card_block.get("action_gear") or "").strip()
+    meta.next_disclosure_date = (card_block.get("next_disclosure_date") or "").strip()
     meta.verdict_tone = (
         (rating_block.get("verdict_tone") or "").strip()
         or GEAR_TONE.get((card_block.get("action_gear") or "").strip(), "")
@@ -307,6 +362,10 @@ def extract_metadata(md_path: Path, company_name: str) -> CardMetadata:
         meta.badges.append({"label": f"质地 {meta.quality_field}", "variant": "amber"})
     if meta.valuation_tag:
         meta.badges.append({"label": meta.valuation_tag, "variant": "amber"})
+
+    # v8 卡片版式(实现票 07): 判断链口径覆盖 v7 的评分/期望收益口径
+    if meta.version.startswith("v8") or meta.action_gear:
+        _v8_card_layout(meta, text, _load_assembly(md_path))
 
     return meta
 

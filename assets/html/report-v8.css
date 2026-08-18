@@ -1,0 +1,233 @@
+/* ============================================================================
+   v8.0 报告样式 — 第二套 B「仪表盘 · 一眼决断」(定稿基线, 无杂交)
+   基线样张: .scratch/v8-refactor/prototypes/07-delivery-samples.html (variant B)
+   规范: spec §4 红标视觉三通道 / spec §10 交付形态与移动端
+
+   三条硬纪律(实现票 07 验收项):
+   1. 红标三通道 = emoji + 文字(级别词) + 底纹, 任一通道单独可读, 不裸靠颜色;
+   2. 明暗双主题各定一组 token, 正文/次要文字与底纹的对比度均 ≥ 4.5:1;
+   3. 移动端改结构不缩字号 —— 媒体查询里**不得出现任何 font-size**, 只重排网格。
+   ========================================================================= */
+
+/* ---------------------------------------------------------------- tokens */
+:root{
+  color-scheme: light;
+  --page:#f6f6f3; --surface:#ffffff; --surface2:#f0efea;
+  --ink:#141412; --ink2:#4b4a46; --muted:#66645e;
+  --hair:#e2e1d9; --shadow:rgba(17,17,15,.14);
+  --accent:#1f5fae; --wash-a:#e8f0fb;
+  /* 红标色档: 🔴/🟠 同红色系(级别靠 emoji 区分), 🟡 黄色系 */
+  --crit:#c0392b; --seri:#c25a12; --warn:#a06c00; --good:#1b7a3f;
+  --wash-r:#fbeae7; --wash-y:#fdf3dd; --wash-g:#e7f4ec;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --page:#111110; --surface:#1b1b1a; --surface2:#232321;
+    --ink:#f2f1ec; --ink2:#c6c5bb; --muted:#9a9890;
+    --hair:#2f2f2c; --shadow:rgba(0,0,0,.5);
+    --accent:#6fa8f0; --wash-a:#1c2a3d;
+    --crit:#e77070; --seri:#e08a52; --warn:#e0b23c; --good:#5fbb84;
+    --wash-r:#3a2321; --wash-y:#38301c; --wash-g:#1d2f25;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --page:#111110; --surface:#1b1b1a; --surface2:#232321;
+  --ink:#f2f1ec; --ink2:#c6c5bb; --muted:#9a9890;
+  --hair:#2f2f2c; --shadow:rgba(0,0,0,.5);
+  --accent:#6fa8f0; --wash-a:#1c2a3d;
+  --crit:#e77070; --seri:#e08a52; --warn:#e0b23c; --good:#5fbb84;
+  --wash-r:#3a2321; --wash-y:#38301c; --wash-g:#1d2f25;
+}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--page); color:var(--ink);
+  font:15px/1.75 "Segoe UI","Microsoft YaHei","PingFang SC","Noto Sans CJK SC",sans-serif;
+  overflow-wrap:break-word;
+}
+a{color:var(--accent)}
+h1,h2,h3,h4{line-height:1.35; text-wrap:balance}
+/* overflow-x:clip 而非 hidden: 不造滚动容器(不破 sticky), 只把探出版心的浮层裁掉,
+   页面本体因此永远不会横向滚动 —— 390px 走查的第一条 */
+.wrap{max-width:1120px; margin:0 auto; padding:24px 24px 96px; overflow-x:clip}
+
+/* ---------------------------------------------------------------- 顶栏 */
+.topbar{
+  position:sticky; top:0; z-index:40; display:flex; flex-wrap:wrap; align-items:center;
+  gap:2px 14px; padding:8px 24px; background:var(--surface); border-bottom:1px solid var(--hair);
+}
+.topbar a{color:var(--ink2); text-decoration:none; padding:4px 2px}
+.topbar a:hover,.topbar a:focus-visible{color:var(--ink); text-decoration:underline}
+.topbar .brand{font-weight:700; color:var(--ink); margin-right:6px}
+.topbar .spacer{flex:1 1 auto}
+.themetoggle{
+  all:unset; cursor:pointer; padding:4px 12px; border:1px solid var(--hair); border-radius:999px;
+  color:var(--ink2); background:var(--surface2); white-space:nowrap;
+}
+.themetoggle:hover{color:var(--ink)}
+.themetoggle:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+
+/* ---------------------------------------------------------------- hero */
+.hero{display:flex; flex-wrap:wrap; align-items:baseline; gap:8px 16px; margin:4px 0 12px}
+.hero h1{font-size:26px; margin:0}
+.hero .code{color:var(--muted)}
+.hero .asof{margin-left:auto; color:var(--muted)}
+.facts{display:flex; flex-wrap:wrap; gap:10px; margin:0 0 20px}
+.fact{background:var(--surface); border:1px solid var(--hair); border-radius:6px; padding:8px 14px; min-width:132px}
+.fact .l{font-size:12.5px; color:var(--muted); letter-spacing:.04em}
+.fact .v{font-size:19px; font-weight:650; font-variant-numeric:tabular-nums}
+.fact .v small{font-size:13px; font-weight:400; color:var(--ink2)}
+
+/* ---------------------------------------------------------------- 区段标题 / 语义标签 */
+.secl{display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:28px 0 10px; color:var(--muted); letter-spacing:.08em}
+.secl > .t{color:var(--ink); font-weight:700; letter-spacing:0}
+.secl::after{content:""; flex:1 1 60px; border-top:1px solid var(--hair)}
+.chip{
+  display:inline-block; font-family:Consolas,"Cascadia Mono",monospace; font-size:12.5px;
+  font-weight:600; letter-spacing:.04em; color:var(--ink2); background:var(--surface2);
+  border:1px solid var(--hair); border-radius:3px; padding:1px 6px; white-space:nowrap;
+}
+.chip.man{border-style:dashed}
+
+/* ---------------------------------------------------------------- 决断卡瓦片 */
+.cards5{display:grid; grid-template-columns:repeat(5,1fr); gap:10px}
+.dc{
+  display:block; background:var(--surface); border:1px solid var(--hair); border-radius:6px;
+  padding:12px 14px 12px 17px; position:relative; text-decoration:none; color:inherit;
+}
+.dc::before{content:""; position:absolute; left:0; top:0; bottom:0; width:4px; border-radius:6px 0 0 6px; background:var(--tone,var(--hair))}
+.dc:hover,.dc:focus-visible{border-color:var(--tone,var(--accent))}
+.dc .q{font-size:12.5px; color:var(--muted)}
+.dc .a{font-size:17px; font-weight:750; margin:4px 0 6px}
+.dc .w{font-size:13.5px; color:var(--ink2); line-height:1.65}
+.dc .s{margin-top:8px}
+.t-bad{--tone:var(--crit)} .t-watch{--tone:var(--warn)} .t-good{--tone:var(--good)} .t-node{--tone:var(--accent)}
+
+/* ---------------------------------------------------------------- 赚钱面板 stat tiles */
+.tiles{display:grid; grid-template-columns:repeat(3,1fr); gap:10px}
+.st{background:var(--surface); border:1px solid var(--hair); border-radius:6px; padding:12px 14px; position:relative}
+.st .l{font-size:13px; color:var(--muted); padding-right:96px}
+.st .v{font-size:22px; font-weight:650; margin:2px 0; font-variant-numeric:tabular-nums}
+.st .n{font-size:13px; color:var(--ink2); line-height:1.6}
+.st .n .why{color:var(--muted)}
+.st .fb{position:absolute; top:9px; right:12px; max-width:60%; text-align:right}
+.st.mk-red{box-shadow:inset 0 3px 0 var(--crit)}
+.st.mk-yellow{box-shadow:inset 0 3px 0 var(--warn)}
+.pv{
+  grid-column:1/-1; background:var(--surface); border:1px solid var(--hair); border-radius:6px;
+  padding:10px 16px; display:flex; flex-wrap:wrap; gap:4px 14px; align-items:baseline;
+}
+.pv .src{font-size:13px; color:var(--muted)}
+.reason{color:var(--ink2); margin:0 0 10px}
+
+/* ---------------------------------------------------------------- Top3 风险卡 */
+.risks{display:grid; grid-template-columns:repeat(3,1fr); gap:10px}
+.rk{background:var(--surface); border:1px solid var(--hair); border-radius:6px; padding:12px 14px 12px 17px; position:relative}
+.rk::before{content:""; position:absolute; left:0; top:0; bottom:0; width:4px; border-radius:6px 0 0 6px}
+.rk.mk-red::before{background:var(--crit)}
+.rk.mk-yellow::before{background:var(--warn)}
+.rk .t{font-weight:750}
+.rk .d{font-size:13.5px; color:var(--ink2); margin-top:4px}
+.rk .h{font-size:13px; color:var(--muted); margin-top:8px}
+
+/* ---------------------------------------------------------------- 导读 / 变化区块 */
+.intro,.change{background:var(--surface); border:1px solid var(--hair); border-radius:6px; padding:12px 18px}
+.intro p{margin:6px 0}
+.change{border-left:4px solid var(--accent)}
+.change .alpha{font-size:16px; font-weight:750; margin:4px 0 10px}
+.change ul{margin:8px 0; padding-left:20px}
+.change .advice{background:var(--wash-y); border-radius:4px; padding:8px 12px; margin-top:10px}
+
+/* ---------------------------------------------------------------- 判断链正文 */
+.chB{background:var(--surface); border:1px solid var(--hair); border-radius:6px; margin:12px 0; scroll-margin-top:64px}
+.chB > .hd{display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; padding:12px 16px; border-bottom:1px solid var(--hair); background:var(--surface2); border-radius:6px 6px 0 0}
+.chB > .hd .no{font-weight:800; font-size:16px}
+.chB > .hd .qq{color:var(--muted)}
+.chB > .bd{padding:4px 16px 14px}
+.pill{display:inline-block; border-radius:4px; padding:2px 10px; font-weight:700; background:var(--surface); border:1px solid var(--hair)}
+.pill.bad{background:var(--wash-r); box-shadow:inset 0 -2px 0 var(--crit)}
+.pill.watch{background:var(--wash-y); box-shadow:inset 0 -2px 0 var(--warn)}
+.pill.good{background:var(--wash-g); box-shadow:inset 0 -2px 0 var(--good)}
+.pill.node{background:var(--wash-a); box-shadow:inset 0 -2px 0 var(--accent)}
+
+/* ---------------------------------------------------------------- 附录 */
+.appxnav{display:grid; grid-template-columns:repeat(5,1fr); gap:10px}
+.ap{display:block; background:var(--surface); border:1px dashed var(--hair); border-radius:6px; padding:10px 12px; font-size:13px; color:var(--ink2); text-decoration:none}
+.ap:hover,.ap:focus-visible{border-style:solid; border-color:var(--accent)}
+.ap b{display:block; color:var(--ink)}
+.appx{background:var(--surface); border:1px solid var(--hair); border-radius:6px; margin:12px 0; padding:4px 16px 14px; scroll-margin-top:64px}
+.appx > h2{font-size:17px}
+
+/* ---------------------------------------------------------------- 表格 / 正文 */
+.tblwrap{overflow-x:auto; -webkit-overflow-scrolling:touch; max-width:100%; margin:10px 0}
+table{border-collapse:collapse; width:100%; font-variant-numeric:tabular-nums}
+th,td{text-align:left; vertical-align:top; padding:8px 10px; border-bottom:1px solid var(--hair)}
+th{font-size:13px; color:var(--muted); font-weight:600; letter-spacing:.04em; white-space:nowrap}
+tbody tr:hover{background:var(--surface2)}
+code,pre{font-family:Consolas,"Cascadia Mono",monospace}
+pre{overflow-x:auto; background:var(--surface2); padding:10px 12px; border-radius:4px}
+img{max-width:100%; height:auto}
+blockquote{margin:10px 0; padding:8px 14px; border-left:3px solid var(--hair); color:var(--ink2); background:var(--surface2); border-radius:0 4px 4px 0}
+hr{border:0; border-top:1px solid var(--hair); margin:18px 0}
+footer{margin-top:36px; padding-top:14px; border-top:1px solid var(--hair); color:var(--muted); font-size:13px}
+
+/* ---------------------------------------------------------------- 红标三通道 + 反查 */
+/* 通道①emoji(.fw-i) 通道②文字级别词(.fw-k) 通道③底纹+左封条(background/box-shadow) */
+.fw{
+  display:inline; position:relative; border-radius:3px; padding:1px 5px;
+  color:var(--ink); text-decoration:none; box-decoration-break:clone; -webkit-box-decoration-break:clone;
+}
+.fw:hover,.fw:focus-visible{outline:1px solid currentColor; outline-offset:1px}
+.fw-red{background:var(--wash-r); box-shadow:inset 3px 0 0 var(--crit)}
+.fw-yellow{background:var(--wash-y); box-shadow:inset 3px 0 0 var(--warn)}
+.fw-i{font-style:normal}
+.fw-k{font-size:13px; color:var(--ink2); white-space:nowrap}
+.fw-inline{border-bottom:2px solid var(--crit)}
+.fw-yellow.fw-inline{border-bottom-color:var(--warn)}
+/* 反查浮层: 桌面悬停/键盘聚焦弹出; 触屏(hover:none)不弹, 点击直达附录D 条目 */
+.fw-pop{
+  position:absolute; left:0; top:calc(100% + 6px); z-index:30; width:max-content; max-width:min(360px,80vw);
+  background:var(--surface); color:var(--ink); border:1px solid var(--hair); border-radius:6px;
+  padding:9px 12px; font-size:13.5px; line-height:1.6; text-align:left; white-space:normal;
+  box-shadow:0 8px 24px var(--shadow); opacity:0; visibility:hidden; transition:opacity .12s;
+}
+.fw:hover > .fw-pop,.fw:focus-visible > .fw-pop,.fw:focus-within > .fw-pop{opacity:1; visibility:visible}
+.fw-pop .ttl{font-weight:700; display:block}
+.fw-pop .meta{color:var(--muted); display:block; margin-top:4px}
+.fw-pop .go{color:var(--accent); display:block; margin-top:4px}
+.fw-pop + .fw-pop{margin-top:6px}
+/* 触屏没有悬停, 窄屏也放不下浮层 —— 两种情况都彻底不渲染(display:none 连布局都不占,
+   免得绝对定位的浮层把页面撑出横向滚动); 反查退回「点击直达附录D」+ title 兜底。 */
+@media (hover:none), (max-width:720px){ .fw-pop{display:none} }
+@media (prefers-reduced-motion: reduce){ *{transition:none !important} }
+
+/* 附录D 红旗行锚点: 跳转后高亮定位 */
+.appx td:target,.appx tr:target,[id^="flag-"]:target{scroll-margin-top:72px}
+tr:target{background:var(--wash-a)}
+
+/* ---------------------------------------------------------------- 移动端: 只重排结构, 不缩字号 */
+@media (max-width:980px){
+  .wrap{padding:20px 16px 80px}
+  .cards5{grid-template-columns:repeat(2,1fr)}
+  .risks,.appxnav{grid-template-columns:repeat(2,1fr)}
+}
+@media (max-width:720px){
+  .topbar{position:static}
+  .tiles{grid-template-columns:1fr 1fr}
+  .risks{grid-template-columns:1fr}
+  .hero .asof{margin-left:0; width:100%}
+}
+@media (max-width:620px){
+  .cards5,.tiles,.appxnav{grid-template-columns:1fr}
+  .fact{flex:1 1 100%}
+  .st .l{padding-right:0}
+  .st .fb{position:static; text-align:left; max-width:100%; display:block; margin-bottom:4px}
+  .fw-pop{max-width:min(300px,90vw)}
+}
+@media print{
+  .topbar,.themetoggle{display:none}
+  .chB,.appx,.dc,.st,.rk{break-inside:avoid}
+}
