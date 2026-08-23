@@ -50,9 +50,10 @@ AGENTS = {
     "decision": "decision-writer",
 }
 
-# 增量复查里永远重跑的节点(spec §8: 状态/赔率必重评; 决策层+首页永远重装配)。
+# 增量复查里永远重跑的节点(spec §8: 状态/赔率必重评; 路径每次对照新数据核销
+# 证伪/左尾清单=重跑; 决策层+首页永远重装配)。质地是唯一可复用节点, 标脏才进来。
 # triage 用它兜底, 本模块只声明不强制——调度器把它并进标脏集合后再排波。
-ALWAYS_RERUN: tuple[str, ...] = ("state", "odds", "decision")
+ALWAYS_RERUN: tuple[str, ...] = ("state", "odds", "path", "decision")
 
 
 class UnknownNode(ValueError):

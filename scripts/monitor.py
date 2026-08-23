@@ -392,6 +392,12 @@ class Monitor:
 # ---------- CLI ----------
 
 def main():
+    print(
+        "⚠️ --monitor 已并入 v8 增量复查 --review(分层重评 + 首页「较上版变化」)。\n"
+        "   本脚本保留为 v7 旧报告的量化监控别名, 将在下一个版本周期移除;\n"
+        "   v8 结构报告请改用: /company-analysis {company} --review(分诊内核 = scripts/triage.py)。\n",
+        file=sys.stderr,
+    )
     ap = argparse.ArgumentParser(description="Run quantitative monitor for a company.")
     ap.add_argument("company", help="Company name (Chinese or English, matches output/ folder)")
     ap.add_argument("--ticker", required=True, help="Stock code (e.g. 002862.SZ, AAPL, 0700.HK)")

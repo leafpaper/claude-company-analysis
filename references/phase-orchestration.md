@@ -25,6 +25,8 @@ output/{company}/
     ├── nodes/node-{quality,state,odds,path,decision}.md    五个判断节点(顶部 YAML verdict 块)
     ├── assembly/assembly.json  装配产物(决断卡/面板/Top3/metadata/变化区块)
     ├── reviewer_responses/     质量环往返
+    ├── baseline/               仅增量 run: 刷新前证据快照(init_run incremental 自动拷)
+    ├── triage.json             仅增量 run: R2 分诊单(scripts/triage.py 产)
     └── {company}-analysis-{date}.md   主报告
 ```
 
@@ -117,6 +119,17 @@ output/{company}/
    判断类 → fresh-restart 写手(主 agent **不改 YAML 块**);表述类 → 主 agent 改正文;交付类 → 改 HTML 模板。
 4. **3 轮上限 + diff 对抗检测**:`diff_repeat=true`(两轮之间节点 md 一个字没变)或 round 3 仍 FAIL → 转人工。
 5. 每轮写一行 `main-log.md`(`- {ts} reviewer Round N 综合判定 …,FIX 数 M`)。
+
+---
+
+## 增量复查 `--review`(四段链,详细见 `phases/review-pipeline.md`)
+
+全量 Phase 1-6 的增量重排,**不是新流程**:R0 `init_run --run-type incremental`(硬规则 1 +
+基线快照)→ R1 data-collector/doc-analyst 增量模式(脚本全量刷新、只下/只喂新增 PDF)→
+R2 `scripts.triage --apply-reuse`(纯脚本分诊:质地标脏四条机检、复用盖戳、产 triage.json)→
+R3 依赖图跑标脏子集(`triage.json.waves`,prompt 模板同 Phase 3 + 增量注入)→
+R4 装配带 `--prev-run-dir` + `--metric-deltas`(首页「较上版变化」区块 + 硬规则 2 机判)→
+**Phase 6 全套不打折**。质地复用时成本 ≈ 全量 1/3。
 
 ---
 

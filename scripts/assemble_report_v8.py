@@ -319,7 +319,14 @@ def assemble_run(
     if prev_run_dir:
         prev_run_dir = Path(prev_run_dir)
         prev_nodes = assembly.load_nodes(prev_run_dir / "nodes")
-        prev_script_flags = load_audit_flags(None, [prev_run_dir])
+        # 上版脚本红旗: 采集产物落公司级且被 R1 原地刷新, 旧值在本次 run 的基线快照里
+        # (init_run --run-type incremental 拷的 baseline/red_flags.json, 已是契约条目);
+        # 没有快照(如手工指定 prev-run-dir 对比两个全量)再退回上版 run 目录里找 audit JSON。
+        baseline_flags = run_dir / "baseline" / "red_flags.json"
+        if baseline_flags.exists():
+            prev_script_flags = json.loads(baseline_flags.read_text(encoding="utf-8"))
+        else:
+            prev_script_flags = load_audit_flags(None, [prev_run_dir])
 
     flags_preview = rf.merge(script_flags, rf.collect_nominations(nodes))
     appendix_sections, appendix_records = build_appendices(flags_preview, search_dirs)

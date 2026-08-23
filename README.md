@@ -136,6 +136,7 @@ output/{公司名}/
     ├── nodes/node-{quality,state,odds,path,decision}.md   # 五个判断节点（顶部 YAML verdict 块）
     ├── assembly/assembly.json     # 装配产物（决断卡/面板/Top3/metadata/变化区块）
     ├── reviewer_responses/        # 质量环往返
+    ├── baseline/ + triage.json    # 仅增量 run：刷新前证据快照 + R2 分诊单
     ├── {公司}-analysis-{date}.md  # ⭐ 主报告（首页 + 五章 + 附录A-E）
     └── {date}.html                # ⭐ HTML 可视化
 ```
@@ -203,6 +204,7 @@ claude-company-analysis/
     ├── manifest.py             # 公司级状态（runs / 增量计数 / 披露日 / 对比组）
     ├── verdict_block.py        # ⭐ 节点 YAML 块抽取 + schema 校验（波次门控）
     ├── node_graph.py           # ⭐ 判断链依赖图：任意节点子集 → 执行波次
+    ├── triage.py               # ⭐ 增量复查 R2 纯脚本分诊（标脏机检/波次/指标diff/复用盖戳）
     ├── red_flags.py            # ⭐ 红旗两源合并 / Top3 / 红标反查
     ├── assembly.py             # ⭐ 摘要层装配（决断卡/面板/Top3/变化区块）
     ├── assemble_report_v8.py   # ⭐ 报告总装（首页 + 五章 + 附录A-E）
@@ -212,8 +214,8 @@ claude-company-analysis/
     ├── build_html.py           # HTML 渲染
     ├── update_index.py         # 主页索引联动
     ├── lessons_manager.py      # 全局经验库
-    ├── report_parser.py        # 解析历史报告（monitor 用）
-    ├── monitor.py              # ⭐ 量化监控核心
+    ├── report_parser.py        # 解析历史报告（v7 monitor 用）
+    ├── monitor.py              # v7 量化监控（--review 的重定向别名，一个版本周期后删）
     ├── requirements.txt
     ├── README.md
     └── tests/                  # pytest 单测
@@ -274,7 +276,15 @@ cd 到 skill 根目录(`~/.claude/skills/company-analysis`)后:
 /company-analysis 贵州茅台
 ```
 
-> v7 的 `--monitor` 量化监控已随 v8.0 退役；增量复查 `--review`（分层重评 + 首页「较上版变化」）在 v8 后续版本提供。
+财报季对已有 v8 报告做增量复查（分层重评，成本约全量 1/3，首页「较上版变化」首句答「阿尔法变了没」）：
+
+```
+/company-analysis 贵州茅台 --review
+```
+
+> 自然语言「复查 / 更新 / 看看有什么变化」同触发；`--monitor` 已改名 `--review`（保留重定向一个版本周期）。
+> 质地默认复用，仅四条标脏机检（年报披露 / 分部占比跨档 / 新质地红旗 / 关键指标变号）触发才重评；
+> 状态/赔率/路径/决策每次必重评，lint + 双 reviewer 不打折。
 
 ---
 

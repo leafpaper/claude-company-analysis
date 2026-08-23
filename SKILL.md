@@ -113,7 +113,10 @@ Agent(subagent_type="X", prompt="...", run_in_background=True/False, description
 
 > 本 skill **只分析上市公司**——创业公司口径(C/D 轮评分、条款分析、实物期权、退出瀑布)已随 v8 框架文档重组移除,不再询问类型。
 >
-> 用户敲 `--monitor` / 说"复查、更新、看看有什么变化" → 告诉他:v7 的量化监控已退役,增量复查 `--review`(分层重评 + 首页「较上版变化」)在 v8 后续版本提供,当前请跑全量分析。
+> **增量复查入口**:用户敲 `--review` / 说"复查、更新、看看有什么变化" → 走 `phases/review-pipeline.md`
+> 四段链(R1 证据刷新 → R2 纯脚本分诊 → R3 标脏子集重评 → R4 决策层+首页重装配),不跑全量。
+> 敲 `--monitor` → 同上,先告知一句:「--monitor 已改名 --review(量化监控升级为分层增量复查),下版起移除旧名」。
+> 硬规则 1:基线不是 v8 结构(init_run 退出码 3)→ 告知后改跑全量。
 
 ---
 
@@ -126,6 +129,9 @@ Agent(subagent_type="X", prompt="...", run_in_background=True/False, description
 - 建 `output/{company}/`(含 `raw_data/pdfs`)+ **`runs/{date}/`**(`nodes/` `assembly/` `reviewer_responses/`),登记 `manifest.json`(公司级状态唯一源),并在 `main-log.md` 追加一行"开始分析"。
 - stdout 第一行 = `{artifacts_dir}`(公司目录),第二行 = `{run_dir}`(本次 run 目录)。**两个路径都要记下来**,后面每个 sub-agent 的 prompt 都要带。
 - 同日期 run 目录已存在 → 脚本报 `RunExists`:确认是重跑则先手动清理旧目录,或改用次日日期。
+- **增量复查用 `--run-type incremental`**:额外做硬规则 1 校验(退出码 3 → 改跑全量)+ 把刷新前的
+  `metrics.json`/`red_flags.json`/`audit_report.json`/`fina_mainbz.parquet`/PDF 清单快照进 `runs/{date}/baseline/`
+  (R2 分诊的 diff 基线)。之后按 `phases/review-pipeline.md` 走 R1-R4,不再回本文件 Step 3。
 
 **产物清单**:
 
@@ -187,6 +193,8 @@ Phase 1 (data-collector) → Phase 2 (doc-analyst)
 |---|---|
 | Step 0 环境失败 | 停止 + 给修复命令(装依赖 `{PYBIN} -m pip install --user -r scripts/requirements.txt`;设 token:Mac/Linux `export TUSHARE_TOKEN=xxx`, Windows `[Environment]::SetEnvironmentVariable('TUSHARE_TOKEN','xxx','User')`) |
 | Step 2 `RunExists` | 同日期已有 run:确认重跑意图后清理旧目录,或用次日日期 |
+| Step 2 增量退出码 3(硬规则 1) | 基线不是 v8 结构 → 告知用户后改跑 `--run-type full` 全量 |
+| `triage` 退出码 2 | 缺基线快照(没跑 init_run incremental / R1 未完成)→ 按 review-pipeline.md 顺序补 |
 | Phase N sub-agent FAIL | fresh-restart 1 次,prompt 注入"上轮 FAIL 原因 + 门控报错原文";仍失败 → 转人工 |
 | 某节点 schema 3 轮仍红 | 转人工,不要自己改它的 YAML 块 |
 | 装配报节点块不合契约 / 红旗 id 找不到 | 按打印的字段路径 fresh-restart 对应写手 |
@@ -238,6 +246,7 @@ Phase 1 (data-collector) → Phase 2 (doc-analyst)
 | `scripts/financial_audit.py` | 11 框架红旗(`--json` 产结构化清单) |
 | `scripts/red_flags.py` ★ | 红旗两源合并 / Top3 / 红标反查(产 `red_flags.json` 供写手引 id) |
 | `scripts/node_graph.py` ★ | 判断链依赖图:任意节点子集 → 执行波次 |
+| `scripts/triage.py` ★ | 增量复查 R2 纯脚本分诊:标脏机检 / 重评波次 / 指标 diff / 复用盖戳(产 `triage.json`) |
 | `scripts/verdict_block.py` ★ | 节点 YAML 块抽取 + schema 校验(每波门控) |
 | `scripts/assembly.py` + `scripts/assemble_report_v8.py` ★ | 摘要层装配 + 报告总装 |
 | `scripts/lint_v8.py` ★ | 质量环机器门控(10 条:schema / 红旗闭环 / 数字唯一 home / 封顶 / 越权 / 报告同步…) |
@@ -247,7 +256,7 @@ Phase 1 (data-collector) → Phase 2 (doc-analyst)
 
 ### Phase 详细指令
 
-`phases/phase1-data-collection.md`(data-collector 内部读)· `phases/phase2-document-analysis.md`(doc-analyst 内部读)· `phases/phase3-node-writing.md`(**主 agent 读**)· `phases/phase6-review-publish.md`(**主 agent 读**:机器门控 / reviewer / 修正循环 / 发布 / 缺口补查)。
+`phases/phase1-data-collection.md`(data-collector 内部读)· `phases/phase2-document-analysis.md`(doc-analyst 内部读)· `phases/phase3-node-writing.md`(**主 agent 读**)· `phases/phase6-review-publish.md`(**主 agent 读**:机器门控 / reviewer / 修正循环 / 发布 / 缺口补查)· `phases/review-pipeline.md`(**主 agent 读**:增量复查 `--review` 四段链 R0-R4)。
 
 ---
 

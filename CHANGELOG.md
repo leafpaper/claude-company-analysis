@@ -4,6 +4,46 @@
 
 ---
 
+## [v8.1] — 2026-08-24 — 增量复查 `--review`(ticket 09)
+
+> **主题**: 财报季一条命令对已有 v8 报告做分层复查,成本约全量 1/3。四段链彻底取代 v7 的
+> `--monitor` 量化监控:R1 证据刷新(采集/精析增量模式)→ R2 **纯脚本零 LLM 分诊**(`scripts/triage.py`)
+> → R3 依赖图跑标脏子集(复用票 05 调度)→ R4 决策层 + 首页必重装配(「较上版变化」区块,
+> 首句机器答「阿尔法变了没」)。lint + 双 reviewer **不打折**;旧版整目录留档,发布替换。
+
+**Added**
+- **`scripts/triage.py` + `scripts/schemas/triage.schema.json`**:R2 分诊单为结构化产物——
+  质地标脏四条全部机检((a) 新增年报 PDF、(b) 分部占比跨 10%/25%/50% 档线(`fina_mainbz` 两版对比)、
+  (c) 新增 🔴/🟠/🟡 质地红旗(red_flags.json 按 id diff)、(d) 关键指标过零变号(OCF/FCF/净利/ROE/净利同比));
+  **拿不准一律标脏**(单侧数据缺失 → triggered=null 且整体标脏;两侧皆无 = 无变化信号,不永久标脏)。
+  另产重评波次(`node_graph.ALWAYS_RERUN` 补上 `path`——spec §8 路径每次核销=重跑)、±10% 指标 diff
+  (直接喂 `assemble_report_v8 --metric-deltas`)、红旗 diff、④路径核销清单、②状态临界点、建议档。
+- **`--apply-reuse` 复用盖戳**:未重评节点从上版拷 md,YAML 块盖 `reused_from`(连续复用保留最初
+  重评日期)+ 正文插一行 ♻️ 说明(读者可见,复用不藏着),拷完按节点 schema 复检。
+- **`init_run --run-type incremental`**:硬规则 1(基线无 manifest/runs 或上版节点块不合契约 →
+  `BaselineInvalid` 退出码 3,主 agent 改跑全量)+ 基线快照(采集产物落公司级会被 R1 原地覆盖,
+  刷新前把 metrics/red_flags/audit/fina_mainbz/PDF 清单拷进 `runs/{date}/baseline/`,是分诊 diff 的唯一 before 侧)。
+- **`phases/review-pipeline.md`**:主 agent 的 R0-R4 checklist(增量 prompt 注入:④路径逐条核销、
+  ②状态临界点到达判定、①质地标脏原因);SKILL.md Step 1/2 接入 `--review` 与自然语言触发。
+- **站点卡片超龄警示**:`update_index` 卡片新增 `review_hint` 字段(manifest 建议档:距上次全量
+  >12 个月 / 累计 ≥4 次增量 → 「建议全量重锚」);Inves-Report 卡片无披露日且基准日 >90 天 → 「陈旧,建议复查」。
+- 测试 29 项(`test_triage_v8`):东山中报双向场景 golden(场景 A 四条全不触发 → 质地复用、
+  场景 B 分部 3.6%→12% 跨档 → 标脏)、保守回退、建议档、硬规则 1、复用戳链式行为。
+
+**Changed**
+- `agents/data-collector.md` / `agents/doc-analyst.md` 增量模式段:脚本 artifact 全量刷新、PDF 只下
+  新增(对照 `baseline/pdfs_before.json`)、完成报告加 `**新增 PDF**:` 行;doc-analyst 只精读新增并
+  **并入更新** phase2-documents.md。
+- `--monitor` 保留为重定向别名:SKILL.md 入口改道 `--review` + 改名提示;`scripts/monitor.py` CLI
+  打印迁移提示(一个版本周期后删)。
+
+**Fixed**
+- 装配「较上版变化」区块的上版脚本红旗此前只在上版 run 目录找 `audit_report.json`——但采集产物落
+  公司级且被 R1 原地刷新,永远找不到 → 全部现红旗会被误报为「新增」。现在优先读本次 run 的
+  `baseline/red_flags.json`(已是契约条目),没有快照再退回旧逻辑。
+
+---
+
 ## [v8.0] — 2026-08-19 — 判断链收敛（首页一眼决断 + 五章 + 附录A-E）
 
 > **主题**: 报告结构就是判断链本身。9 章节收敛成「首页一眼结论 + ①质地 / ②状态 / ③赔率 / ④路径 /

@@ -115,6 +115,7 @@ class CardMetadata:
     quality_field: str = ""            # v8: 质地字段(是不是好公司), 与 verdict 并列上卡片
     action_gear: str = ""              # v8: 行动档位(六档原词, 供站点按档位分组/配色)
     next_disclosure_date: str = ""     # v8: 下次预约披露日(站点超龄/陈旧警示的基准)
+    review_hint: str = ""              # v8 票09: manifest 建议档(>12月未全量/≥4次增量 → 建议全量重锚)
     valuation_tag: str = ""
     one_liner: str = ""
     metrics: list[dict] = None
@@ -491,6 +492,15 @@ def main():
         print(f"❌ 解析失败: {e}", file=sys.stderr)
         import traceback; traceback.print_exc()
         return 1
+
+    # v8 票09 建议档: manifest 状态机(距上次全量 >12 个月 / 累计 ≥4 次增量)→ 卡片超龄警示升级
+    from . import manifest as manifest_mod
+    from .triage import full_rerun_advice
+    m = manifest_mod.load(company_dir)
+    if m and m.get("last_full_date") and card.report_date:
+        advice = full_rerun_advice(m, card.report_date)
+        if advice["advised"]:
+            card.review_hint = "建议全量重锚: " + "; ".join(advice["reasons"])
 
     # 写 card-metadata.json
     card_json = company_dir / "card-metadata.json"

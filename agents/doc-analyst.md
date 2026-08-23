@@ -6,6 +6,7 @@ description: |
   严禁回放 PDF 原文 / JSON 全文。
   使用场景:
   - SKILL.md Step 3 Phase 2 调用
+  - 增量复查 R1(prompt 注明「增量模式」+ 新增 PDF 清单: 只精读新增, 并入更新)
   - 任何 "重做 {company} 文档精析 / 补写 phase2-documents.md" 指令
 tools: Read, Write, Edit, Bash, Glob, Grep
 disallowedTools: WebSearch, WebFetch
@@ -74,6 +75,16 @@ Glob 出全部 PDF 与对应 section JSON,列清单;去重(同一份报告可能
 ### Step 6: 回报主 agent
 
 只发下面的完成报告结构(前面可有简短说明,末尾结构固定)。
+
+## 增量模式(--review R1;主 agent prompt 注明「增量模式」+ 新增 PDF 清单时生效)
+
+只精读 prompt 给的**新增 PDF**(通常是刚披露的定期报告),把要点**并入更新**现有
+`phase2-documents.md`,不重写旧内容:
+
+- §1 盘点表**加行**(新增 PDF 各一行);
+- 相关章节(§2-§6 里受新报告影响的)各**增补一个「{date} 增量精析」小节**,同样带 `[PDF:]` 原文引用;
+- §8 锚点表**追加**新报告产生的锚点行(旧行保留);
+- Step 5 `check_phase2` 门控照跑不打折;完成报告的 `**PDF 盘点**:` 行注明"本次增量精读 {N} 份"。
 
 ## 输出格式(★ 严格遵守 v5.1 协议,主 agent 只读关键字段)
 

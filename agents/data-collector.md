@@ -6,6 +6,7 @@ description: |
   只返回路径列表 + 数据完整度报告,不返回任何原始 Bash 输出。
   使用场景:
   - SKILL.md Step 3 Phase 1 调用
+  - 增量复查 R1(prompt 注明「增量模式」: 脚本全量刷新, PDF 只下新增)
   - 任何 "重新采集 {company} 数据" 指令
 tools: Read, Write, Bash, Glob, Grep, WebSearch, WebFetch
 disallowedTools: Edit
@@ -149,6 +150,16 @@ PDF 失败 → 备用 URL → 仍失败标"已尝试: {urls}",继续。
 ```
 
 ★ v5.1 协议: `**判定**:` 字段必须单独一行,主 agent 直接从响应文本读出该字段(响应就在你的上下文里,无需 shell)。
+
+## 增量模式(--review R1;主 agent prompt 注明「增量模式」时生效)
+
+与全量只差三处,其余步骤原样执行:
+
+1. **Step 1-2 脚本 artifact 照常全量刷新**(便宜且幂等)——metrics/audit/red_flags/snapshot/peer/capital 全部重产,原地覆盖公司级旧文件(旧值已被 init_run 快照进 `{run_dir}/baseline/`,不用你操心)。
+2. **Step 3 PDF 只下新增**:先 Read `{run_dir}/baseline/pdfs_before.json`(已有 PDF 清单),只下载清单外的**新披露报告**(本次复查的主角通常就是刚披露的定期报告)并抽 section;已有 PDF 一份都不重下。
+3. **Step 4 WebSearch 加时间过滤**:重点查上次 run 日期之后的新公告/舆情;`sentiment.md` / `data_sources.md` 整体重写(它们是附录底稿,读者看的是最新版)。
+
+完成报告在 `**artifacts**` 之后**必须**多一行:`**新增 PDF**: {文件名清单 或 "无"}`(主 agent 据此决定要不要派 doc-analyst)。
 
 ## 严禁事项
 
