@@ -515,6 +515,8 @@ def fold_sections(html_text: str) -> str:
     out = [parts[0]]                           # 判定行 + 子判定表: 常驻
     for i in range(1, len(parts), 2):
         head = re.sub(r"</?h3\b[^>]*>", "", parts[i]).strip()
+        # summary 里不放链接:嵌套可点元素会抢走「展开/收起」的点击, 键盘顺序也乱
+        head = re.sub(r"<a\b[^>]*>(.*?)</a>", r"\1", head, flags=re.DOTALL)
         body = parts[i + 1] if i + 1 < len(parts) else ""
         out.append(
             f'<details class="drill"><summary>{head}</summary>'
@@ -576,6 +578,8 @@ def render_valuation_meter(nodes: dict | None) -> str:
         f'    <span class="band" style="left:{x(lo)}%;width:{band_w}%"></span>',
         f'    <span class="mark{over_cls}" style="left:{x(price)}%"></span>',
         "  </div>",
+        # 两端刻度:没有刻度的尺不是尺 —— 读者得知道整条轨道代表什么范围
+        f'  <div class="scale"><span>0</span><span>{round(top)} {unit}</span></div>',
         '  <div class="lg">'
         f'<span><i class="sw band"></i>合理区间 {lo}–{hi} {unit}'
         "<small>SOTP / DCF 两端</small></span>"
@@ -777,7 +781,11 @@ def render_intro(product: dict) -> str:
     intro = product.get("front_page_intro")
     if not intro:
         return "<!-- 无写手导读 -->"
-    paragraphs = "\n".join(f"<p>{_esc(p)}</p>" for p in re.split(r"\n{2,}", intro.strip()) if p.strip())
+    # 按**单**换行切句成段:导读是首页唯一不走 markdown 渲染的人工字段, 写手在 YAML 里
+    # 一句一行写得清清楚楚, 但 HTML 会把单换行吃成空格 —— 只认空行的话 5 句会合成一个 <p>,
+    # 桌面 1120px 下看着是 5 行、看不出问题, 390px 下就是一堵十几行没有断点的墙,
+    # 而最该一眼看到的末句(「那天盯三件事」)正好埋在墙底(票 08 第 5 轮交付评审实测)。
+    paragraphs = "\n".join(f"<p>{_esc(p)}</p>" for p in re.split(r"\n+", intro.strip()) if p.strip())
     return (
         '<div class="secl"><span class="t">写手导读</span> '
         '<span class="chip man">人工 3-5 句</span></div>\n'

@@ -545,36 +545,71 @@ if __name__ == "__main__":
 # ---------------------------------------------------------------- R11 散文密度
 
 class TestProseDensity(_Run):
-    """R4 数行数, 于是写手把行写长。R11 按密度判, 抓「一张没写成表的表」。"""
+    """判据是「形状」不是「数字个数」——票 08 第 4 轮交付评审校准。
 
-    def test_too_many_numbers_in_one_line_warns(self):
+    数数字两头都误判:好读的长判断句被误报, 好读的平行短句也被误报;
+    真正读不下去的那种句子, 外形特征是「列表被焊成了段落」。
+    """
+
+    def test_enumerated_list_welded_into_prose_warns(self):
+        """1)2)3) 编号项堆成一段 = 一张没写成表的表(东山④路径 711 字那段的形状)。"""
+        self.append_body("path", "上表七条的完整传导: 1)想象溢价回吐 2)大客户砍单 3)商誉减值 4)存货计提")
+        r = self.rule(self.lint(assemble=False), "R11 ")
+        self.assertFalse(r.passed)
+        self.assertTrue(any("编号项" in f for f in r.findings), r.findings)
+
+    def test_period_comparison_chain_warns(self):
+        """A → B → C 的期间对比链(东山①质地「财务费用三期翻向」的形状)。"""
+        self.append_body("quality", "财务费用 2024 -0.59 亿 → 2025 +2.63 亿 → 2026Q1 2.48 亿 → 年化约 10 亿。")
+        r = self.rule(self.lint(assemble=False), "R11 ")
+        self.assertFalse(r.passed)
+        self.assertTrue(any("期间对比" in f for f in r.findings), r.findings)
+
+    def test_parallel_items_warns(self):
+        """顿号串起来的并列项(逐分部 / 逐科目)。"""
+        # 四个分部各带一个倍数 = 4 个数字, 越过「并列项还要 ≥4 个数字」的门槛
         self.append_body(
-            "odds",
-            "折现率 10.5% = 无风险 1.8% + 风险溢价 5.5% + 国家风险 0.6% + 杠杆 1.5% + 执行 1.1%。",
+            "odds", "四个分部:电子电路 30x、光模块 40x、精密组件 0.5x PS、光电显示 0.3x PS。")
+        r = self.rule(self.lint(assemble=False), "R11 ")
+        self.assertFalse(r.passed)
+        self.assertTrue(any("并列项" in f for f in r.findings), r.findings)
+
+    def test_long_judgment_sentence_without_numbers_passes(self):
+        """reviewer 的反例一:③赔率结尾 140 字几乎没数字, 是全报告最好读的一段, 不该报警。"""
+        self.append_body("odds", (
+            "四条隐含假设没有一条能用它自己的历史或同业撑住。"
+            "市场买的不是当期回报率而是回报率将来会跳档, "
+            "所以这不是一张白送的彩票, 而是市场已经收过钱、要求必须交付的义务。"
+            "做不到就杀估值, 这一点在价格里没有任何缓冲。"
+        ))
+        r = self.rule(self.lint(assemble=False), "R11 ")
+        self.assertFalse([f for f in r.findings if "③赔率 一行" in f], r.findings)
+
+    def test_parallel_short_answers_with_many_numbers_pass(self):
+        """reviewer 的反例二:数字多但彼此平行、互不比较, 读者不用同时记住任何两个。"""
+        self.append_body("state", "一年涨了 311%。近 20 日主力净流出 4.29 亿。融资余额低于中位 17.4%。户数增 241%。")
+        r = self.rule(self.lint(assemble=False), "R11 ")
+        self.assertFalse([f for f in r.findings if "②状态 一行" in f], r.findings)
+
+    def test_all_tables_no_judgment_prose_warns(self):
+        """正向断言:数字归表之后观点也要有地方说, 别把章写成一摞表。"""
+        self.bodies["odds"] = "\n".join(
+            ["**判定:买完完美未来。**", ""]
+            + ["| 分部 | 倍数 |", "|---|---|"]
+            + [f"| 分部{i} | {i}0x |" for i in range(1, 12)]      # 写满(≥10 行)才判
         )
         r = self.rule(self.lint(assemble=False), "R11 ")
         self.assertFalse(r.passed)
-        self.assertTrue(any("个数字" in f for f in r.findings), r.findings)
+        self.assertTrue(any("纯判断散文" in f for f in r.findings), r.findings)
 
-    def test_over_long_line_warns(self):
-        self.append_body("path", "左尾传导:" + "商誉减值会同时冲减利润与净资产," * 16)
+    def test_stub_chapter_is_not_nagged_for_missing_judgment_prose(self):
+        """正向断言只对写满了的章判 —— 桩章节/刚起头的草稿没必要被念叨。"""
         r = self.rule(self.lint(assemble=False), "R11 ")
-        self.assertFalse(r.passed)
-        self.assertTrue(any("字" in f for f in r.findings), r.findings)
-
-    def test_same_numbers_as_a_table_pass(self):
-        """同样的数字写成表格就不判 —— 这正是这条规则想推着写手做的事。"""
-        self.append_body("odds", "\n".join([
-            "| 项 | 值 |", "|---|---|",
-            "| 无风险 | 1.8% |", "| 风险溢价 | 5.5% |", "| 国家风险 | 0.6% |",
-            "| 杠杆调整 | 1.5% |", "| 执行风险 | 1.1% |", "| 合计 | 10.5% |",
-        ]))
-        r = self.rule(self.lint(assemble=False), "R11 ")
-        self.assertTrue(r.passed, r.findings)
+        self.assertFalse([f for f in r.findings if "纯判断散文" in f], r.findings)
 
     def test_is_warn_not_fail(self):
         """密度是文风预算, 不阻断出片(与 R4 同档)。"""
-        self.append_body("odds", "现价 213.82 元、锚 77.6 元、97.9 元、F 610 亿、N 3,306 亿、市值 3,916 亿。")
+        self.append_body("odds", "1)第一条 2)第二条 3)第三条 4)第四条")
         result = self.lint(assemble=False)
         self.assertFalse(self.rule(result, "R11 ").passed)
         self.assertTrue(result.passed, "R11 是 warn, 不该把 lint 判红")

@@ -124,6 +124,12 @@ NUMBER_PHRASE = re.compile(
 # 「带出处的引用」= 指向别的章或附录(链手册 §4.5 允许的异地写法)
 CITATION = re.compile(r"[①②③④⑤]|附录[A-E]")
 
+# 两位整数百分比(30% / 16% / 46%…)撞车率极高、信息量极低:R3 按数字串比对、不认指标,
+# 东山实测「光模块毛利率跌破 30%」(②状态)与「DCF 情景概率 / 收入 CAGR 30%」(③赔率)
+# 被判成同一个数字 —— 照它的要求加出处会写出假话(等于说 DCF 概率来自一个毛利率阈值)。
+# 所以整百分点的两位数不进 home 追踪;带小数或带量纲的(30.5% / 3,306 亿)照常判。
+_COLLIDING_PCT = re.compile(r"\d{1,2}%")
+
 
 def split_report(md_text: str) -> dict[str, str]:
     """把装配后的主报告按 `## ` 切成 {标题: 正文};段间分隔线 `---` 不计入正文。"""
@@ -254,7 +260,7 @@ def rule_number_home(bodies: dict[str, str]) -> RuleResult:
             for m in NUMBER_PHRASE.finditer(_squash(line)):
                 per_phrase.setdefault(m.group(0), []).append(line)
         for phrase, lines in per_phrase.items():
-            if len(phrase) < 3:
+            if len(phrase) < 3 or _COLLIDING_PCT.fullmatch(phrase):
                 continue
             if any(CITATION.search(l) for l in lines):
                 continue
@@ -297,34 +303,101 @@ def rule_budget(bodies: dict[str, str]) -> RuleResult:
 # ============================================================================
 # R4 数的是**行数**, 于是写手把该说的塞进更少的行里 —— 行写长就行。列表形状的内容
 # (四个分部 / 五项折现率 / 三个情景 / 七条传导)因此被焊成一个段落, 读者得在脑子里重建表。
-# 东山首份 v8 报告实测: 五章 17 行「一行 ≥5 个数字」, 最密的一行 844 字 24 个数字。
-# 所以再加一条按**密度**判的:行内数字太多 = 这是一张没写成表的表。表格不吃章预算, 天然对齐。
-PROSE_MAX_NUMS = 5          # 一行散文里的数字短语上限
-PROSE_MAX_CHARS = 200       # 一行散文的字数上限(中文按字符算)
+# 东山首份 v8 报告实测: 五章 17 行, 最密的一行 844 字。
+#
+# ★ 判据是「形状」不是「数字个数」(票 08 第 4 轮交付评审校准):
+#   数数字两头都误判 —— ③赔率结尾 140 字几乎没数字, 是全报告最好读的一段;
+#   ②有一段 185 字塞 7 个数字却完全好读, 因为那是四句**平行、互不比较**的自问自答。
+#   真正读不下去的是「读者必须同时在脑子里持有几个数字才能跟上这一句」, 而那种句子的
+#   外形特征是**列表被焊成了段落**: 逐条 / 逐期 / 逐分部 / 逐情景 / 逐科目。
+#   所以主判据 = 列表形状检测, 长度只作兜底提示。
+#
+# ★★ 但这条规则**只是定位器, 不是判官**(第 5 轮评审的结论, 比上面那层更要紧):
+#   真正决定「该不该是表」的不是有没有并列项, 而是**这些并列项之间有没有共同的列**——
+#   分部 / 净利 / 倍数 / 估值 有共同列, 天生是表;
+#   「给光模块 40x 是因为索尔思单体没披露、1.6T 只到小批量试产」没有共同列, 它是**理由**,
+#   而理由的正确形状就是散文。**有没有共同列这件事机器数不出来, LLM 才数得出来。**
+#   所以本规则永远 warn、只报「可疑段落在哪」, 结论交给 reviewer;
+#   阈值也别拿单份报告标定(那会把「中文散文本来就用顿号」学成特征)——待多公司样本单独切票。
+PROSE_MAX_CHARS = 200       # 兜底: 一行散文的字数(中文按字符算), 提示而非定罪
+
+# 列表形状的三种外形: 编号项 / 期间对比(A → B) / 并列项(顿号或分号串)
+_ENUM = re.compile(r"[1-9][)）]|[①-⑨](?=[^质状赔路决])")
+_ARROW = re.compile(r"(?:→|->|—>)")
+_PARALLEL = re.compile(r"[、;;]")
+SHAPE_MIN_HITS = 3          # 同一类标记出现 ≥3 次 = 一张没写成表的表
+
+
+def _list_shape(line: str, after_table: bool = False) -> str | None:
+    """这一行是不是「被焊成段落的表」? 返回命中的形状名, 否则 None。
+
+    两处校准(票 08 第 4 轮实测, 都是为了压误报):
+    · **并列项要同时数数字**。中文散文本来就大量用顿号 —— 只数标点会把出处引用行
+      (「贵不贵见③赔率;客户集中见④路径」)和引号串反例判成表。要求 ≥4 个数字短语,
+      才像「逐分部 / 逐科目」那种真正该进表的东西。
+    · **紧跟表格的一行豁免**。那是链手册认可的「表下注」形态 —— reviewer 明确要求把
+      倍数理由、证伪指标从列里下沉成注, 这条规则不能反过来又把它推回表里。
+    """
+    if after_table:
+        return None
+    n_nums = len(NUMBER_PHRASE.findall(_squash(line)))
+    for name, pat, need_nums in (
+        ("编号项", _ENUM, 0),
+        ("期间对比(A → B)", _ARROW, 0),
+        ("并列项", _PARALLEL, 4),
+    ):
+        if len(pat.findall(line)) >= SHAPE_MIN_HITS and n_nums >= need_nums:
+            return name
+    return None
 
 
 def rule_prose_density(bodies: dict[str, str]) -> RuleResult:
-    """散文行里数字堆太多 / 行太长 → 该改写成表格或分条。warn, 不阻断出片。"""
+    """列表形状的内容被焊成散文 → 该改成表。warn, 不阻断出片。
+
+    另加一条**正向**断言防矫枉过正: 每章至少要有一段像样的纯判断散文,
+    否则报告会被优化成一摞没有观点的表(票 08 第 4 轮①质地表格化后已逼近这条线)。
+    """
     findings = []
     for node in CHAPTER_ORDER:
-        for line in bodies.get(node, "").splitlines():
-            s = line.strip()
-            if not s or s.startswith("|") or s.startswith("#"):
-                continue            # 表格与标题本来就是结构化的, 不判
-            nums = NUMBER_PHRASE.findall(_squash(line))
-            if len(nums) > PROSE_MAX_NUMS or len(s) > PROSE_MAX_CHARS:
-                why = []
-                if len(nums) > PROSE_MAX_NUMS:
-                    why.append(f"{len(nums)} 个数字")
-                if len(s) > PROSE_MAX_CHARS:
-                    why.append(f"{len(s)} 字")
+        prose, after_table = [], set()
+        prev_was_table = False
+        for raw in bodies.get(node, "").splitlines():
+            s = raw.strip()
+            if not s:
+                continue
+            if s.startswith("|"):
+                prev_was_table = True
+                continue
+            if not s.startswith("#"):
+                if prev_was_table:
+                    after_table.add(len(prose))     # 紧跟表格 = 表下注, 形状判据豁免
+                prose.append(s)
+            prev_was_table = False
+        for i, s in enumerate(prose):
+            shape = _list_shape(s, after_table=i in after_table)
+            if shape:
                 findings.append(
-                    f"{LABELS[node]} 一行塞了 {' / '.join(why)}(上限 {PROSE_MAX_NUMS} 个 / "
-                    f"{PROSE_MAX_CHARS} 字), 改成表格或分条:{s[:50]}…"
+                    f"{LABELS[node]} 第 {i + 1} 段命中「{shape}」(≥{SHAPE_MIN_HITS} 处)"
+                    f"—— 请人判它该不该是表:{s[:42]}…"
                 )
+            elif len(s) > PROSE_MAX_CHARS:
+                findings.append(
+                    f"{LABELS[node]} 第 {i + 1} 段 {len(s)} 字(>{PROSE_MAX_CHARS})"
+                    f"—— 判断/推理可以长, 数据罗列不该长:{s[:42]}…"
+                )
+        # 正向断言: 至少一段有分量的纯判断。只对**写满了的章**判 ——
+        # 桩章节 / 刚起头的草稿没必要被念叨(fixture 的四行桩就属这类)。
+        body_lines = [l for l in bodies.get(node, "").splitlines() if l.strip()]
+        if len(body_lines) >= 10 and not any(
+            len(s) >= 80 and len(NUMBER_PHRASE.findall(_squash(s))) <= 2 for s in prose
+        ):
+            findings.append(
+                f"{LABELS[node]} 没有一段「≥80 字且数字 ≤2」的纯判断散文 —— "
+                "数字归表之后, 观点也要有地方说, 别把章写成一摞表"
+            )
     return RuleResult(
         name="R11 散文密度", severity=WARN, passed=not findings,
-        detail=f"{len(findings)} 行散文过密(列表形状的内容要写成表, 表格不吃章预算)",
+        detail=f"{len(findings)} 处可疑段落(定位器, 不是判官 —— 该不该改成表由 reviewer 判)",
         findings=findings,
     )
 
