@@ -449,8 +449,10 @@ class TestRunsAndManifest(unittest.TestCase):
             base = self._tmp_company(td)
             run_dir = manifest_mod.create_run(base, "full", date="2026-06-22", ticker="002384.SZ")
             self.assertEqual(run_dir, base / "runs" / "2026-06-22")
-            for sub in ("raw_data/pdfs", "nodes", "assembly", "reviewer_responses"):
+            for sub in ("nodes", "assembly", "reviewer_responses"):
                 self.assertTrue((run_dir / sub).is_dir(), f"缺子目录 {sub}")
+            # 采集产物落公司级 {artifacts_dir}(跨 run 共享), run 目录里不留空壳
+            self.assertFalse((run_dir / "raw_data").exists(), "run 目录不该建 raw_data")
             m = manifest_mod.load(base)
             self.assertEqual(verdict_block.validate(m, "manifest"), [])
             self.assertEqual(m["runs"], [{"date": "2026-06-22", "type": "full"}])
@@ -499,6 +501,58 @@ class TestRunsAndManifest(unittest.TestCase):
             manifest_mod.create_run(base, "incremental", date="2026-08-20")
             latest = manifest_mod.latest_run(base)
             self.assertEqual(latest, {"date": "2026-08-20", "type": "incremental"})
+
+
+class TestNextDisclosureDate(unittest.TestCase):
+    """预约披露日: A 股采集自动登记 → 报告头部一行 + 主页卡片(票 08 整合缺口)。"""
+
+    def test_picks_nearest_future_and_formats(self):
+        recs = [
+            {"pre_ann_date": "20260415"},          # 已过
+            {"pre_ann_date": "20261030"},
+            {"pre_ann_date": "20260828"},          # 最近的未来
+        ]
+        self.assertEqual(
+            manifest_mod.nearest_future_disclosure(recs, today="20260819"), "2026-08-28"
+        )
+
+    def test_modify_date_supersedes_pre_ann(self):
+        recs = [{"pre_ann_date": "20260828", "modify_date": "20260905"}]
+        self.assertEqual(
+            manifest_mod.nearest_future_disclosure(recs, today="20260819"), "2026-09-05"
+        )
+
+    def test_no_future_or_unknown_columns_returns_none(self):
+        self.assertIsNone(manifest_mod.nearest_future_disclosure([], today="20260819"))
+        self.assertIsNone(
+            manifest_mod.nearest_future_disclosure(
+                [{"pre_ann_date": "20260415"}], today="20260819"
+            )
+        )
+        # 列名不认识 / 值不是 8 位日期 → 留空, 不猜
+        self.assertIsNone(
+            manifest_mod.nearest_future_disclosure(
+                [{"某天": "20261030"}, {"pre_ann_date": "2026Q3"}], today="20260819"
+            )
+        )
+
+    def test_setter_writes_manifest_and_is_idempotent(self):
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td) / "东山精密"
+            manifest_mod.create_run(base, "full", date="2026-06-22", ticker="002384.SZ")
+            self.assertTrue(manifest_mod.set_next_disclosure(base, "2026-08-28"))
+            m = manifest_mod.load(base)
+            self.assertEqual(m["next_disclosure_date"], "2026-08-28")
+            self.assertEqual(verdict_block.validate(m, "manifest"), [])
+            self.assertFalse(manifest_mod.set_next_disclosure(base, "2026-08-28"))
+            self.assertFalse(manifest_mod.set_next_disclosure(base, None))
+
+    def test_setter_noop_without_manifest(self):
+        """还没 init_run 就采集: 不该凭空造一个 manifest。"""
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td) / "尚未初始化"
+            self.assertFalse(manifest_mod.set_next_disclosure(base, "2026-08-28"))
+            self.assertIsNone(manifest_mod.load(base))
 
 
 class TestSchemaFilesExist(unittest.TestCase):

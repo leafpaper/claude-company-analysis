@@ -1,14 +1,14 @@
-# YEZHI Company Analysis (v7.1)
+# YEZHI Company Analysis (v8.0)
 
 > **像一个谨慎的投资人那样，把一家公司从头到尾看一遍** —— 结构化财报数据 + 年报/季报 PDF 原文 + 11 大师框架自动审计 + 一张看得懂的「投资决断卡」，**全程说人话**。
 >
 > 支持 A 股 / 美股 / 港股 · 跑在 Anthropic Claude Code 里的 `/company-analysis` 命令 · 帮你**一眼筛好公司**，并把"是不是好公司"和"现在该不该买"分开回答
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v7.1-blue" alt="version">
+  <img src="https://img.shields.io/badge/version-v8.0-blue" alt="version">
   <img src="https://img.shields.io/badge/markets-A%E8%82%A1%20%7C%20%E7%BE%8E%E8%82%A1%20%7C%20%E6%B8%AF%E8%82%A1-green" alt="markets">
   <img src="https://img.shields.io/badge/audit-11%20frameworks-orange" alt="frameworks">
-  <img src="https://img.shields.io/badge/report-9%20chapters-purple" alt="chapters">
+  <img src="https://img.shields.io/badge/report-%E9%A6%96%E9%A1%B5%2B%E4%BA%94%E7%AB%A0%2B%E9%99%84%E5%BD%95A--E-purple" alt="chapters">
   <img src="https://img.shields.io/badge/license-MIT-lightgrey" alt="license">
 </p>
 
@@ -61,8 +61,8 @@
 | **强制 PDF 精读** | 不依赖第三方摘要。年报/季报 PDF 必须下载并提取关键段落（利润表变动原因 / 子公司业绩 / MD&A / 风险因素 / 非经常损益 等），关键结论带 `[PDF:报告期, P.x]` 引用。 |
 | **数学推导优先** | 估值赔率走 **P=F+N 分解 + 反向DCF 隐含预期 + 叙事分部SOTP**（v7.0），DCF 概率加权作 F 的交叉验证；逻辑猜测不得替代算术，每块须出数字。 |
 | **决策内核（v7.0）** | 投资价值 = **状态后验 × 赔率 × 路径可承受性**，把"是不是好公司"拆成 **好公司 / 好下注 / 好价格** 三分 + 行动档位（六档）。源自"贝叶斯之美"五篇，定义见 `references/judgment-chain.md`（v8 手册层）。 |
-| **全说人话（v7.1）** | 框架是内部思考引擎，**报告正文不出现裸术语**（λ / P=F+N / embedded obligation 等只在小括号里标注）。每段结论先行，§一/§五/§七 正文无来源标签（机械拦截，来源统一 §九）。落到一张 **5 行投资决断卡**：是不是好公司 / 故事真不真 / 贵不贵 / 该不该买 / 该怎么办。 |
-| **11 框架防盲点** | `scripts/financial_audit.py` 自动跑 Piotroski F / Beneish M / Altman Z / DuPont / Sloan 应计 / 治理 / 关联方等 11 个框架，机械扫出红旗，进入 §六。 |
+| **全说人话** | 框架是内部思考引擎，**报告正文不出现裸术语**（λ / P=F+N / embedded obligation 等只在小括号里标注）。每段结论先行；同一个数字只有一个权威出处（异地出现必须带出处引用，`lint_v8` R3 机械拦截），来源与缺口统一落附录E。首页是一张 **5 行决断卡**：是不是好公司 / 在变好吗 / 贵不贵 / 扛得住吗 / 怎么办。 |
+| **11 框架防盲点** | `scripts/financial_audit.py` 自动跑 Piotroski F / Beneish M / Altman Z / DuPont / Sloan 应计 / 治理 / 关联方等 11 个框架，机械扫出红旗；每条红旗在归属节点叙述一次，总清单进附录D，Top3 由脚本带上首页。 |
 | **黑白分割不骑墙** | 子判定只有 ✓ / ⚠️ / ✗ 三态，verdict 只能取本节点的取值域；**禁止任何隐性打分**（分数、权重、修正系数、综合评级）——v8.0 已删除全部评分机制。 |
 | **缺口必闭环** | 附录E 信息缺口强制 ≥ 3 条，每条记录已尝试的查询路径；补查成功必须反写到所有相关章节。 |
 | **一处权威（v8.0）** | 同一个问题全报告只答一次："贵不贵"只在③、"该等什么"只在②、仓位与行动档位只在⑤、每条红旗只在其归属节点叙述一次（总清单在附录D，Top3 机器带出）。10 维评分 / 定性综合方向 / 快筛章节等"结论假面"已删除。 |
@@ -294,7 +294,7 @@ Phase 6 自动把 HTML 推到 Inves-Report 仓库。
 
 | 版本 | 发布 | 关键变化 |
 |------|------|---------|
-| **v8.0** | 施工中 | 判断链收敛: 9 章节 → 首页一眼结论 + 五章（①质地/②状态/③赔率/④路径/⑤怎么办）+ 附录A-E; 一处权威（删 10 维评分/定性综合方向/快筛章节/§七 7.1-7.3/§一人工抄本）; 5 个 part 写手 → 四节点写手 + decision-writer，依赖图两波调度; 首页与附录机器装配（YAML verdict 块为唯一数据源）; 框架文档 4 份 → 链手册 1 + 节点手册 4; runs/{date}/ + manifest 状态制; 质量环重写（anti_lazy_lint → lint_v8 十条机器规则，reviewer 3→2 并行 + FIX 判断/表述分诊）|
+| **v8.0** | 2026-08-19 | 判断链收敛: 9 章节 → 首页一眼结论 + 五章（①质地/②状态/③赔率/④路径/⑤怎么办）+ 附录A-E; 一处权威（删 10 维评分/定性综合方向/快筛章节/§七 7.1-7.3/§一人工抄本）; 5 个 part 写手 → 四节点写手 + decision-writer，依赖图两波调度; 首页与附录机器装配（YAML verdict 块为唯一数据源）; 框架文档 4 份 → 链手册 1 + 节点手册 4; runs/{date}/ + manifest 状态制; 质量环重写（anti_lazy_lint → lint_v8 十条机器规则，reviewer 3→2 并行 + FIX 判断/表述分诊）; 交付形态换 B 仪表盘 HTML（红标三通道 + 390px 手机一等场景）; 创业公司口径移除 |
 | **v7.1** | 2026-06-23 | 可读性重写（全说人话）: 框架退为内部思考引擎，正文大白话 + 证据 + **5 行投资决断卡**（分开"是不是好公司"与"现在该不该买"）+ §四 四维体检（懂财报/叙事/估值/热点）+ 实锤/传闻表; §七 短合成（7.1-7.3 一句话+详见，重心压到 7.4 决策）; "谁在买"统一归 §八; anti_lazy_lint Rule5 = §一/§五/§七 正文无来源标签; 项目更名 **YEZHI Company Analysis** |
 | **v7.0** | 2026-06-22 | 投资决策内核（贝叶斯之美五篇）: 8→9 章新增 §七 投资决策内核（状态后验×赔率×路径 → 好公司/好下注/好价格三分 + 行动档位）; §五 估值重做（P=F+N/反向DCF/叙事SOTP，DCF 降为交叉验证）; §四 加 4.11 状态评估; §六 加 6.4 左尾防护; anti_lazy_lint +Rule6/7; phase3 写手 4→5 |
 | **v6.0** | 2026-06-20 | 13→8 章节精简: 合并"评分总览+详细维度"/"行业+对标"/"估值+回报", 风险红旗集中; phase3 写手 5→4; 清理 Phase4/5 残留 + 删 LEGACY 模板 |

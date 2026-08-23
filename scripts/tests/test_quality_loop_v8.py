@@ -217,6 +217,29 @@ class TestNumberHome(_Run):
         result = self.lint(assemble=False)
         self.assertTrue(self.rule(result, "R3 ").passed, self.rule(result, "R3 ").findings)
 
+    def test_citation_does_not_claim_home_from_the_real_owner(self):
+        """章序在前的「借用方」不许抢 home。
+
+        东山实测:现价与区间锚归③赔率,但②状态按规矩带出处引用了它们;②在章序里排在③前,
+        老写法把 home 判给②,反过来去告③赔率「异地裸引自己的数字」—— 主人被告了状。
+        """
+        self.append_body("state", "估值贵不贵看③赔率:现价 273 元、锚区间高端 89 元。")
+        self.append_body("odds", "现价 273 元 vs 锚区间高端 89 元,买完完美未来。")
+        r3 = self.rule(self.lint(assemble=False), "R3 ")
+        self.assertTrue(r3.passed, r3.findings)
+        self.assertFalse(any("③赔率" in f for f in r3.findings), r3.findings)
+
+    def test_borrowed_everywhere_then_first_bare_use_is_home(self):
+        """全带出处 → 谁都不认领 home;之后第一处裸写的才是 home, 再往后才算违规。"""
+        self.append_body("state", "见③赔率:现价 273 元。")
+        self.append_body("odds", "现价 273 元。")
+        self.append_body("path", "现价 273 元 撑不住。")
+        r3 = self.rule(self.lint(assemble=False), "R3 ")
+        self.assertFalse(r3.passed)
+        self.assertEqual(len(r3.findings), 1, r3.findings)
+        self.assertIn("④路径", r3.findings[0])
+        self.assertIn("home 在 ③赔率", r3.findings[0])
+
     def test_appendix_and_front_page_are_not_judged(self):
         """首页与附录不进 R3——首页是机器装配, 附录本就是全表下沉的家。"""
         run_dir = self.build()
@@ -440,6 +463,24 @@ class TestReviewLoop(unittest.TestCase):
         self.assertEqual(parsed["judgment"], "FAIL")
         self.assertEqual(len(parsed["fixes"]), 2)
 
+    def test_heading_level_does_not_swallow_the_judgment(self):
+        """`##` / `###` / `####` 都要认——层级是笔头习惯, 不该把判定丢成 UNKNOWN。"""
+        for hashes in ("##", "###", "####"):
+            text = f"{hashes} 维度 2 可读性与交付: FAIL\n\n- [FIX-front-表述] a → b\n"
+            self.assertEqual(
+                review_loop.parse_reviewer_response(text)["judgment"], "FAIL", hashes
+            )
+
+    def test_unparsable_judgment_is_fail_closed(self):
+        """认不出判定 → UNKNOWN, 且 overall_pass 必须为 false(不能默默放行)。"""
+        self.assertEqual(
+            review_loop.parse_reviewer_response("交付看着还行,没啥问题")["judgment"], "UNKNOWN"
+        )
+        self.respond(1, "### 维度 1 判断链逻辑: PASS\n", "交付看着还行,没啥问题\n")
+        out = review_loop.run(self.run_dir, 1)
+        self.assertEqual(out["judgments"]["delivery"], "UNKNOWN")
+        self.assertFalse(out["overall_pass"])
+
     def test_merge_dedupes_across_reviewers(self):
         merged = review_loop.merge_fix_lists({
             "logic": review_loop.parse_reviewer_response(LOGIC_FAIL)["fixes"],
@@ -499,3 +540,41 @@ class TestReviewLoop(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# ---------------------------------------------------------------- R11 散文密度
+
+class TestProseDensity(_Run):
+    """R4 数行数, 于是写手把行写长。R11 按密度判, 抓「一张没写成表的表」。"""
+
+    def test_too_many_numbers_in_one_line_warns(self):
+        self.append_body(
+            "odds",
+            "折现率 10.5% = 无风险 1.8% + 风险溢价 5.5% + 国家风险 0.6% + 杠杆 1.5% + 执行 1.1%。",
+        )
+        r = self.rule(self.lint(assemble=False), "R11 ")
+        self.assertFalse(r.passed)
+        self.assertTrue(any("个数字" in f for f in r.findings), r.findings)
+
+    def test_over_long_line_warns(self):
+        self.append_body("path", "左尾传导:" + "商誉减值会同时冲减利润与净资产," * 16)
+        r = self.rule(self.lint(assemble=False), "R11 ")
+        self.assertFalse(r.passed)
+        self.assertTrue(any("字" in f for f in r.findings), r.findings)
+
+    def test_same_numbers_as_a_table_pass(self):
+        """同样的数字写成表格就不判 —— 这正是这条规则想推着写手做的事。"""
+        self.append_body("odds", "\n".join([
+            "| 项 | 值 |", "|---|---|",
+            "| 无风险 | 1.8% |", "| 风险溢价 | 5.5% |", "| 国家风险 | 0.6% |",
+            "| 杠杆调整 | 1.5% |", "| 执行风险 | 1.1% |", "| 合计 | 10.5% |",
+        ]))
+        r = self.rule(self.lint(assemble=False), "R11 ")
+        self.assertTrue(r.passed, r.findings)
+
+    def test_is_warn_not_fail(self):
+        """密度是文风预算, 不阻断出片(与 R4 同档)。"""
+        self.append_body("odds", "现价 213.82 元、锚 77.6 元、97.9 元、F 610 亿、N 3,306 亿、市值 3,916 亿。")
+        result = self.lint(assemble=False)
+        self.assertFalse(self.rule(result, "R11 ").passed)
+        self.assertTrue(result.passed, "R11 是 warn, 不该把 lint 判红")

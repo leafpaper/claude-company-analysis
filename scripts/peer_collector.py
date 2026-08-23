@@ -349,7 +349,7 @@ def _format_markdown(
     # 风险警示
     lines.extend([
         "",
-        "## §3 对比洞察 (供 Phase 3 §八 消费)",
+        "## §3 对比洞察",
         "",
     ])
     # 硬判定规则
@@ -425,8 +425,8 @@ def _format_markdown(
         "",
         "---",
         "",
-        f"*由 `scripts/peer_collector.py` 自动生成 (v5.1.2: 加行业全员分布),供 Phase 3 §八 可比公司对标直接引用*",
-        "*海外 peer (如全球同业龙头) 需 LLM 手动补充到 Phase 3 §八 末尾*",
+        f"*由 `scripts/peer_collector.py` 自动生成(含行业全员分布),挂载为报告附录B 行业与对标明细*",
+        "*海外同业(如全球龙头)不在 Tushare 池内,需要时在本文件末尾另起「§3.5 海外同业补充」—— 附录B 只有一个来源*",
     ])
 
     return "\n".join(lines)

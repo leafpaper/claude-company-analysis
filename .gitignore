@@ -19,3 +19,6 @@ output/
 
 # Tushare / yfinance 本地缓存
 *.parquet.meta.json
+
+# 本地虚拟环境(v8 用 .venv 里的 python 作 {PYBIN})
+.venv/

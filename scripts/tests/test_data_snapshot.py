@@ -104,10 +104,11 @@ class TestEndToEnd(unittest.TestCase):
         rows = _re.findall(r"^\| \d+ \| ", sec6_text, _re.MULTILINE)
         self.assertGreaterEqual(len(rows), 30, f"§6 十大流通股东行数 {len(rows)} < 30")
 
-    def test_phase3_must_read_directive_present(self):
-        """头部强约束规则必须存在"""
-        self.assertIn("Phase 3 必读规则", self.md)
-        self.assertIn("禁止用预告", self.md)
+    def test_header_is_reader_facing_not_pipeline_directive(self):
+        """头部说明面向读者(它原样变成附录A), 不许残留 v7 那套写给写手的强制指令。"""
+        self.assertIn("附录A", self.md)
+        for banned in ("Phase 3 必读规则", "严禁", "必须 inline", "§二", "§四", "§五"):
+            self.assertNotIn(banned, self.md, f"附录A 底稿里不该出现「{banned}」")
 
 
 # ============================================================================
@@ -283,3 +284,44 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# ============================================================================
+# 票 08 回归: §2.4 毛利率取错字段(gross_margin 是毛利额, 不是毛利率)
+# ============================================================================
+
+
+class TestGrossMarginField(unittest.TestCase):
+    """Tushare `gross_margin` = 毛利额(元), `grossprofit_margin` = 毛利率(%)。
+
+    §2.4 原先把前者标成「毛利率(%)」直接打印, 附录A 里就出现
+    `毛利率(%) | 2539181351.9800` 这种量纲炸掉的脏数(东山 2026Q1 实测),
+    而同一张表的「本季度毛利率 19.3275」才是对的。
+    """
+
+    def _bundle(self, td: Path) -> Path:
+        bundle = td / "raw_data"
+        bundle.mkdir(parents=True, exist_ok=True)
+        pd.DataFrame([{
+            "ts_code": "TEST.SZ", "end_date": "20260331", "ann_date": "20260428",
+            "gross_margin": 2.5391813519800e9,     # 毛利额: 25.39 亿元
+            "grossprofit_margin": 19.3275,          # 毛利率: 19.33%
+            "netprofit_margin": 8.5567,
+        }]).to_parquet(bundle / "fina_indicator.parquet")
+        return bundle
+
+    def test_percent_row_uses_grossprofit_margin(self):
+        with tempfile.TemporaryDirectory() as td:
+            md = data_snapshot.build_snapshot(self._bundle(Path(td)), ts_code="TEST.SZ", company="T")
+        pct = [l for l in md.splitlines() if l.startswith("| 毛利率(%)")]
+        self.assertEqual(len(pct), 1, md[:400])
+        self.assertIn("19.3275", pct[0])
+        self.assertNotIn("2539181351", pct[0], "毛利额被当成毛利率打印了")
+
+    def test_gross_profit_amount_kept_under_its_own_label(self):
+        """毛利额本身有价值, 留着但要标对名字。"""
+        with tempfile.TemporaryDirectory() as td:
+            md = data_snapshot.build_snapshot(self._bundle(Path(td)), ts_code="TEST.SZ", company="T")
+        amt = [l for l in md.splitlines() if l.startswith("| 毛利额(元)")]
+        self.assertEqual(len(amt), 1)
+        self.assertIn("2539181351", amt[0])

@@ -457,11 +457,52 @@ class TestIndexCardParsing(unittest.TestCase):
         self.assertEqual(update_index.GEAR_TONE["核心仓"], "bullish")
 
 
+class TestPreviewData(unittest.TestCase):
+    """reports.data.js = reports.json 的派生快照(file:// 预览的兜底数据源)。"""
+
+    def _repo(self, td: str, with_preview: bool) -> Path:
+        repo = Path(td) / "Inves-Report"
+        (repo / "data").mkdir(parents=True)
+        (repo / "data" / "reports.json").write_text(
+            json.dumps({"schema_version": "v1", "reports": [{"slug": "002384_东山精密"}]},
+                       ensure_ascii=False),
+            encoding="utf-8",
+        )
+        if with_preview:
+            (repo / "reports.data.js").write_text("window.REPORTS_RAW = {};\n", encoding="utf-8-sig")
+        return repo
+
+    def test_refresh_rewrites_snapshot_with_bom(self):
+        with tempfile.TemporaryDirectory() as td:
+            repo = self._repo(td, with_preview=True)
+            self.assertTrue(update_index.refresh_preview_data(repo))
+            raw = (repo / "reports.data.js").read_bytes()
+            self.assertTrue(raw.startswith(b"\xef\xbb\xbf"), "缺 BOM 会让浏览器按 ANSI 解中文")
+            text = raw.decode("utf-8-sig")
+            self.assertIn("window.REPORTS_RAW = {", text)
+            self.assertIn("002384_东山精密", text)
+            self.assertTrue(text.rstrip().endswith("};"))
+
+    def test_absent_file_needs_explicit_create(self):
+        with tempfile.TemporaryDirectory() as td:
+            repo = self._repo(td, with_preview=False)
+            self.assertFalse(update_index.refresh_preview_data(repo))
+            self.assertFalse((repo / "reports.data.js").exists())
+            self.assertTrue(update_index.refresh_preview_data(repo, create=True))
+            self.assertTrue((repo / "reports.data.js").exists())
+
+    def test_no_reports_json_is_noop(self):
+        with tempfile.TemporaryDirectory() as td:
+            repo = Path(td) / "Inves-Report"
+            repo.mkdir()
+            self.assertFalse(update_index.refresh_preview_data(repo, create=True))
+
+
 def main():
     loader = unittest.TestLoader()
     suite = unittest.TestSuite()
     for cls in (TestVerdictCard, TestTop3, TestPanel, TestAppendixD, TestProduct,
-                TestChangeBlock, TestRenderReport, TestIndexCardParsing):
+                TestChangeBlock, TestRenderReport, TestIndexCardParsing, TestPreviewData):
         suite.addTests(loader.loadTestsFromTestCase(cls))
     result = unittest.TextTestRunner(verbosity=2).run(suite)
     sys.exit(0 if result.wasSuccessful() else 1)

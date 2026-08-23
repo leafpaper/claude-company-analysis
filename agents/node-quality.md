@@ -20,7 +20,7 @@ model: inherit
 ## 输入(主 agent 通过 prompt 传)
 
 - `{run_dir}`(= `output/{company}/runs/{date}/`)/ `{artifacts_dir}`(= `output/{company}/`,采集产物在这)
-- `{company}` / `{ticker}` / `{market}` / `{date}` / `{PYBIN}`(Mac/Linux `python3`;Windows `py -3`)
+- `{company}` / `{ticker}` / `{market}` / `{date}` / `{PYBIN}`(主 agent 给什么就用什么, 别自己换)
 
 ## 必读文件(手册只此两份,别人的手册不许读)
 

@@ -47,7 +47,8 @@
 
 ## Step 0: 环境自检
 
-> {PYBIN} = 主 agent 传入的 Python 解释器(Mac/Linux: python3;Windows: py -3)。
+> {PYBIN} = 主 agent 传入的 Python 解释器(Mac/Linux 一般 python3;Windows 可能是 py -3 / python / venv 绝对路径)。
+> **原样用主 agent 给的那个字符串,别自己换成 python3 或 py -3** —— 它已经过 check_env 验证。
 
 ```
 # cd 到 skill 根目录(Mac/Linux: ~/.claude/skills/company-analysis;Windows: %USERPROFILE%\.claude\skills\company-analysis)。
@@ -87,7 +88,13 @@
 - `daily.parquet` — 日线行情
 - `fina_mainbz.parquet` — 主营业务构成（分行业/产品/地区，**可能为空**）
 - `dividend.parquet` — 分红送股
+- `disclosure_date.parquet` — 预约披露日历
 - `_manifest.json` — bundle 清单
+
+**v8 附带动作**:采集结束时脚本会把最近的**未来预约披露日**写进 `output/{company}/manifest.json`
+(`next_disclosure_date`)。它是报告头部「下次预约披露日」一行与主页卡片「该什么时候回来看」的唯一来源——
+装配脚本只读 manifest,不自己推日期。stdout 会打印 `登记下次预约披露日: YYYY-MM-DD`;打印
+`留空` 说明日历里没有未来日期,不用管。
 
 ### 1.2 美股路径
 
@@ -104,6 +111,15 @@
 ```
 
 生成 Tushare 港股元数据 + yfinance 财务数据（混合）。
+
+**美股/港股的预约披露日**:没有 Tushare A 股那份披露日历,拿到下次财报日期(如 yfinance 的
+earnings calendar、公司 IR 页)后手工登记一次:
+
+```
+{PYBIN} -m scripts.manifest --company-dir output/{company} --set-next-disclosure YYYY-MM-DD
+```
+
+查不到就跳过 —— 报告与卡片会少这一行,不算降级。
 
 ### 1.4 验证
 检查 `_manifest.json` 确认至少以下核心 bundle 不为空：
@@ -132,11 +148,13 @@
 
 **质量门控**:
 - ✅ 至少 3 家 peer 生成对比数据
-- ⚠️ 若行业分类不清(Tushare industry 字段为空)或全行业 < 3 家 → 标注"Peer 池不足,Phase 3 §八 需手工补海外同行"
+- ⚠️ 若行业分类不清(Tushare industry 字段为空)或全行业 < 3 家 → 标注"Peer 池不足,①质地的护城河子判定需手工补海外同行"
 
-**Phase 3 §八 强制联动**: Phase 3 生成 §八 可比公司对标时,**必须 Read `peer_analysis.md` 并直接引用对比表和分位分析**,禁止 LLM 凭空猜竞品。若需补海外 peer(如 Infineon / STMicroelectronics),在 peer_analysis.md 之外另起"§3.5 海外同业补充"子节。
+**v8 消费方**:`peer_analysis.md` 是**附录B 的唯一挂载源**(装配脚本直接挂,零写手);①质地写手引用它做卡位与
+护城河的对比证据,**不许凭空猜竞品**。要补海外 peer(如 Infineon / STMicroelectronics)就在本文件里另起
+"§3.5 海外同业补充"子节 —— 附录B 只有一个来源。
 
-**降级**: 若公司是美股/港股,跳过此步(当前 peer_collector 只支持 A 股);Phase 3 §八 改为 yfinance 手工对比。
+**降级**: 若公司是美股/港股,跳过此步(当前 peer_collector 只支持 A 股);附录B 改为 yfinance 手工对比表。
 
 ---
 
@@ -174,9 +192,11 @@
 - ✅ §1 综合判定表 6 维度均有值(数据不足的维度标"数据不足")
 - ✅ §8 警示条数记录(可为 0,但不得缺)
 
-**Phase 3 联动(双点)**:
-- **§四 公司基本面** 必须加子节 `### 主力控盘与筹码分析`,Read `capital_flow.md` §1 + §8 + 相关详情
-- **§七 网络舆情与市场情绪** 的 `### 资金流向信号` 子节必须 Read `capital_flow.md` §4 (陆股通) + §5 (两融) + §6 (主力资金流)
+**v8 消费方**:`capital_flow.md` 与舆情节一起挂**附录C**(装配脚本直接挂,零写手)。判断链里两处引用它:
+- **④路径** 的拥挤度与高信仰体检:§4 陆股通 + §5 两融 + §6 主力资金流(散户暴增 / 杠杆拥挤 = 波动放大器)
+- **②状态** 的注意力先行判断:§1 综合判定 + §8 警示(资金面是"传闻"一侧的证据,不能当实锤用)
+
+正文只写结论 + 引附录C 的锚点,明细不复制进章节(数字唯一 home,`lint_v8` R3 会抓)。
 
 **降级**: 若龙虎榜接口无数据(公司近期未异动) → §7 标注"近 30 日未上榜",其余维度仍有效。
 
@@ -244,12 +264,9 @@
 - ✅ §5 完整十大股东表 ≥ 30 行(3 期 × 10 行)
 - ✅ 头部 "★ Phase 3 必读规则" 强约束存在
 
-**Phase 3 联动**(★ 强制): Phase 3 重构为 3a/3b/3c 三步:
-- **3a 全量预加载**: 必读 data_snapshot.md + 4 artifact + phase1/2 → 输出 phase3-data-dump.md
-- **3b 分章按需写入**: 5 个 part 各自专注少量章节,每个 part LLM 读 dump
-- **3c 拼接**: scripts/assemble_report.py 合并 5 part → 最终主报告
-
-详见 phases/phase3-analysis-report.md。
+**Phase 3 联动**(★ 强制,v8):`data_snapshot.md` 是四个节点写手共同的证据底座,也是**附录A 的唯一挂载源**——
+写手只读它与自己那份节点手册,不再有"全量预加载 / 分章 dump / 拼接 5 个 part"这一套(v7 的 3a/3b/3c
+已随判断链收敛删除)。波次调度与装配见 `phases/phase3-node-writing.md`。
 
 **降级**: 美股/港股的 raw_data 也可以跑(只要存在 income/balance/cashflow parquet),但部分 §如十大股东表可能为空。
 
@@ -580,6 +597,13 @@
 | `output/{company}/data_sources.md` | §11 信息缺口清单 + 本次数据来源与口径（Tushare 接口名 / PDF 文件与页码 / WebSearch 时间戳） | 附录E 数据来源与信息缺口 |
 
 两份分别以 `# 舆情底稿` / `# 数据来源与信息缺口` 起头（装配会自动下沉标题层级）。缺任一 → 主报告对应附录会打 `⚠️ 未找到` 告警。
+
+> **★ 这两份是给读者看的**（它们**原样**变成附录 C / E，不再经任何人加工）。所以:
+> - ❌ 不写流水线词:`Phase 2 需复核` / `供 Phase 6 复用` / `值得 Phase 2 定向追` / `pdf_reader --search …` 这类是给 agent 的话，读者看不懂也不需要；要表达"还没查实"就直接写「需用年报/招股书复核」。
+> - ❌ 不写 `§一`-`§九` 这套 v7 章节号（**已不存在**）。要指报告里的位置，只能用 `①质地` / `②状态` / `③赔率` / `④路径` / `⑤决策` 或 `附录A-E`。
+> - ✅ 可以写来源与口径说明（"本底稿由 Phase 1 采集生成，挂载至附录C"这类交代出处的行没问题）。
+>
+> 同理适用于 `data_snapshot.md` / `peer_analysis.md` / `capital_flow.md` —— 那三份由脚本生成，模板已在 v8.0 清过一遍（票 08）。
 
 > **创业公司口径已移除**（v8）：本 skill 只分析上市公司，原"非上市纯 WebSearch 模式"随框架文档重组删除。
 

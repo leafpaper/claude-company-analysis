@@ -498,21 +498,124 @@ def upgrade_flag_links(html_text: str, product: dict) -> str:
     return _FLAG_LINK_RE.sub(repl, html_text)
 
 
-def prepare_body(body_md: str, product: dict, decorate: bool = True) -> str:
+# ---------- 渐进披露 / 出处锚链接 / 估值尺(票 08 后续:不删信息, 只改读法) ----------
+
+_H3_SPLIT = re.compile(r"(<h3\b[^>]*>.*?</h3>)", re.DOTALL)
+
+
+def fold_sections(html_text: str) -> str:
+    """章内 `###` 段落折进 <details>:收起时读小标题串成判断链, 展开才看推导。
+
+    写手的 `###` 标题本来就是结论句(「差的那一半在"利润是怎么来的"——…」),
+    所以折叠后信息一个字没少, 只是默认不占屏。⑤怎么办没有 `###`, 整章常驻可见。
+    """
+    parts = _H3_SPLIT.split(html_text)
+    if len(parts) < 3:
+        return html_text                       # 没有 ### = 不折(⑤决策)
+    out = [parts[0]]                           # 判定行 + 子判定表: 常驻
+    for i in range(1, len(parts), 2):
+        head = re.sub(r"</?h3\b[^>]*>", "", parts[i]).strip()
+        body = parts[i + 1] if i + 1 < len(parts) else ""
+        out.append(
+            f'<details class="drill"><summary>{head}</summary>'
+            f'<div class="dd">{body}</div></details>'
+        )
+    return "".join(out)
+
+
+_CITE_TARGET = {
+    "①质地": "ch-quality", "②状态": "ch-state", "③赔率": "ch-odds",
+    "④路径": "ch-path", "⑤决策": "ch-decision", "⑤怎么办": "ch-decision",
+}
+_CITE_RE = re.compile("(" + "|".join(list(_CITE_TARGET) + [f"附录{k}" for k in "ABCDE"]) + ")")
+_TAG_SPLIT = re.compile(r"(<a\b.*?</a>|<[^>]+>)", re.DOTALL)
+
+
+def link_citations(html_text: str) -> str:
+    """把正文里的「见①质地」「明细见附录A」渲染成真锚链接(手机上顶栏不吸顶, 手动滚回去很难)。
+
+    只改标签之外的文字, 已经在 <a> 里的不动。
+    """
+    def one(chunk: str) -> str:
+        return _CITE_RE.sub(
+            lambda m: f'<a class="cite" href="#{_CITE_TARGET.get(m.group(1), "appx-" + m.group(1)[-1])}">{m.group(1)}</a>',
+            chunk,
+        )
+    return "".join(
+        seg if (seg.startswith("<") or i % 2) else one(seg)
+        for i, seg in enumerate(_TAG_SPLIT.split(html_text))
+    )
+
+
+def render_valuation_meter(nodes: dict | None) -> str:
+    """估值尺:轨道=锚区间, 标记=现价。一眼看出现价在合理区间「之外多远」。
+
+    形态取自 dataviz 的 meter —— 不画三根柱, 柱子让人比高矮, 而这里的信息是「出界」。
+    数据全部来自 node-odds 的 YAML 契约字段(anchor_range / current_price), 零写手工作。
+    """
+    odds = (nodes or {}).get("odds") or {}
+    rng, cur = odds.get("anchor_range") or {}, odds.get("current_price") or {}
+    lo = (rng.get("low") or {}).get("value")
+    hi = (rng.get("high") or {}).get("value")
+    price, unit = cur.get("value"), cur.get("unit") or "元"
+    if not all(isinstance(v, (int, float)) for v in (lo, hi, price)):
+        return ""
+    top = max(price, hi) * 1.12
+    x = lambda v: round(v / top * 100, 2)
+    over = price > hi
+    ratio = price / hi if hi else 0
+    note = (f"现价是区间高端的 {ratio:.2f} 倍" if over
+            else ("现价在区间内" if price >= lo else f"现价低于区间低端 {lo}{unit}"))
+    band_w = round(max(x(hi) - x(lo), 0.6), 2)
+    over_cls = " over" if over else ""
+    alt = f"估值尺:合理区间 {lo}-{hi}{unit},现价 {price}{unit},{note}"
+    return "\n".join([
+        f'<figure class="meter" role="img" aria-label="{_esc(alt)}">',
+        "  <figcaption>贵不贵:一把尺</figcaption>",
+        '  <div class="track">',
+        f'    <span class="band" style="left:{x(lo)}%;width:{band_w}%"></span>',
+        f'    <span class="mark{over_cls}" style="left:{x(price)}%"></span>',
+        "  </div>",
+        '  <div class="lg">'
+        f'<span><i class="sw band"></i>合理区间 {lo}–{hi} {unit}'
+        "<small>SOTP / DCF 两端</small></span>"
+        f'<span><i class="sw mark"></i>现价 {price} {unit}'
+        f"<small>{_esc(note)}</small></span></div>",
+        "</figure>",
+    ])
+
+
+def prepare_body(body_md: str, product: dict, decorate: bool = True, fold: bool = False) -> str:
     """章节/附录正文: MD → HTML → 表格进横滚容器 → 红标反查。"""
     body = wrap_tables(_md_to_html(body_md))
     body = upgrade_flag_links(body, product)
     if decorate:
         body = decorate_red_marks(body, red_mark_vocab(product))
+    body = link_citations(body)
+    if fold:
+        body = fold_sections(body)
     return body
 
 
 # ---------- 首页各块 ----------
 
+_PAREN_OPEN = "(（"
+_PAREN_CLOSE = ")）"
+
+
 def _split_verdict(text: str) -> tuple[str, str]:
-    """verdict → (判定短语, 其余理由)。切法与 assembly.quality_field 同源, 只是展示层分行。"""
+    """verdict → (判定短语, 其余理由)。切法与 assembly.quality_field 同源, 只是展示层分行。
+
+    括号成对剥离:剥掉左括号却把右括号留在 tail 里, 决断卡上就会出现「高信仰体检 6/7)」
+    这种孤立反括号(票 08 交付评审在④路径卡上抓到)。
+    """
     head = assembly.quality_field(text)
     tail = text[len(head):].lstrip("—-,,;;((\\ ") if text.startswith(head) else ""
+    opens = sum(tail.count(c) for c in _PAREN_OPEN)
+    closes = sum(tail.count(c) for c in _PAREN_CLOSE)
+    while tail and tail[-1] in _PAREN_CLOSE and closes > opens:
+        tail = tail[:-1].rstrip()
+        closes -= 1
     return head or text, tail
 
 
@@ -621,7 +724,7 @@ def render_panel(product: dict) -> str:
     tiles.append(
         f'  <div class="pv"><b>面板结论:{_esc(conclusion["biz_model"])} · '
         f'{_esc(conclusion["quality_true"])}</b>'
-        f'<span class="src">← 引用①质地子判定,面板不自产结论</span></div>'
+        f'<span class="src">← 结论来自①质地</span></div>'
     )
     return (
         '<div class="secl"><span class="t">赚不赚钱面板</span> '
@@ -754,7 +857,7 @@ def split_v8_sections(md_text: str) -> dict[str, Any]:
     }
 
 
-def render_chapters(parts: dict, product: dict) -> str:
+def render_chapters(parts: dict, product: dict, nodes: dict | None = None) -> str:
     """五章 = 卡片(头部 verdict pill + 正文原样)。verdict 取自装配产物, 与首页同一处权威。"""
     verdicts = {row["source_node"]: row for row in product["verdict_card"]}
     load = _flag_load(product)
@@ -768,12 +871,13 @@ def render_chapters(parts: dict, product: dict) -> str:
         name, _, question = title.partition("——")
         tone = node_tone(node, product, load)
         pill_cls = tone if tone in ("bad", "watch", "good") else "node"
+        meter = render_valuation_meter(nodes) if node == "odds" else ""
         out.append(
             f'<section class="chB" id="ch-{node}">\n'
             f'  <div class="hd"><span class="no">{_esc(name.strip())}</span>'
             f'<span class="qq">{_esc(question.strip())}</span>'
             f'<span class="pill {pill_cls}">{_esc(head_txt)}</span></div>\n'
-            f'  <div class="bd">{prepare_body(body_md, product)}</div>\n'
+            f'  <div class="bd">{meter}{prepare_body(body_md, product, fold=True)}</div>\n'
             f"</section>"
         )
     return "\n".join(out)
@@ -834,7 +938,7 @@ def build_html_v8(
         "top3": render_top3(product),
         "intro": render_intro(product),
         "change_block": render_change_block(product),
-        "chapters": render_chapters(parts, product),
+        "chapters": render_chapters(parts, product, nodes),
         "appendix_nav": render_appendix_nav(parts),
         "appendices": render_appendices(parts, product),
     }
@@ -924,8 +1028,11 @@ def main():
             return 1
         md_path = mds[0]
     else:
+        # 与产出侧同源(config 的 PLUGIN_ROOT/output 优先规则), 不硬编码任何人的机器路径
+        from . import config
         candidates = [
-            Path(f"/Users/leafpaper/.claude/plugins/company-analysis/output/{args.company}"),
+            config.PLUGIN_ROOT / "output" / args.company,
+            config.SKILL_ROOT / "output" / args.company,
             Path(f"output/{args.company}"),
         ]
         company_dir = next((c for c in candidates if c.exists()), None)

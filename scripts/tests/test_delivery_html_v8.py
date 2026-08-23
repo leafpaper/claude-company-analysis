@@ -96,7 +96,9 @@ class TestDashboardFrontPage(_Built):
             self.assertIn(ind["name"], panel)
             self.assertIn(ind["value"], panel)
         self.assertIn("面板结论", panel)
-        self.assertIn("面板不自产结论", panel)
+        # 出处要标, 但用读者话("结论来自①质地"), 不用给写手看的纪律话("面板不自产结论")
+        self.assertIn("结论来自①质地", panel)
+        self.assertNotIn("不自产", panel)
 
     def test_top3_cards_link_to_appendix_d_and_home_node(self):
         risks = self.html.split('class="risks"')[1].split("</div>\n\n<!--")[0]

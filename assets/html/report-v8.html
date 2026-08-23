@@ -87,6 +87,48 @@
 </div>
 
 <script>
+/* 渐进披露: 每章一个「展开全部 / 收起」控件; 打印与站内搜索前自动全展开。 */
+(function(){
+  var secs = document.querySelectorAll('section.chB');
+  Array.prototype.forEach.call(secs, function(sec){
+    var ds = sec.querySelectorAll('details.drill');
+    if (!ds.length) return;                       /* ⑤怎么办没有折叠段, 不加控件 */
+    var bar = document.createElement('div');
+    bar.className = 'foldbar';
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    function sync(){
+      var anyClosed = Array.prototype.some.call(ds, function(d){ return !d.open; });
+      btn.textContent = anyClosed ? '展开全部 ' + ds.length + ' 段' : '收起全部';
+      btn.setAttribute('aria-expanded', anyClosed ? 'false' : 'true');
+    }
+    btn.addEventListener('click', function(){
+      var anyClosed = Array.prototype.some.call(ds, function(d){ return !d.open; });
+      Array.prototype.forEach.call(ds, function(d){ d.open = anyClosed; });
+      sync();
+    });
+    Array.prototype.forEach.call(ds, function(d){ d.addEventListener('toggle', sync); });
+    sync();
+    var bd = sec.querySelector('.bd');
+    var first = bd && bd.querySelector('details.drill');
+    if (first) bd.insertBefore(bar, first);
+    bar.appendChild(btn);
+  });
+  /* 打印: 全部展开, 否则纸上会缺内容 */
+  function openAll(){
+    Array.prototype.forEach.call(document.querySelectorAll('details.drill'), function(d){ d.open = true; });
+  }
+  window.addEventListener('beforeprint', openAll);
+  /* 直接命中折叠段内的锚点时自动展开 */
+  function revealHash(){
+    if (!location.hash) return;
+    var t = document.querySelector(location.hash);
+    while (t) { if (t.tagName === 'DETAILS') t.open = true; t = t.parentElement; }
+  }
+  window.addEventListener('hashchange', revealHash);
+  revealHash();
+})();
+
 /* 明暗主题: 默认跟随系统(不写 data-theme), 手动切换后记住选择。 */
 (function(){
   var KEY = 'ca-theme', root = document.documentElement, btn = document.getElementById('themetoggle');

@@ -72,15 +72,16 @@ FIX_RE = re.compile(
     re.MULTILINE,
 )
 JUDGMENT_RE = re.compile(
-    r"^###\s+(?:维度\s*\d*[^:：]*|总体)[:：]\s*(PASS|FAIL|部分降级)", re.MULTILINE
+    r"^#{2,4}\s+(?:维度\s*\d*[^:：]*|总体)[:：]\s*(PASS|FAIL|部分降级)", re.MULTILINE
 )
 
 
 def parse_reviewer_response(text: str) -> dict:
     """解析单个 reviewer 响应:判定 + FIX 行。
 
-    判定行两种写法都认(`### 维度 1 …: PASS` / `### 总体: FAIL`);
-    找不到判定 → UNKNOWN(主 agent 按 FAIL 处理, 见 CLI 输出的 judgments)。
+    判定行两种写法都认(`### 维度 1 …: PASS` / `### 总体: FAIL`), 标题层级 `##`-`####` 都收——
+    reviewer 用 `##` 还是 `###` 起头纯属笔头习惯, 不该让整份判定丢成 UNKNOWN(票 08 实测踩到)。
+    找不到判定 → UNKNOWN(fail-closed: overall_pass 要求全 PASS, 主 agent 按 FAIL 处理)。
     """
     m = JUDGMENT_RE.search(text)
     return {

@@ -26,7 +26,8 @@ Skill 根目录: `<plugin-root>/skills/company-analysis/`。可用以下命令�
 
 cd 到 skill 根目录(Mac/Linux: ~/.claude/skills/company-analysis;Windows: %USERPROFILE%\.claude\skills\company-analysis)。
 
-{PYBIN} = 主 agent 传入的 Python 解释器(Mac/Linux: python3;Windows: py -3)。
+{PYBIN} = 主 agent 传入的 Python 解释器(Mac/Linux 一般 python3;Windows 可能是 py -3 / python / venv 绝对路径)。
+**原样用它,别自己换** —— 主 agent 已经用 check_env 验过这一个装了依赖。
 
 ```
 {PYBIN} -m scripts.check_env 2>&1 | tail -10
@@ -109,6 +110,8 @@ PDF 失败 → 备用 URL → 仍失败标"已尝试: {urls}",继续。
 ```
 
 两份都以 `# 舆情底稿` / `# 数据来源与信息缺口` 起头(装配会自动下沉标题层级挂进附录C / 附录E)。
+
+**★ 这两份原样变成读者看的附录**,所以里面**不许出现流水线词**(`Phase 2 需复核` / `供 Phase 6 复用` / `值得 Phase 2 定向追` / `pdf_reader --search …`)**,也不许出现 `§一`-`§九` 这套 v7 章节号**(已不存在;要指位置只能用 `①质地`-`⑤决策` 或 `附录A-E`)。要表达"还没查实"就直接写「需用年报/招股书复核」。交代出处的行(如"本底稿由 Phase 1 采集生成")没问题。
 
 ## 输出格式(★ 严格遵守 v5.1 协议,主 agent 只读关键字段)
 

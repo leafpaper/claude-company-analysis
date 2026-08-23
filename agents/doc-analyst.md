@@ -19,7 +19,7 @@ model: inherit
 ## 输入(主 agent 通过 prompt 传)
 
 - `{output_dir}`(默认 `output/{company}/`)/ `{company}` / `{ticker}` / `{market}` / `{date}`
-- `{PYBIN}`(Mac/Linux `python3`;Windows `py -3`)— 跑 check_phase2 用同一个解释器
+- `{PYBIN}`(主 agent 给什么就用什么, 别自己换)— 跑 check_phase2 用同一个解释器
 - `{documents}`(可选):用户额外提供的 BP / 调研纪要 / 研报路径清单
 
 ## 必读文件
@@ -102,7 +102,7 @@ Glob 出全部 PDF 与对应 section JSON,列清单;去重(同一份报告可能
 - ❌ 在响应中粘贴 PDF 原文段落 / pdf_sections JSON 内容 / Bash stdout(主 agent 要什么自己 Read)
 - ❌ 写"无文档模式,置信度降低"并跳过精读 —— Phase 1 已下载 PDF,不存在"无文档"
 - ❌ 只写结论不引原文(§2 每行必须有报表原话或原始数字串 + `[PDF:]` 标签)
-- ❌ Edit / Write 除 `phase2-documents.md` 以外的任何文件(尤其 phase1-data.md / phase3-part*.md / 主报告 / SKILL.md / phases 指令)
+- ❌ Edit / Write 除 `phase2-documents.md` 以外的任何文件(尤其 phase1-data.md / `runs/{date}/nodes/node-*.md` / 主报告 / SKILL.md / phases 指令)
 - ❌ 联网找文档(无 WebSearch/WebFetch;缺料 = 降级标注 + 回报主 agent)
 - ❌ 门控红了就交差(Step 5 的 3 轮自补是你的活)
 

@@ -411,6 +411,29 @@ def upsert_reports_json(repo_data_json: Path, card: CardMetadata, force: bool = 
     return is_new
 
 
+PREVIEW_DATA_HEADER = (
+    "// 本地预览兜底数据 (内容 = data/reports.json 快照)。线上以实时 fetch data/reports.json 为准。"
+)
+
+
+def refresh_preview_data(repo: Path, create: bool = False) -> bool:
+    """把 data/reports.json 快照写回 reports.data.js(file:// 本地预览的兜底数据源)。
+
+    线上 index.html 实时 fetch data/reports.json, 但 file:// 打开时 fetch 被 CORS 挡住,
+    页面退回读 `window.REPORTS_RAW` —— 不同步这个文件, 本地预览看到的就是上一版报告。
+    默认只在文件已存在时刷新(它是派生产物, 留旧的永远是错的); create=True 则不存在也建。
+    """
+    target = repo / "reports.data.js"
+    source = repo / "data" / "reports.json"
+    if not source.exists() or (not target.exists() and not create):
+        return False
+    data = json.loads(source.read_text(encoding="utf-8-sig"))
+    body = json.dumps(data, ensure_ascii=False, indent=2)
+    # utf-8-sig: 站点历史上带 BOM, 去掉会让某些浏览器按 ANSI 解码中文
+    target.write_text(f"{PREVIEW_DATA_HEADER}\nwindow.REPORTS_RAW = {body};\n", encoding="utf-8-sig")
+    return True
+
+
 # ---------- 主入口 ----------
 
 def main():
@@ -419,6 +442,11 @@ def main():
     ap.add_argument("--output-dir", help="output 根目录 (默认 output/)")
     ap.add_argument("--repo", help="Inves-Report 仓库路径 (例 /tmp/Inves-Report-v2). 若指定则自动 upsert reports.json")
     ap.add_argument("--force", action="store_true", help="强制覆盖 reports.json 中的现有条目")
+    ap.add_argument(
+        "--refresh-preview-data",
+        action="store_true",
+        help="reports.data.js 不存在时也生成(已存在的话 upsert 后总会自动刷新)",
+    )
     args = ap.parse_args()
 
     output_root = Path(args.output_dir) if args.output_dir else None
@@ -426,10 +454,13 @@ def main():
     candidates = []
     if output_root:
         candidates.append(output_root / args.company)
+    # config 的解析规则(PLUGIN_ROOT/output 优先, 否则 SKILL_ROOT/output)是产出侧的真相源,
+    # 消费侧必须问同一个人 —— 否则装好的 skill 从别处跑就找不到自己刚写的报告(票 08 发布时踩到)。
+    from . import config
     candidates.extend([
+        config.PLUGIN_ROOT / "output" / args.company,
+        config.SKILL_ROOT / "output" / args.company,
         Path(f"output/{args.company}"),
-        Path(f"/Users/leafpaper/.claude/plugins/company-analysis/output/{args.company}"),
-        Path(f"/Users/leafpaper/.claude/plugins/company-analysis/skills/company-analysis/output/{args.company}"),
     ])
     company_dir = None
     md_path = None
@@ -486,6 +517,12 @@ def main():
         is_new = upsert_reports_json(data_json, card, force=args.force)
         action = "新增" if is_new else "更新"
         print(f"✅ {action} reports.json 条目 (ticker={card.ticker})")
+
+        # 本地预览兜底数据是派生产物 —— 跟着 reports.json 一起走, 否则 file:// 预览停在上一版
+        if refresh_preview_data(repo, create=args.refresh_preview_data):
+            print(f"✅ 同步 {repo / 'reports.data.js'}(本地预览兜底; 记得一起 git add)")
+        else:
+            print("· 跳过 reports.data.js(仓库里没有这个文件; 需要就加 --refresh-preview-data)")
 
     return 0
 

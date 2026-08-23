@@ -78,9 +78,18 @@ Agent(subagent_type="X", prompt="...", run_in_background=True/False, description
 
 ## Step 0: 环境自检（跨平台）
 
-**① 先确定 Python 解释器 `{PYBIN}`** — 本文档后续所有命令都用它, 并在调用 sub-agent 时把它写进 prompt:
+**① 先确定 Python 解释器 `{PYBIN}`** — 本文档后续所有命令都用它, 并在调用 sub-agent 时把它写进 prompt。
+**别假定,按顺序试到第一个能跑通 `{PYBIN} --version` 的**:
 - Mac / Linux:`python3`
-- Windows:`py -3`(⚠️ `python` 可能是 Microsoft Store 占位符会失败, 务必用 `py -3`)
+- Windows:`py -3` → `python` → 装了依赖的虚拟环境(如 `<repo>\.venv\Scripts\python.exe`)
+  - ⚠️ `py` 不是系统自带,没装 Python launcher 的机器上不存在;裸 `python` 又可能是 Microsoft Store 占位符
+    (能启动但装不上包)。两个都不靠谱时用虚拟环境里的绝对路径,最稳。
+
+选定后**必须**用 ③ 的自检确认它装了依赖 —— 找到一个能启动的 python 不等于找对了。
+
+> **⚠️ 每条命令自带 `cd`**:Bash 工具每次调用后工作目录都会重置回初始目录,上一条 `cd` 不会留到下一条。
+> 所以每条命令都要写成 `cd "<skill 根目录>" && {PYBIN} -m scripts.X ...`,给 sub-agent 的 prompt 里也要这么写。
+> 忘了 cd 的典型症状是**改了没生效**:脚本/安装在错的目录里静默失败,你却以为代码写错了(票 08 实测踩到 —— `install.ps1` 用相对路径跑,没报错但根本没装上,后面出片一直在用旧模板)。
 
 **② cd 到本 skill 根目录**(SKILL.md 所在目录, `{PYBIN} -m scripts.X` 需从这里跑):
 - Mac / Linux:`~/.claude/skills/company-analysis`

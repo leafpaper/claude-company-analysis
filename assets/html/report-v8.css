@@ -231,3 +231,63 @@ tr:target{background:var(--wash-a)}
   .topbar,.themetoggle{display:none}
   .chB,.appx,.dc,.st,.rk{break-inside:avoid}
 }
+
+/* ---------- 渐进披露:章内 ### 段折进 <details> ---------- */
+/* 收起时读小标题 = 一条判断链;展开才看推导。信息不删, 只改默认占屏。 */
+.drill{border-top:1px solid var(--line); margin:0}
+.drill>summary{
+  cursor:pointer; list-style:none; padding:11px 2px 11px 26px; position:relative;
+  font-weight:650; font-size:14.5px; color:var(--ink); line-height:1.55;
+}
+.drill>summary::-webkit-details-marker{display:none}
+.drill>summary::before{
+  content:"›"; position:absolute; left:6px; top:10px; font-size:16px; color:var(--muted);
+  transition:transform .15s ease; display:inline-block;
+}
+.drill[open]>summary::before{transform:rotate(90deg)}
+.drill>summary:hover{color:var(--accent)}
+.drill>summary:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:4px}
+.drill .dd{padding:0 2px 14px 26px}
+.drill:not([open])>summary{color:var(--ink2)}
+.foldbar{display:flex; gap:8px; justify-content:flex-end; margin:-4px 0 6px}
+.foldbar button{
+  font:inherit; font-size:12.5px; color:var(--muted); background:none;
+  border:1px solid var(--line); border-radius:999px; padding:3px 10px; cursor:pointer;
+}
+.foldbar button:hover{color:var(--ink); border-color:var(--muted)}
+
+/* ---------- 出处锚链接:「见①质地」「明细见附录A」可点 ---------- */
+a.cite{color:inherit; text-decoration:none; border-bottom:1px dotted var(--muted)}
+a.cite:hover{color:var(--accent); border-bottom-color:var(--accent)}
+
+/* ---------- 估值尺(meter):轨道=锚区间, 标记=现价 ---------- */
+.meter{margin:2px 0 16px; padding:12px 14px; background:var(--surface);
+       border:1px solid var(--line); border-radius:10px}
+.meter figcaption{font-size:12.5px; color:var(--muted); margin-bottom:10px; letter-spacing:.02em}
+.meter .track{position:relative; height:10px; border-radius:999px;
+              background:var(--wash-n, var(--line)); overflow:visible}
+.meter .band{position:absolute; top:0; height:10px; border-radius:999px; background:var(--accent); opacity:.55}
+.meter .mark{position:absolute; top:-4px; width:3px; height:18px; border-radius:2px;
+             background:var(--ink); box-shadow:0 0 0 2px var(--surface)}
+.meter .mark.over{background:var(--crit)}
+.meter .lg{display:flex; flex-wrap:wrap; gap:6px 20px; margin-top:12px; font-size:12.5px; color:var(--ink2)}
+.meter .lg span{display:flex; align-items:baseline; gap:6px}
+.meter .lg small{color:var(--muted); font-size:12.5px}
+.meter .sw{width:10px; height:10px; border-radius:3px; flex:none; transform:translateY(1px)}
+.meter .sw.band{background:var(--accent); opacity:.55}
+.meter .sw.mark{background:var(--crit)}
+
+/* ---------- 附录长表:表头吸顶 ---------- */
+.appx .tblwrap{max-height:none}
+.appx table thead th{position:sticky; top:0; z-index:2; background:var(--surface)}
+
+@media (max-width:620px){
+  .drill .dd{padding-left:12px}
+  .drill>summary{padding-left:22px}
+  .meter .lg{gap:4px 12px}
+}
+@media print{
+  .drill>summary::before{display:none}
+  .drill .dd{padding-left:2px}
+  .foldbar{display:none}
+}

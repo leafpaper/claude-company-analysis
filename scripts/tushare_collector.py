@@ -847,6 +847,22 @@ def main():
 
     save_bundle(bundle, out_dir)
 
+    # v8: 预约披露日登记进 manifest(报告头部「下次预约披露日」一行 + 主页卡片读它)。
+    # 失败绝不影响采集本身 —— 留空只是少一行提示。
+    try:
+        from . import manifest as manifest_mod
+        disc = bundle.get("disclosure_date")
+        next_date = manifest_mod.nearest_future_disclosure(
+            disc.to_dict("records") if disc is not None and len(disc) else []
+        )
+        print()
+        if manifest_mod.set_next_disclosure(out_dir.parent, next_date):
+            print(f"登记下次预约披露日: {next_date} -> {out_dir.parent / 'manifest.json'}")
+        elif next_date is None:
+            print("(disclosure_date 无未来预约日, manifest.next_disclosure_date 留空)")
+    except Exception as e:  # noqa: BLE001
+        print(f"[warn] 预约披露日登记失败(不影响采集): {e}")
+
     print(f"\nSaved to: {out_dir}")
     for key, df in bundle.items():
         print(f"  {key}: {len(df)} rows × {len(df.columns)} cols")

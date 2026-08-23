@@ -8,7 +8,11 @@ from __future__ import annotations
 import importlib
 import sys
 
-REQUIRED_PKGS = ["tushare", "yfinance", "pypdf", "pandas", "pyarrow", "requests"]
+REQUIRED_PKGS = [
+    "tushare", "yfinance", "pypdf", "pandas", "pyarrow", "requests",
+    # v8 契约层与出片: 缺了不是降级而是硬失败(verdict_block / assemble / build_html 直接退非 0)
+    "yaml", "jsonschema", "markdown",
+]
 
 
 def check() -> int:

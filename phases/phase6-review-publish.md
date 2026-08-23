@@ -187,9 +187,13 @@ Windows 如 `C:\Inves-Report`);下面写法为 Mac/Linux,Windows 把 `mkdir -p`�
 4. {PYBIN} -m scripts.update_index --company {company} --repo $INVES_REPORT_DIR --force
    # 解析主报告的 CARD_METADATA + assembly.json → card-metadata.json → upsert data/reports.json
    # v8 卡片字段:verdict = 行动档位人话 / quality = 质地字段 / action_gear / next_disclosure_date
+   # ⚠️ 报告若不在默认 output/ 根下(config 的 PLUGIN_ROOT/output 优先规则), 补 --output-dir {output_root}
+
+   # 同一条命令会顺带把 reports.data.js 刷成 reports.json 的快照(file:// 本地预览读它,
+   # 线上读 reports.json)。仓库里没这个文件才需要补 --refresh-preview-data。
 
 5. cd $INVES_REPORT_DIR
-   git add reports/{CompanySlug}_{CompanyNameCN}/ data/reports.json
+   git add reports/{CompanySlug}_{CompanyNameCN}/ data/reports.json reports.data.js
    git commit -m "feat: 新增/更新 {company} 投资分析报告"
    git push origin main
 ```

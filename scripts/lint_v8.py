@@ -238,9 +238,13 @@ def rule_red_flag_closure(
 # R3 数字唯一 home
 # ============================================================================
 def rule_number_home(bodies: dict[str, str]) -> RuleResult:
-    """跨章重复的数字:第一次出现的章是 home,之后每处都要带出处引用。
+    """跨章重复的数字:第一个**不带出处**地写出它的章是 home,之后每处都要带出处引用。
 
     只在五章之间判——首页是机器装配(链手册 §4.5 明文豁免),附录本就是全表下沉的家。
+
+    ★ 带出处的引用既不认领 home 也不算违规。判 home 时必须跳过它们,否则章序在前的
+    「借用方」会抢走 home,把真正的主人反判成异地裸引 —— 现价与区间锚归③赔率,但②状态
+    按规矩带出处引用了它们,章序②在③前,老写法就会去告③赔率的状。
     """
     home_of: dict[str, str] = {}
     findings: list[str] = []
@@ -252,11 +256,11 @@ def rule_number_home(bodies: dict[str, str]) -> RuleResult:
         for phrase, lines in per_phrase.items():
             if len(phrase) < 3:
                 continue
+            if any(CITATION.search(l) for l in lines):
+                continue
             home = home_of.get(phrase)
             if home is None:
                 home_of[phrase] = node
-                continue
-            if any(CITATION.search(l) for l in lines):
                 continue
             findings.append(
                 f"{LABELS[node]} 裸引「{phrase}」(home 在 {LABELS[home]}):{lines[0].strip()[:60]}"
@@ -284,6 +288,43 @@ def rule_budget(bodies: dict[str, str]) -> RuleResult:
     return RuleResult(
         name="R4 章预算", severity=WARN, passed=not findings,
         detail=f"主体合计 {total} 行(上限软目标 {BODY_TOTAL_MAX};字数下限规则已随 v8 删除)",
+        findings=findings,
+    )
+
+
+# ============================================================================
+# R11 散文密度
+# ============================================================================
+# R4 数的是**行数**, 于是写手把该说的塞进更少的行里 —— 行写长就行。列表形状的内容
+# (四个分部 / 五项折现率 / 三个情景 / 七条传导)因此被焊成一个段落, 读者得在脑子里重建表。
+# 东山首份 v8 报告实测: 五章 17 行「一行 ≥5 个数字」, 最密的一行 844 字 24 个数字。
+# 所以再加一条按**密度**判的:行内数字太多 = 这是一张没写成表的表。表格不吃章预算, 天然对齐。
+PROSE_MAX_NUMS = 5          # 一行散文里的数字短语上限
+PROSE_MAX_CHARS = 200       # 一行散文的字数上限(中文按字符算)
+
+
+def rule_prose_density(bodies: dict[str, str]) -> RuleResult:
+    """散文行里数字堆太多 / 行太长 → 该改写成表格或分条。warn, 不阻断出片。"""
+    findings = []
+    for node in CHAPTER_ORDER:
+        for line in bodies.get(node, "").splitlines():
+            s = line.strip()
+            if not s or s.startswith("|") or s.startswith("#"):
+                continue            # 表格与标题本来就是结构化的, 不判
+            nums = NUMBER_PHRASE.findall(_squash(line))
+            if len(nums) > PROSE_MAX_NUMS or len(s) > PROSE_MAX_CHARS:
+                why = []
+                if len(nums) > PROSE_MAX_NUMS:
+                    why.append(f"{len(nums)} 个数字")
+                if len(s) > PROSE_MAX_CHARS:
+                    why.append(f"{len(s)} 字")
+                findings.append(
+                    f"{LABELS[node]} 一行塞了 {' / '.join(why)}(上限 {PROSE_MAX_NUMS} 个 / "
+                    f"{PROSE_MAX_CHARS} 字), 改成表格或分条:{s[:50]}…"
+                )
+    return RuleResult(
+        name="R11 散文密度", severity=WARN, passed=not findings,
+        detail=f"{len(findings)} 行散文过密(列表形状的内容要写成表, 表格不吃章预算)",
         findings=findings,
     )
 
@@ -541,6 +582,7 @@ def lint_run(run_dir, md_path=None, artifacts_dir=None, audit_json=None) -> Lint
         rule_memoryless(bodies),
         rule_report_sync(Path(md_path) if md_path else find_report_md(run_dir), bodies),
         rule_budget(bodies),
+        rule_prose_density(bodies),
         closure_warn,
         anchor_warn,
         decision_warn,
