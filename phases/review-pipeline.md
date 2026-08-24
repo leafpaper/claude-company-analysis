@@ -25,7 +25,9 @@
 
 ## R1: 证据刷新(增量模式)
 
-1. **data-collector**(增量模式):prompt 照 Phase 1 模板,外加三行——
+1. **data-collector**(增量模式):prompt 照 Phase 1 模板,外加四行——
+   - 「**先设 `CA_CACHE_MAX_AGE_DAYS=0`**(PowerShell `$env:CA_CACHE_MAX_AGE_DAYS='0'` / bash `export`)
+     再跑全部采集脚本——复查的意义就是披露后的新证据,7 天数据缓存会把行情/筹码悄悄换成旧值」
    - 「**增量模式**:全部脚本 artifact 正常全量刷新(便宜);PDF 只下**新增披露**——先读
      `{run_dir}/baseline/pdfs_before.json` 已有清单,只下载清单外的新报告(本次复查的主角
      通常就是刚披露的定期报告)并抽 section」

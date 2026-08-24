@@ -161,8 +161,15 @@ def render_change_block(cb: dict) -> str:
     ]
     for delta in cb["metric_deltas"]:
         lines.append(f"| {_cell(delta['name'])} | {_cell(delta['before'])} | {_cell(delta['after'])} |")
-    flipped = "、".join(assembly.NODE_LABELS[n] for n in cb["flipped_nodes"]) or "无"
-    lines += ["", f"- **翻转节点**:{flipped}"]
+    kinds = cb.get("flip_kinds") or {}
+    verdict_flips = [n for n in cb["flipped_nodes"] if kinds.get(n, "verdict") == "verdict"]
+    sub_flips = [n for n in cb["flipped_nodes"] if kinds.get(n) == "sub"]
+    flip_bits = []
+    if verdict_flips:
+        flip_bits.append("、".join(assembly.NODE_LABELS[n] for n in verdict_flips) + " 判定翻转")
+    if sub_flips:
+        flip_bits.append("、".join(assembly.NODE_LABELS[n] for n in sub_flips) + " 子判定变化(判定语未变)")
+    lines += ["", f"- **判定变化**:{';'.join(flip_bits) or '无'}"]
 
     if cb["falsification_changes"]:
         for item in cb["falsification_changes"]:
@@ -171,9 +178,14 @@ def render_change_block(cb: dict) -> str:
     else:
         lines.append("- **证伪清单**:无触发/解除")
     if cb["red_flag_changes"]:
-        for item in cb["red_flag_changes"]:
+        # 文案与统计同源: 🟢/ℹ️ 单列「绿灯更新」, 不借红旗名头
+        hard = [i for i in cb["red_flag_changes"] if not assembly.flag_change_is_soft(i)]
+        soft = [i for i in cb["red_flag_changes"] if assembly.flag_change_is_soft(i)]
+        for item in hard:
             verb = {"triggered": "新增", "resolved": "解除", "level_changed": "级别变化"}[item["change"]]
             lines.append(f"- **红旗{verb}**:{item.get('note') or item['id']}")
+        for item in soft:
+            lines.append(f"- **绿灯更新**:{item.get('note') or item['id']}")
     else:
         lines.append("- **红旗清单**:无增减")
     if cb["full_rerun_advice"]["advised"]:
@@ -324,7 +336,8 @@ def assemble_run(
         # 没有快照(如手工指定 prev-run-dir 对比两个全量)再退回上版 run 目录里找 audit JSON。
         baseline_flags = run_dir / "baseline" / "red_flags.json"
         if baseline_flags.exists():
-            prev_script_flags = json.loads(baseline_flags.read_text(encoding="utf-8"))
+            data = json.loads(baseline_flags.read_text(encoding="utf-8"))
+            prev_script_flags = list(data.get("red_flags") or []) if isinstance(data, dict) else list(data)
         else:
             prev_script_flags = load_audit_flags(None, [prev_run_dir])
 

@@ -153,8 +153,11 @@ PDF 失败 → 备用 URL → 仍失败标"已尝试: {urls}",继续。
 
 ## 增量模式(--review R1;主 agent prompt 注明「增量模式」时生效)
 
-与全量只差三处,其余步骤原样执行:
+与全量只差四处,其余步骤原样执行:
 
+0. **先关数据缓存**:跑任何采集脚本前设 `CA_CACHE_MAX_AGE_DAYS=0`(PowerShell
+   `$env:CA_CACHE_MAX_AGE_DAYS='0'`;bash `export CA_CACHE_MAX_AGE_DAYS=0`)——复查的意义
+   就是披露后的新证据,默认 7 天缓存会把行情/筹码悄悄换成旧值,分诊 diff 变成自己跟自己比。
 1. **Step 1-2 脚本 artifact 照常全量刷新**(便宜且幂等)——metrics/audit/red_flags/snapshot/peer/capital 全部重产,原地覆盖公司级旧文件(旧值已被 init_run 快照进 `{run_dir}/baseline/`,不用你操心)。
 2. **Step 3 PDF 只下新增**:先 Read `{run_dir}/baseline/pdfs_before.json`(已有 PDF 清单),只下载清单外的**新披露报告**(本次复查的主角通常就是刚披露的定期报告)并抽 section;已有 PDF 一份都不重下。
 3. **Step 4 WebSearch 加时间过滤**:重点查上次 run 日期之后的新公告/舆情;`sentiment.md` / `data_sources.md` 整体重写(它们是附录底稿,读者看的是最新版)。

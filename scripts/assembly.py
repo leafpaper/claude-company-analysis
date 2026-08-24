@@ -197,20 +197,65 @@ def _norm(text: str) -> str:
     return re.sub(r"\s+", "", str(text or ""))
 
 
-def _node_flipped(before: dict | None, after: dict | None) -> bool:
-    """判定翻转 = verdict 文本变化, 或任一子判定的判定符变化(质地 ✓/⚠️/✗ 可机检)。"""
-    if not before or not after:
-        return False
-    if _norm(before.get("verdict")) != _norm(after.get("verdict")):
-        return True
+# 翻转比对只看 verdict 首短语(判定态度), 破折号/顿号后的论据措辞不算——
+# 重评写手必然重写论据, 全文比对会把「买完完美未来(数字更新)」也判成翻转(research/03 场景 A 反例)。
+_VERDICT_PHRASE_SPLIT = re.compile(r"[———,,;;::((\(·、]")
+
+
+def _verdict_phrase(verdict: str) -> str:
+    return _norm(_VERDICT_PHRASE_SPLIT.split(str(verdict or ""), 1)[0]) or _norm(verdict)
+
+
+# 子判定比对只认判定符号(质地的 ✓/⚠️/✗ 可机检); 状态/赔率/路径的子判定是自由文本,
+# 重评必然重写措辞, 拿文本比对等于把「数字更新」也判成翻转。
+_JUDGMENT_SYMBOLS = {"✓", "⚠️", "✗"}
+
+
+def _sub_symbol_changes(before: dict, after: dict) -> list[str]:
     old = {s["question"]: s["judgment"] for s in before.get("sub_verdicts") or []}
     new = {s["question"]: s["judgment"] for s in after.get("sub_verdicts") or []}
-    return any(q in old and old[q] != j for q, j in new.items())
+    return [
+        f"{q} {old[q]}→{j}"
+        for q, j in new.items()
+        if q in old and old[q] != j
+        and old[q] in _JUDGMENT_SYMBOLS and j in _JUDGMENT_SYMBOLS
+    ]
+
+
+def _flip_kind(before: dict | None, after: dict | None) -> str | None:
+    """翻转种类: "verdict"=判定语(首短语)真变了 / "sub"=判定语没变但子判定符变了 / None=没翻。
+
+    两种都算翻转(进 flipped_nodes、可触发硬规则 2), 但对读者的措辞不同——
+    「部分好→部分好」喊"翻转"是自相矛盾(delivery 评审票 09 Round 2), 子判定级的要说"子判定变化"。
+    """
+    if not before or not after:
+        return None
+    if _verdict_phrase(before.get("verdict")) != _verdict_phrase(after.get("verdict")):
+        return "verdict"
+    if _sub_symbol_changes(before, after):
+        return "sub"
+    return None
+
+
+def _node_flipped(before: dict | None, after: dict | None) -> bool:
+    """判定翻转 = verdict 首短语变化, 或任一子判定的判定符变化(质地 ✓/⚠️/✗ 可机检)。"""
+    return _flip_kind(before, after) is not None
 
 
 def gear_distance(before: str, after: str) -> int:
     """行动档位跨了几档(按进攻/观望/撤退三带算; 未知档位按 0 处理)。"""
     return abs(GEAR_BANDS.get(after, 0) - GEAR_BANDS.get(before, 0))
+
+
+# 🟢/ℹ️ 是绿灯与信息更新, 不许借「红旗」名头(计数与条目都要分组, 文案与统计必须同源)
+SOFT_FLAG_LEVELS = ("🟢", "ℹ️")
+
+
+def flag_change_is_soft(item: dict) -> bool:
+    level = item.get("level") or ""
+    if level:
+        return level in SOFT_FLAG_LEVELS
+    return any(lv in (item.get("note") or "") for lv in SOFT_FLAG_LEVELS)
 
 
 def _flag_changes(before: list[dict], after: list[dict]) -> list[dict]:
@@ -219,16 +264,19 @@ def _flag_changes(before: list[dict], after: list[dict]) -> list[dict]:
     changes = []
     for fid, flag in new.items():
         if fid not in old:
-            changes.append({"id": fid, "change": "triggered", "note": f"{flag['level']} {flag['title']}"})
+            changes.append({"id": fid, "change": "triggered", "level": flag["level"],
+                            "note": f"{flag['level']} {flag['title']}"})
         elif old[fid]["level"] != flag["level"]:
             changes.append({
                 "id": fid,
                 "change": "level_changed",
+                "level": flag["level"],
                 "note": f"{flag['title']}:{old[fid]['level']}→{flag['level']}",
             })
     for fid, flag in old.items():
         if fid not in new:
-            changes.append({"id": fid, "change": "resolved", "note": f"{flag['level']} {flag['title']}"})
+            changes.append({"id": fid, "change": "resolved", "level": flag["level"],
+                            "note": f"{flag['level']} {flag['title']}"})
     return changes
 
 
@@ -260,15 +308,22 @@ def build_change_block(
     """
     gear_before = prev_nodes["decision"]["action_gear"]
     gear_after = nodes["decision"]["action_gear"]
-    flipped = [n for n in rf.NODES if _node_flipped(prev_nodes.get(n), nodes.get(n))]
+    flip_kinds = {
+        n: kind for n in rf.NODES
+        if (kind := _flip_kind(prev_nodes.get(n), nodes.get(n)))
+    }
+    flipped = [n for n in rf.NODES if n in flip_kinds]
     flag_changes = _flag_changes(prev_flags, flags)
     fals_changes = _falsification_changes(prev_nodes.get("path"), nodes.get("path"))
 
     reasons = []
-    if "quality" in flipped:
+    if flip_kinds.get("quality") == "verdict":
         reasons.append(
             f"质地判定翻转({prev_nodes['quality']['verdict']} → {nodes['quality']['verdict']})"
         )
+    elif flip_kinds.get("quality") == "sub":
+        details = "、".join(_sub_symbol_changes(prev_nodes["quality"], nodes["quality"]))
+        reasons.append(f"质地子判定变化(判定语未变:{details})")
     distance = gear_distance(gear_before, gear_after)
     if distance >= 2:
         reasons.append(f"行动档位跨两档({gear_before} → {gear_after})")
@@ -279,13 +334,14 @@ def build_change_block(
 
     return {
         "alpha_summary": _alpha_summary(
-            gear_before, gear_after, flipped, flag_changes, fals_changes, nodes
+            gear_before, gear_after, flip_kinds, flag_changes, fals_changes, nodes
         ),
         "gear_before": gear_before,
         "gear_after": gear_after,
         "triad_before": dict(prev_nodes["decision"]["triad"]),
         "triad_after": dict(nodes["decision"]["triad"]),
         "flipped_nodes": flipped,
+        "flip_kinds": flip_kinds,
         "red_flag_changes": flag_changes,
         "falsification_changes": fals_changes,
         "metric_deltas": list(metric_deltas or []),
@@ -293,22 +349,37 @@ def build_change_block(
     }
 
 
-def _alpha_summary(gear_before, gear_after, flipped, flag_changes, fals_changes, nodes) -> str:
-    """首句人话答「阿尔法变了没」——只陈述机器测得的变化, 不自产解释。"""
+def _alpha_summary(gear_before, gear_after, flip_kinds, flag_changes, fals_changes, nodes) -> str:
+    """首句人话答「阿尔法变了没」——只陈述机器测得的变化, 不自产解释。
+
+    措辞纪律: 「翻转」只留给判定语真变的节点; 判定语未变、子判定符变的说「子判定变化」;
+    🟢/ℹ️ 不借「红旗」名头(文案与折叠组计数同源, 见 flag_change_is_soft)。
+    """
     triggered = [c for c in fals_changes if c["change"] == "triggered"]
-    new_flags = [c for c in flag_changes if c["change"] == "triggered"]
-    resolved = [c for c in flag_changes if c["change"] == "resolved"]
+    hard = [c for c in flag_changes if not flag_change_is_soft(c)]
+    soft = [c for c in flag_changes if flag_change_is_soft(c)]
+    new_flags = [c for c in hard if c["change"] == "triggered"]
+    resolved = [c for c in hard if c["change"] == "resolved"]
+    level_changed = [c for c in hard if c["change"] == "level_changed"]
+    verdict_flips = [n for n, k in flip_kinds.items() if k == "verdict"]
+    sub_flips = [n for n, k in flip_kinds.items() if k == "sub"]
     parts = []
     if triggered:
         parts.append(f"证伪触发 {len(triggered)} 条({triggered[0]['condition']})")
-    if flipped:
-        parts.append("、".join(NODE_LABELS[n] for n in flipped) + "判定翻转")
+    if verdict_flips:
+        parts.append("、".join(NODE_LABELS[n] for n in rf.NODES if n in verdict_flips) + "判定翻转")
+    if sub_flips:
+        parts.append("、".join(NODE_LABELS[n] for n in rf.NODES if n in sub_flips) + "子判定变化(判定语未变)")
     if gear_before != gear_after:
         parts.append(f"档位 {gear_before}→{gear_after}")
     if new_flags:
         parts.append(f"新增红旗 {len(new_flags)} 条")
     if resolved:
         parts.append(f"解除红旗 {len(resolved)} 条")
+    if level_changed:
+        parts.append(f"红旗级别变化 {len(level_changed)} 条")
+    if soft:
+        parts.append(f"绿灯/信息更新 {len(soft)} 条")
     if not parts:
         return (
             f"阿尔法没变:三元组与档位维持「{gear_after}」,无节点翻转、无证伪触发、无红旗增减"

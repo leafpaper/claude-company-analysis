@@ -381,6 +381,66 @@ class TestHelpers(unittest.TestCase):
         self.assertFalse(triage.is_annual_pdf("2026半年报.pdf"))
         self.assertFalse(triage.is_annual_pdf("q1_2026.pdf"))
 
+    def test_flip_ignores_rationale_rewording(self):
+        """research/03 场景 A 反例: 判定态度没变、只重写论据 → 不算翻转;首短语变了才算。"""
+        before = {"verdict": "部分好——真卡位+平庸财务", "sub_verdicts": []}
+        reworded = {"verdict": "部分好——真卡位已长成第二引擎,但现金裂口没合上", "sub_verdicts": []}
+        flipped = {"verdict": "偏好——卡位坐实+财务仍平庸", "sub_verdicts": []}
+        self.assertFalse(assembly._node_flipped(before, reworded))
+        self.assertTrue(assembly._node_flipped(before, flipped))
+        path_b = {"verdict": "高尾险·扛不住,高信仰 5/5", "sub_verdicts": []}
+        path_a = {"verdict": "高尾险·不可承受(拥挤加深)", "sub_verdicts": []}
+        self.assertFalse(assembly._node_flipped(path_b, path_a))
+
+    def test_flip_ignores_free_text_sub_judgments(self):
+        """自由文本子判定(状态/赔率/路径)重写措辞不算翻转;符号子判定(质地)变化才算。"""
+        base = {"verdict": "买完完美未来", "sub_verdicts": [
+            {"question": "价格分解 P=F+N", "judgment": "N 占市值 84%"}]}
+        reworded = {"verdict": "买完完美未来", "sub_verdicts": [
+            {"question": "价格分解 P=F+N", "judgment": "N 占市值 63.8%(上版 84.4%)"}]}
+        self.assertFalse(assembly._node_flipped(base, reworded))
+        q_base = {"verdict": "部分好——旧论据", "sub_verdicts": [
+            {"question": "生意模式赚钱吗", "judgment": "✗"}]}
+        q_new = {"verdict": "部分好——新论据", "sub_verdicts": [
+            {"question": "生意模式赚钱吗", "judgment": "⚠️"}]}
+        self.assertTrue(assembly._node_flipped(q_base, q_new))
+
+    def test_segment_shares_drop_aggregate_row(self):
+        """Tushare P 口径常有一行「产品」=全部之和(名字抓不住的合计行), 按数值剔除。
+
+        东山真数据验收踩到: 不剔的话所有真分部占比被腰斩(合计行独占 50%)。
+        """
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as td:
+            p = Path(td) / "mainbz.parquet"
+            write_mainbz(p, [
+                ("20260630", "产品", 100.0e8),          # 聚合行 = 下面三行之和
+                ("20260630", "PCB", 60.0e8),
+                ("20260630", "光模块", 30.0e8),
+                ("20260630", "其他", 10.0e8),
+            ])
+            shares = triage.segment_shares(p)
+        self.assertNotIn("产品", shares)
+        self.assertAlmostEqual(shares["PCB"], 0.60, places=3)
+        self.assertAlmostEqual(shares["光模块"], 0.30, places=3)
+
+    def test_flag_list_accepts_wrapped_shape(self):
+        """red_flags.py CLI 产物是 {"red_flags": [...]} 包壳, 裸列表与包壳都要认。"""
+        flags = fx.script_flags()
+        self.assertEqual(triage._flag_list({"red_flags": flags}), flags)
+        self.assertEqual(triage._flag_list(flags), flags)
+        self.assertIsNone(triage._flag_list(None))
+
+    def test_read_json_tolerates_gbk(self):
+        """Windows ANSI 控制台写出的 GBK JSON 也要能读(东山验收实测踩到)。"""
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as td:
+            p = Path(td) / "metrics.json"
+            p.write_bytes(json.dumps({"名字": "东山精密"}, ensure_ascii=False).encode("gbk"))
+            self.assertEqual(triage._read_json(p), {"名字": "东山精密"})
+
     def test_segment_bands_match_research_03(self):
         """3.58%→7% 不跨档(场景 A)、3.58%→12% 跨档(场景 B)。"""
         self.assertEqual(

@@ -111,7 +111,24 @@ class TriageInputError(RuntimeError):
 def _read_json(path: Path):
     if not path.exists():
         return None
-    return json.loads(path.read_text(encoding="utf-8"))
+    raw = path.read_bytes()
+    # 容错读取: 历史 collector 在 Windows ANSI 控制台下写过 GBK 的 metrics.json
+    # (根因已修 derived_metrics encoding="utf-8", 但存量文件与旧机器仍可能撞上)
+    for enc in ("utf-8", "utf-8-sig", "gbk"):
+        try:
+            return json.loads(raw.decode(enc))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            continue
+    raise TriageInputError(f"{path.name}: 不是可解析的 JSON(utf-8/gbk 都读不动)")
+
+
+def _flag_list(data) -> list | None:
+    """red_flags.json 两种形态都认: 裸列表 或 red_flags.py CLI 的 {"red_flags": [...]}。"""
+    if data is None:
+        return None
+    if isinstance(data, dict):
+        return list(data.get("red_flags") or [])
+    return list(data)
 
 
 def _metric_get(metrics: dict | None, dotted: str):
@@ -186,13 +203,19 @@ def segment_shares(parquet_path: Path) -> dict[str, float] | None:
     if date_col:
         sub = sub[sub[date_col] == sub[date_col].max()]
     sub = sub[~sub["bz_item"].astype(str).str.contains("合计|小计|总计", na=False)]
-    total = float(sub["bz_sales"].fillna(0).sum())
+    vals = {str(r.bz_item): float(r.bz_sales or 0) for r in sub.itertuples()}
+    # 名字抓不住的聚合行按数值剔除(Tushare P 口径常有一行「产品」= 全部之和):
+    # 某行 ≈ 其余行之和(±2%)即视为合计行, 只剔最大的一行
+    grand = sum(vals.values())
+    for name, v in sorted(vals.items(), key=lambda kv: -kv[1]):
+        rest = grand - v
+        if rest > 0 and abs(v - rest) / rest < 0.02:
+            del vals[name]
+            break
+    total = sum(vals.values())
     if total <= 0:
         return {}
-    return {
-        str(row.bz_item): float(row.bz_sales or 0) / total
-        for row in sub.itertuples()
-    }
+    return {name: v / total for name, v in vals.items()}
 
 
 def _band(share: float) -> int:
@@ -373,8 +396,8 @@ def run_triage(company_dir: Path, run_dir: Path, apply_reuse: bool = False) -> d
     # 证据 diff: 基线快照(before) vs 公司级刷新后(after)
     m_before = _read_json(bl / "metrics.json")
     m_after = _read_json(company_dir / "metrics.json")
-    flags_before = _read_json(bl / "red_flags.json")
-    flags_after = _read_json(company_dir / "red_flags.json")
+    flags_before = _flag_list(_read_json(bl / "red_flags.json"))
+    flags_after = _flag_list(_read_json(company_dir / "red_flags.json"))
     seg_before = segment_shares(bl / "fina_mainbz.parquet")
     seg_after = segment_shares(company_dir / "raw_data" / "fina_mainbz.parquet")
     pdfs_before = set(_read_json(bl / "pdfs_before.json") or [])
@@ -442,6 +465,12 @@ def run_triage(company_dir: Path, run_dir: Path, apply_reuse: bool = False) -> d
         for node in plan["reused"]:
             fname = assembly.NODE_FILES[node]
             stamp_reused_copy(prev_nodes_dir / fname, run_dir / "nodes" / fname, prev_date, reason)
+        # 重跑分诊后判定可能从「复用」翻成「重评」(证据修正后常见): 清掉早前盖过戳的
+        # 旧复用拷贝, 免得写手失败时留下一份假装是新判断的旧文件
+        for node in plan["nodes"]:
+            dest = run_dir / "nodes" / assembly.NODE_FILES[node]
+            if dest.exists() and "♻️ 本章判断复用" in dest.read_text(encoding="utf-8"):
+                dest.unlink()
 
     return result
 

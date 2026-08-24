@@ -145,8 +145,12 @@ Agent(subagent_type="decision-writer", run_in_background=False, description="⑤
 
 ---
 
-## 7. 增量复查(`--review`)下的差异(票 09 落地前先记在这)
+## 7. 增量复查(`--review`)下的差异
 
-- 波次由分诊单决定:`node_graph --nodes {标脏集合}`;状态/赔率/决策每次必跑,路径每次核销证伪清单。
-- 未重评节点:从上版 run 的 `nodes/` 拷 md 过来,在 YAML 块加 `reused_from: {上版日期}`。
-- 装配加 `--prev-run-dir {上版 run}`(+ 可选 `--metric-deltas`)即产首页「较上版变化」区块。
+完整流程见 `phases/review-pipeline.md`(票 09 已落地),与本文件的差异只有三条:
+
+- 波次以 `{run_dir}/triage.json` 的 `waves` 为准(状态/赔率/路径/决策必跑;质地标脏才跑);
+  未重评节点由 `triage --apply-reuse` 拷上版块盖 `reused_from` 戳,主 agent 不手拷。
+- 重评写手的 prompt 额外注入增量上下文(④路径核销清单 / ②状态临界点 / ①质地标脏原因),
+  模板见 review-pipeline.md R3。
+- 装配加 `--prev-run-dir {上版 run} --metric-deltas {run_dir}/triage.json` 产首页「较上版变化」区块。

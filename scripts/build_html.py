@@ -676,7 +676,12 @@ def render_hero_facts(product: dict, nodes: dict[str, dict] | None = None) -> st
             _esc(unit),
         ))
     if meta.get("next_disclosure_date"):
-        facts.append(("下次预约披露", _esc(meta["next_disclosure_date"]), ""))
+        # 披露日早于基准日 = 已披露(增量复查常态: 本次 run 就是它触发的), 别再喊「下次」
+        disc = meta["next_disclosure_date"]
+        if disc < meta.get("date", ""):
+            facts.append(("预约披露", _esc(f"{disc}(已披露)"), ""))
+        else:
+            facts.append(("下次预约披露", _esc(disc), ""))
     return "\n".join(
         f'  <div class="fact"><div class="l">{label}</div>'
         f'<div class="v">{value}{f" <small>{unit}</small>" if unit else ""}</div></div>'
@@ -800,7 +805,7 @@ def render_change_block(product: dict) -> str:
         return "<!-- 全量 run: 无较上版变化区块 -->"
     tb, ta = cb["triad_before"], cb["triad_after"]
     rows = [("行动档位", cb["gear_before"], cb["gear_after"])]
-    rows += [(f"三元组 {k}", tb[k], ta[k]) for k in ("state", "odds", "path")]
+    rows += [(f"三元组·{assembly.NODE_LABELS[k]}", tb[k], ta[k]) for k in ("state", "odds", "path")]
     rows += [(d["name"], d["before"], d["after"]) for d in cb["metric_deltas"]]
     table = (
         '<div class="tblwrap"><table><thead><tr><th>项</th><th>上版</th><th>本版</th></tr></thead><tbody>'
@@ -809,20 +814,39 @@ def render_change_block(product: dict) -> str:
         )
         + "</tbody></table></div>"
     )
-    bullets = [
-        "<li><b>翻转节点</b>:"
-        + (_esc("、".join(assembly.NODE_LABELS[n] for n in cb["flipped_nodes"])) or "无")
-        + "</li>"
-    ]
+    kinds = cb.get("flip_kinds") or {}
+    verdict_flips = [n for n in cb["flipped_nodes"] if kinds.get(n, "verdict") == "verdict"]
+    sub_flips = [n for n in cb["flipped_nodes"] if kinds.get(n) == "sub"]
+    flip_bits = []
+    if verdict_flips:
+        flip_bits.append("、".join(assembly.NODE_LABELS[n] for n in verdict_flips) + " 判定翻转")
+    if sub_flips:
+        flip_bits.append("、".join(assembly.NODE_LABELS[n] for n in sub_flips) + " 子判定变化(判定语未变)")
+    bullets = [f'<li><b>判定变化</b>:{_esc(";".join(flip_bits) or "无")}</li>']
     for item in cb["falsification_changes"]:
         verb = "触发" if item["change"] == "triggered" else "解除"
         bullets.append(f'<li><b>证伪{verb}</b>:{_esc(item["condition"])}</li>')
     if not cb["falsification_changes"]:
         bullets.append("<li><b>证伪清单</b>:无触发/解除</li>")
+    # 红旗变化: 🟢/ℹ️ 是绿灯与信息更新, 不许借「红旗」名头吓人; 长清单收进折叠组
+    # (分组口径 = assembly.flag_change_is_soft, 与 alpha_summary 的计数同源)
     verbs = {"triggered": "新增", "resolved": "解除", "level_changed": "级别变化"}
+    flag_items, green_items = [], []
     for item in cb["red_flag_changes"]:
-        bullets.append(f'<li><b>红旗{verbs[item["change"]]}</b>:{_esc(item.get("note") or item["id"])}</li>')
-    if not cb["red_flag_changes"]:
+        note = item.get("note") or item["id"]
+        target = green_items if assembly.flag_change_is_soft(item) else flag_items
+        target.append(f'<li><b>{"绿灯更新" if target is green_items else "红旗" + verbs[item["change"]]}</b>:{_esc(note)}</li>')
+    if flag_items or green_items:
+        counts = []
+        if flag_items:
+            counts.append(f"红旗 {len(flag_items)}")
+        if green_items:
+            counts.append(f"绿灯/信息 {len(green_items)}")
+        bullets.append(
+            f'<li><details><summary><b>红旗与绿灯变化</b>({" · ".join(counts)},点开逐条)</summary>'
+            f'<ul>{"".join(flag_items + green_items)}</ul></details></li>'
+        )
+    else:
         bullets.append("<li><b>红旗清单</b>:无增减</li>")
     advice = ""
     if cb["full_rerun_advice"]["advised"]:

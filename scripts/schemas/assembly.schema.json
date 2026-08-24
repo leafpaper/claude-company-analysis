@@ -145,6 +145,10 @@
           "type": "array",
           "items": { "enum": ["quality", "state", "odds", "path"] }
         },
+        "flip_kinds": {
+          "type": "object",
+          "additionalProperties": { "enum": ["verdict", "sub"] }
+        },
         "red_flag_changes": {
           "type": "array",
           "items": {
@@ -153,6 +157,7 @@
             "properties": {
               "id": { "type": "string", "minLength": 1 },
               "change": { "enum": ["triggered", "resolved", "level_changed"] },
+              "level": { "enum": ["🔴", "🟠", "🟡", "🟢", "ℹ️"] },
               "note": { "type": "string" }
             }
           }
