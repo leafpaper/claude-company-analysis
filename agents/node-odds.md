@@ -1,7 +1,7 @@
 ---
 name: node-odds
 description: |
-  ③赔率节点写手(v8 判断链第一波,与 node-quality / node-path 并行)。全链只有它回答「贵不贵」,
+  ③赔率节点写手(v8 判断链第一波,与 node-quality 并行)。全链只有它回答「贵不贵」,
   产出区间锚 [SOTP, DCF] 与两端同向标记,估值类红旗全部归它家。只读 judgment-chain + node-odds
   两份手册,产 runs/{date}/nodes/node-odds.md(顶部 YAML verdict 块 + 正文 ≤70 行),自跑 schema 校验。
   使用场景:
@@ -68,6 +68,41 @@ sub_verdicts:
   # …反向 DCF / SOTP 等按需增行
 red_flag_nominations: []
 current_price: {value: 273, unit: 元}
+derivation:                       # ★ 票 11: 推导是数据不是散文, 十条算术闭合机检
+  unit: 亿
+  per_share_unit: 元
+  share_count: {value: 18.3161, unit: 亿股, basis: 总股本(未摊薄), period: '2026-03-31'}
+  p_f_n:
+    market_cap: 5000
+    fact: 1000
+    narrative: 4000
+    narrative_share: 0.8
+    kind: embedded_obligation     # 或 free_option
+    fact_basis: 成熟主业年化归母约 50 亿 × 20x,不含光模块叙事
+  sotp:
+    profit_label: 年化扣非         # 分部利润列表头, 跟着你的口径改
+    segments:
+      - {name: 电子电路, profit: 22, multiple: 25, value: 550,
+         basis: 毛利率长期 13~18%,给 peer 中位折让, falsify: 毛利率跌破 13%}
+      - {name: 光模块, profit: 12, multiple: 40, value: 480,
+         basis: 毛利率 36.74% 全集团最高,40x 已含 AI 溢价, falsify: 毛利率跌破 30%}
+    enterprise_value: 1030        # 可省, 缺省 = 分部加总
+    net_debt: 120
+    equity_value: 910
+    per_share: 57                 # 必须 = anchor_range.low.value
+  dcf:
+    discount_rate:
+      total: 11.0                 # = 分项加总(机检)
+      components:
+        - {name: 无风险利率, value: 1.8}
+        - {name: 股权风险溢价, value: 5.5}
+        - {name: 执行风险, value: 3.7, basis: 并购整合未完成}
+    scenarios:                    # 概率加总 = 1(机检)
+      - {name: 乐观, p: 0.3, cagr: 25, margin: 12, exit_multiple: 25, pv: 3300}
+      - {name: 基准, p: 0.5, cagr: 15, margin: 8, exit_multiple: 20, pv: 1100}
+      - {name: 悲观, p: 0.2, cagr: 3, margin: 4.5, exit_multiple: 15, pv: 460}
+    equity_value: 1632            # = Σ(p × pv)(机检)
+    per_share: 89                 # 必须 = anchor_range.high.value
 anchor_range:
   low:  {method: SOTP, value: 57, unit: 元}
   high: {method: DCF(概率加权), value: 89, unit: 元}
@@ -81,10 +116,26 @@ anchor_range:
 |---|---|---|
 | 价格分解 P=F+N | N 占约 80% | … |
 
+**低端 = 叙事分部 SOTP(只认已兑现)**:(一句口径说明)
+
+{{sotp}}
+
+**高端 = 三情景概率加权 DCF**:
+
+{{discount_rate}}
+
+{{dcf}}
+
 (≤3 段展开:锚区间两端结果 + 关键假设 + 分歧原因;ΔP 一句话结论 + "细节见附录C")
 ````
 
-字段以 `scripts/schemas/node-odds.schema.json` 为准。`current_price` 建议填(装配的决断卡赔率行会机器拼上"vs 现价")。
+字段以 `scripts/schemas/node-odds.schema.json` 为准。`current_price` **必填**(决断卡赔率行会机器拼上
+"vs 现价",而且 R12 用它验「市值 = 现价 × 股本」)。
+
+**★ 三个占位不写表格**:`{{sotp}}` / `{{discount_rate}}` / `{{dcf}}` 由装配层按 `derivation` 渲染成表。
+你只填数据,**不手搓 markdown 表**;三个占位一个都不能少(R12 会查:数据填了却没占位,读者一格看不到)。
+表格化之后**出处引用要跟着拆到每一格**——散文里句末挂一个 `(①质地)` 就够,拆成表后每格自己带
+(R3「数字唯一 home」按行判)。详见手册 §2.5。
 
 ### Step 4: 估值红旗归家 + 提名
 
@@ -103,6 +154,11 @@ anchor_range:
 - 正文 ≤70 行;三件套都出了数字(F/N 金额、反向 DCF 隐含值、SOTP 各分部倍数)
 - 区间锚两端是**每股价格**且与 verdict 自洽(现价远高于高端 → 不可能判"合理")
 - `same_direction: false` 时 `divergence_note` 已写
+- **`derivation` 十条闭合自跑一遍**:`{PYBIN} -c "import json,sys;sys.path.insert(0,'.');
+  from scripts import derivation,verdict_block as v;b,_=v.load_and_validate(r'{run_dir}/nodes/node-odds.md','node-odds');
+  print(derivation.check(b['derivation'],b.get('current_price'),b.get('anchor_range')) or 'ALL CLOSED')"`
+  ——尤其是**每股换算**那条:股权总额 ÷ 股本 = 每股价,锚必须等于它推出来的那个数
+- 正文三个表格占位齐全(`{{sotp}}` / `{{discount_rate}}` / `{{dcf}}`),且没有你手搓的推导表
 - 正文无仓位/行动档位/该等什么、无来源标签、无手工标红、无第二个 YAML 块
 
 ## 输出格式(★ 只在响应里,严禁写进 md 文件)

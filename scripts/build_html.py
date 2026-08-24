@@ -53,6 +53,7 @@ except ImportError:
     sys.exit(1)
 
 from . import assembly
+from . import derivation
 from . import red_flags as rf
 from .update_index import GEAR_TONE
 
@@ -589,6 +590,155 @@ def render_valuation_meter(nodes: dict | None) -> str:
     ])
 
 
+def _pct_text(value: float, digits: int = 1) -> str:
+    text = f"{value:.{digits}f}".rstrip("0").rstrip(".")
+    return f"{text or '0'}%"
+
+
+def render_pfn_bar(nodes: dict | None) -> str:
+    """P = F + N 占比尺:一根条拆两段 —— 已赚到的 F / 为想象多付的 N。
+
+    形态取自 dataviz 的 proportion bar(两段的部分-整体, 不画饼也不画两根柱)。
+    两段之间留 2px 表面色缝隙, 不描边框。identity 三通道:颜色 + 图例文字 + 直标金额与占比,
+    所以浅色主题下 N 段那支色相的对比度 WARN 由「可见直标」解除, 不靠颜色单通道。
+    数据全部来自 node-odds 的 `derivation.p_f_n`(票 11), 零写手工作。
+    """
+    deriv = ((nodes or {}).get("odds") or {}).get("derivation") or {}
+    pfn = deriv.get("p_f_n") or {}
+    cap, fact, narr = pfn.get("market_cap"), pfn.get("fact"), pfn.get("narrative")
+    if not all(isinstance(v, (int, float)) for v in (cap, fact, narr)) or not cap:
+        return ""
+    unit = deriv.get("unit") or ""
+    n_share = pfn.get("narrative_share")
+    n_pct = float(n_share) * 100 if isinstance(n_share, (int, float)) else narr / cap * 100
+    f_pct = 100 - n_pct
+    kind = "市场已收费的义务,不是白送的彩票" if pfn.get("kind") == "embedded_obligation" \
+        else "白送的可选项(free option)"
+    f_txt = f"{derivation._fmt(fact, unit)} · {_pct_text(f_pct)}"
+    n_txt = f"{derivation._fmt(narr, unit)} · {_pct_text(n_pct)}"
+    alt = (f"股价拆两半:市值 {derivation._fmt(cap, unit)} 里, 已赚到的 F {f_txt},"
+           f"为想象多付的 N {n_txt}")
+    return "\n".join([
+        f'<figure class="pfn" role="img" aria-label="{_esc(alt)}">',
+        "  <figcaption>股价拆两半:已赚到的 · 为想象多付的</figcaption>",
+        '  <div class="bar">',
+        f'    <span class="sg f" style="flex-basis:calc({f_pct:.2f}% - 1px)"></span>',
+        f'    <span class="sg n" style="flex-basis:calc({n_pct:.2f}% - 1px)"></span>',
+        "  </div>",
+        '  <div class="lg">'
+        f'<span><i class="sw f"></i>已赚到的 F {_esc(f_txt)}'
+        f'<small>{_esc(pfn.get("fact_basis") or "")}</small></span>'
+        f'<span><i class="sw n"></i>为想象多付的 N {_esc(n_txt)}'
+        f"<small>{_esc(kind)}</small></span></div>",
+        "</figure>",
+    ])
+
+
+# 左尾情景的短名:取第一个「→」之前的部分(「谁出事」), 「→」之后是后果, 数值列已经说了
+_LADDER_SPLIT = re.compile(r"\s*(?:→|->|—>)")
+_LADDER_BREAK = re.compile(r"[,,、;;::+＋=＝\s]")     # 含空白: 「114.18 亿」这种没有标点的串靠它落刀
+_LADDER_LABEL_MAX = 26
+
+
+def _ladder_head(scenario: str) -> str:
+    """情景的「谁出事」部分, 不截断 —— 屏幕阅读器与 title 用它。"""
+    return _LADDER_SPLIT.split(scenario.strip(), 1)[0].strip() or scenario.strip()
+
+
+def _ladder_label(scenario: str) -> str:
+    """轨道左侧那一列的短名。
+
+    截断只在标点边界上落刀 —— 硬砍会切在数字中间(「应收 10…」把 105.98 亿砍成 10),
+    那正是 dataviz anti-patterns 里「标签被裁掉首尾字符」的那一条, 而且砍出来的是假数字。
+    """
+    head = _ladder_head(scenario)
+    if len(head) <= _LADDER_LABEL_MAX:
+        return head
+    cuts = [m.start() for m in _LADDER_BREAK.finditer(head) if m.start() <= _LADDER_LABEL_MAX]
+    return (head[:cuts[-1]] if cuts else head[:_LADDER_LABEL_MAX - 1]) + "…"
+
+
+def render_left_tail_ladder(nodes: dict | None) -> str:
+    """左尾深度阶梯:一条一级台阶, 由浅到深往下走。
+
+    单一色相 —— 全部台阶都在零的同一侧(都是跌幅), 长度已经编码了量级, 再按深浅调色
+    就是把同一件事编码两遍(dataviz anti-patterns「彩虹条形图」)。色相取自调色板的
+    发散对(蓝↔红)的红臂, 因为整张图只落在红臂上。
+    量不到价格的情景不静默丢:图下一行明说还有几条、分别是什么量级(票 11 契约里的 magnitude)。
+    """
+    tails = ((nodes or {}).get("path") or {}).get("left_tail") or []
+    graded = [t for t in tails if isinstance(t.get("depth_pct"), (int, float))]
+    if not graded:
+        return ""
+    graded = sorted(graded, key=lambda t: t["depth_pct"], reverse=True)   # 浅 → 深
+    # 轨道满格 = 本图最深的那级, 不是 −100% —— 八条都在 −70% 上下时, 按 −100% 归一
+    # 会把八根条压成一样长, 阶梯就没有台阶了
+    deepest = max(abs(float(t["depth_pct"])) for t in graded) or 1.0
+    rungs = []
+    for t in graded:
+        depth = abs(float(t["depth_pct"]))
+        width = max(depth / deepest * 100, 2)
+        full = t["scenario"] + (f" —— {t['depth_basis']}" if t.get("depth_basis") else "")
+        rungs.append(
+            f'    <li title="{_esc(full)}">'
+            f'<span class="lb">{_esc(_ladder_label(t["scenario"]))}</span>'
+            f'<span class="tr"><i style="width:{width:.1f}%"></i></span>'
+            f'<b class="dv">−{_pct_text(depth)}</b></li>'
+        )
+    ungraded = [t for t in tails if not isinstance(t.get("depth_pct"), (int, float))]
+    foot = ""
+    if ungraded:
+        items = "; ".join(
+            f"{_esc(_ladder_label(t['scenario']))}({_esc(t.get('magnitude') or '未量化')})"
+            for t in ungraded
+        )
+        foot = f'  <p class="foot">另 {len(ungraded)} 条量不到价格:{items}</p>'
+    alt = "左尾深度阶梯:" + "、".join(          # 朗读用全名, 截断只是版面上的事
+        f"{_ladder_head(t['scenario'])} −{_pct_text(abs(float(t['depth_pct'])))}" for t in graded
+    )
+    return "\n".join(filter(None, [
+        f'<figure class="ladder" role="img" aria-label="{_esc(alt)}">',
+        "  <figcaption>左尾有多深:兑现之前最坏要扛多少</figcaption>",
+        '  <ol class="rungs">', *rungs, "  </ol>",
+        foot,
+        "</figure>",
+    ]))
+
+
+def render_sparkline(series: dict | None, label: str = "") -> str:
+    """面板 sparkline:一格一条线, 无坐标轴无网格, 末点直标。
+
+    单序列 → 单色 → 不要图例(标题就是它的名字)。跨零的序列补一条零基线,
+    否则「−24 亿」和「+11 亿」在同一条线上看不出谁在水下。
+    数值序列来自①质地 `panel.indicators[].series`(票 11);为 null 的那格不出图。
+    """
+    points = (series or {}).get("points") or []
+    values = [p["value"] for p in points if isinstance(p.get("value"), (int, float))]
+    if len(values) < 3:
+        return ""
+    w, h, pad = 72.0, 20.0, 3.0
+    lo, hi = min(values), max(values)
+    span = (hi - lo) or 1.0
+    step = (w - 2 * pad) / (len(values) - 1)
+    xy = [(pad + i * step, h - pad - (v - lo) / span * (h - 2 * pad))
+          for i, v in enumerate(values)]
+    path = " ".join(("M" if i == 0 else "L") + f"{x:.1f} {y:.1f}" for i, (x, y) in enumerate(xy))
+    zero = ""
+    if lo < 0 < hi:
+        y0 = h - pad - (0 - lo) / span * (h - 2 * pad)
+        zero = f'<line class="z" x1="0" y1="{y0:.1f}" x2="{w:.0f}" y2="{y0:.1f}"/>'
+    unit = (series or {}).get("unit") or ""
+    alt = f"{label}走势:" + " → ".join(
+        f"{p['label']} {p['value']}{unit}" for p in points if isinstance(p.get("value"), (int, float))
+    )
+    return (
+        f'<svg class="spark" viewBox="0 0 {w:.0f} {h:.0f}" preserveAspectRatio="none" '
+        f'role="img" aria-label="{_esc(alt)}">{zero}'
+        f'<path class="ln" d="{path}"/>'
+        f'<circle class="pt" cx="{xy[-1][0]:.1f}" cy="{xy[-1][1]:.1f}" r="2.4"/></svg>'
+    )
+
+
 def prepare_body(body_md: str, product: dict, decorate: bool = True, fold: bool = False) -> str:
     """章节/附录正文: MD → HTML → 表格进横滚容器 → 红标反查。"""
     body = wrap_tables(_md_to_html(body_md))
@@ -722,10 +872,11 @@ def render_panel(product: dict) -> str:
             note += f' · peer {_esc(ind["peer_percentile"])}'
         if ind.get("note"):
             note += f' <span class="why">（{_esc(ind["note"])}）</span>'
+        spark = render_sparkline(ind.get("series"), ind["name"])
         tiles.append(
             f'  <div class="st{cls}">{badge}\n'
             f'    <div class="l">{_esc(ind["name"])}</div>\n'
-            f'    <div class="v">{_esc(ind["value"])}</div>\n'
+            f'    <div class="v">{_esc(ind["value"])}{spark}</div>\n'
             f'    <div class="n">{note}</div>\n'
             f"  </div>"
         )
@@ -903,13 +1054,18 @@ def render_chapters(parts: dict, product: dict, nodes: dict | None = None) -> st
         name, _, question = title.partition("——")
         tone = node_tone(node, product, load)
         pill_cls = tone if tone in ("bad", "watch", "good") else "node"
-        meter = render_valuation_meter(nodes) if node == "odds" else ""
+        # 章头图:③=估值尺 + P=F+N 占比尺, ④=左尾深度阶梯(票 11)。全部由 YAML 契约驱动。
+        figures = ""
+        if node == "odds":
+            figures = render_valuation_meter(nodes) + render_pfn_bar(nodes)
+        elif node == "path":
+            figures = render_left_tail_ladder(nodes)
         out.append(
             f'<section class="chB" id="ch-{node}">\n'
             f'  <div class="hd"><span class="no">{_esc(name.strip())}</span>'
             f'<span class="qq">{_esc(question.strip())}</span>'
             f'<span class="pill {pill_cls}">{_esc(head_txt)}</span></div>\n'
-            f'  <div class="bd">{meter}{prepare_body(body_md, product, fold=True)}</div>\n'
+            f'  <div class="bd">{figures}{prepare_body(body_md, product, fold=True)}</div>\n'
             f"</section>"
         )
     return "\n".join(out)

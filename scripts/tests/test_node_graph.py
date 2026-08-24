@@ -2,7 +2,8 @@
 
 实现票 05(.scratch/v8-implementation/issues/05-fullrun-writer-pipeline.md)。
 测试的是外部行为:子集进、波次出;全量与增量(标脏子集)共用同一套调度,
-波次基线取 research/09 §A(第一波 质地∥赔率∥路径 → 第二波 状态 → 第三波 决策)
+波次基线取 research/09 §A + 票 11 裁决(第一波 质地∥赔率 → 第二波 状态∥路径 → 第三波 决策;
+④路径的左尾深度 depth_pct 以③的锚为分母, 所以不能与③同波)
 与 research/03 的中报双向场景(场景A 质地复用 / 场景B 质地标脏)。
 
 运行:
@@ -18,16 +19,31 @@ from scripts import node_graph as ng
 
 class TestFullRun(unittest.TestCase):
     def test_two_waves_plus_decision(self):
-        """全量 = research/09 §A 的三波:质地∥赔率∥路径 → 状态 → 决策。"""
+        """全量 = 三波:质地∥赔率 → 状态∥路径 → 决策(票 11 把④从第一波挪到第二波)。"""
         self.assertEqual(
             ng.plan_waves(ng.NODES),
-            [["quality", "odds", "path"], ["state"], ["decision"]],
+            [["quality", "odds"], ["path", "state"], ["decision"]],
         )
+
+    def test_moving_path_costs_no_extra_wave(self):
+        """挪波次的代价必须是零:总波次仍是 3, 前两波仍各有两个节点并行。"""
+        waves = ng.plan_waves(ng.NODES)
+        self.assertEqual(len(waves), 3)
+        self.assertEqual([len(w) for w in waves], [2, 2, 1])
 
     def test_state_never_shares_a_wave_with_odds(self):
         """②状态四层验证第④关要引用③赔率 verdict, 不能并行。"""
         for wave in ng.plan_waves(ng.NODES):
             self.assertFalse({"state", "odds"} <= set(wave))
+
+    def test_path_never_shares_a_wave_with_odds(self):
+        """④路径的 left_tail[].depth_pct 分母 = ③的锚与现价(票 11), 不能并行。
+
+        票 09 验收暴露的真缺陷: ③④同波时④只拿得到上一版的③锚, 终稿两套锚并存,
+        靠评审轮回填。左尾还是散文时只是措辞不齐, 变成数值字段之后就是硬错。
+        """
+        for wave in ng.plan_waves(ng.NODES):
+            self.assertFalse({"path", "odds"} <= set(wave))
 
     def test_decision_is_last(self):
         waves = ng.plan_waves(ng.NODES)
@@ -43,10 +59,10 @@ class TestSubsetRun(unittest.TestCase):
     """增量复查: 只跑标脏子集, 子集外依赖由上版复用块供给。"""
 
     def test_scenario_a_quality_reused(self):
-        """research/03 场景A: 质地复用, 其余重评 → 赔率∥路径 → 状态 → 决策。"""
+        """research/03 场景A: 质地复用, 其余重评 → 赔率 → 状态∥路径 → 决策。"""
         self.assertEqual(
             ng.plan_waves(["odds", "path", "state", "decision"]),
-            [["odds", "path"], ["state"], ["decision"]],
+            [["odds"], ["path", "state"], ["decision"]],
         )
 
     def test_scenario_b_quality_dirty(self):
@@ -100,13 +116,15 @@ class TestNormalize(unittest.TestCase):
 class TestDescribe(unittest.TestCase):
     def test_describe_marks_parallel_wave(self):
         lines = ng.describe(ng.plan_waves(ng.NODES))
-        self.assertIn("并行", lines[0])
-        self.assertIn("∥", lines[0])
-        self.assertIn("单个", lines[1])
+        for i in (0, 1):                    # 前两波各两个节点并行(票 11 后)
+            self.assertIn("并行", lines[i])
+            self.assertIn("∥", lines[i])
+        self.assertIn("单个", lines[2])     # ⑤决策独占末波
 
     def test_plan_agents_mirror_waves(self):
         p = ng.plan(ng.NODES)
-        self.assertEqual(p["agents"][0], ["node-quality", "node-odds", "node-path"])
+        self.assertEqual(p["agents"][0], ["node-quality", "node-odds"])
+        self.assertEqual(p["agents"][1], ["node-path", "node-state"])
         self.assertEqual(p["agents"][-1], ["decision-writer"])
 
 

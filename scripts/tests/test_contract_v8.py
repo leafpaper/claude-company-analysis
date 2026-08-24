@@ -43,9 +43,55 @@ def legal_indicator(**over) -> dict:
         "peer_percentile": None,
         "red_flag_ref": "cash-content",
         "note": None,
+        # 票 11: sparkline 的数值序列;取不到序列时落 null(键必填, 逼写手明说没有)
+        "series": {"unit": "x", "points": [
+            {"label": "2023", "value": 2.31},
+            {"label": "2024", "value": 1.62},
+            {"label": "2025", "value": -0.42},
+        ]},
     }
     d.update(over)
     return d
+
+
+def legal_derivation() -> dict:
+    """票 11 估值推导:十条算术闭合逐条成立, 两端每股 = anchor_range 两端。"""
+    return {
+        "unit": "亿", "per_share_unit": "元",
+        "share_count": {"value": 18.3161, "unit": "亿股", "basis": "总股本(未摊薄)",
+                        "period": "2026-03-31"},
+        "p_f_n": {
+            "market_cap": 5000, "fact": 1000, "narrative": 4000, "narrative_share": 0.8,
+            "kind": "embedded_obligation",
+            "fact_basis": "成熟主业年化归母约 50 亿 x 20x",
+        },
+        "sotp": {
+            "segments": [
+                {"name": "电子电路", "profit": 22, "multiple": 25, "value": 550,
+                 "basis": "peer 中位折让", "falsify": "毛利率跌破 13%"},
+                {"name": "光模块", "profit": 12, "multiple": 40, "value": 480,
+                 "basis": "40x 已含 AI 溢价", "falsify": "毛利率跌破 30%"},
+                {"name": "精密组件", "profit": 8, "multiple": 15, "value": 120,
+                 "basis": "并表效应为主"},
+            ],
+            "enterprise_value": 1150, "net_debt": 106,
+            "equity_value": 1044, "per_share": 57,
+        },
+        "dcf": {
+            "discount_rate": {"total": 10.5, "components": [
+                {"name": "无风险利率", "value": 1.8},
+                {"name": "股权风险溢价", "value": 5.5},
+                {"name": "国家风险溢价", "value": 0.6},
+                {"name": "执行风险", "value": 2.6},
+            ]},
+            "scenarios": [
+                {"name": "乐观", "p": 0.3, "cagr": 25, "margin": 12, "exit_multiple": 25, "pv": 3300},
+                {"name": "基准", "p": 0.5, "cagr": 15, "margin": 8, "exit_multiple": 20, "pv": 1100},
+                {"name": "悲观", "p": 0.2, "cagr": 3, "margin": 4.5, "exit_multiple": 15, "pv": 450},
+            ],
+            "equity_value": 1630, "per_share": 89,
+        },
+    }
 
 
 def legal_quality() -> dict:
@@ -109,6 +155,7 @@ def legal_odds() -> dict:
             }
         ],
         "red_flag_nominations": [],
+        "derivation": legal_derivation(),
         "anchor_range": {
             "low": {"method": "SOTP", "value": 57, "unit": "元/股"},
             "high": {"method": "DCF", "value": 89, "unit": "元/股"},
@@ -135,8 +182,12 @@ def legal_path() -> dict:
             {"condition": "商誉任一减值", "triggered": None},
         ],
         "left_tail": [
-            {"scenario": "商誉 47.69 亿减值 → 最差 5 元(−98%)"},
-            {"scenario": "散户 2.8 倍暴增+两融拥挤 → 踩踏放大回撤至 −75%~−98%"},
+            {"scenario": "商誉 47.69 亿减值 → 最差 5 元(−98%)",
+             "depth_pct": -98, "depth_basis": "清算净值 → 每股 5 元 vs 现价 273 元"},
+            {"scenario": "散户 2.8 倍暴增+两融拥挤 → 踩踏放大回撤至 −75%~−98%",
+             "depth_pct": -75, "depth_basis": "踩踏放大区间的浅端"},
+            {"scenario": "袁氏父子高质押与踩踏共振",
+             "depth_pct": None, "magnitude": "质押占其持股 34.6%;放大器, 无独立价格深度"},
         ],
     }
 
@@ -265,6 +316,27 @@ class TestNodeSchemas(unittest.TestCase):
         bad["sub_verdicts"][0]["hardest_evidence"] = [ev, ev, dict(ev)]
         self.assertTrue(verdict_block.validate(bad, "node-quality"))
 
+    def test_panel_series_may_be_null(self):
+        """取不到序列时落 null 合法 —— 那格不出 sparkline, 面板照常渲染。"""
+        ok = legal_quality()
+        ok["panel"]["indicators"][0]["series"] = None
+        self.assertEqual(verdict_block.validate(ok, "node-quality"), [])
+
+    def test_panel_series_key_is_required(self):
+        """键必填: 「没有序列」要明说, 不能靠漏写。"""
+        bad = legal_quality()
+        del bad["panel"]["indicators"][0]["series"]
+        errs = verdict_block.validate(bad, "node-quality")
+        self.assertTrue(errs and any("series" in e for e in errs))
+
+    def test_panel_series_needs_three_points(self):
+        """两点连不成趋势, sparkline 画出来是条直线骗人。"""
+        bad = legal_quality()
+        bad["panel"]["indicators"][0]["series"]["points"] = [
+            {"label": "2024", "value": 1.0}, {"label": "2025", "value": 2.0},
+        ]
+        self.assertTrue(verdict_block.validate(bad, "node-quality"))
+
     def test_state_legal(self):
         self.assertEqual(verdict_block.validate(legal_state(), "node-state"), [])
 
@@ -292,8 +364,59 @@ class TestNodeSchemas(unittest.TestCase):
         bad["anchor_range"]["divergence_note"] = "两端不同向,取决于口径,档位保守一档"
         self.assertEqual(verdict_block.validate(bad, "node-odds"), [])
 
+    def test_odds_missing_derivation(self):
+        """票 11: 推导进契约后, 只写在散文里的赔率块不再合法。"""
+        bad = legal_odds()
+        del bad["derivation"]
+        errs = verdict_block.validate(bad, "node-odds")
+        self.assertTrue(errs and any("derivation" in e for e in errs))
+
+    def test_odds_missing_share_count(self):
+        """股本是每股换算的分母 —— 票 08 那个缺口就是它整个消失。"""
+        bad = legal_odds()
+        del bad["derivation"]["share_count"]
+        errs = verdict_block.validate(bad, "node-odds")
+        self.assertTrue(errs and any("share_count" in e for e in errs))
+
+    def test_odds_segment_needs_basis(self):
+        """分部倍数必须给理由 —— 没理由的倍数是拍脑袋。"""
+        bad = legal_odds()
+        del bad["derivation"]["sotp"]["segments"][0]["basis"]
+        self.assertTrue(verdict_block.validate(bad, "node-odds"))
+
+    def test_odds_discount_rate_needs_two_components(self):
+        """折现率是加法栈, 一项写不成栈。"""
+        bad = legal_odds()
+        bad["derivation"]["dcf"]["discount_rate"]["components"] = [{"name": "拍脑袋", "value": 10.5}]
+        self.assertTrue(verdict_block.validate(bad, "node-odds"))
+
     def test_path_legal(self):
         self.assertEqual(verdict_block.validate(legal_path(), "node-path"), [])
+
+    def test_path_depth_needs_basis(self):
+        """票 11: 有 depth_pct 就必须交代它怎么算出来的。"""
+        bad = legal_path()
+        del bad["left_tail"][0]["depth_basis"]
+        self.assertTrue(verdict_block.validate(bad, "node-path"))
+
+    def test_path_null_depth_needs_magnitude(self):
+        """量不到价格可以, 但要用它自己的单位说清量级 —— 不许两头都空。"""
+        bad = legal_path()
+        del bad["left_tail"][2]["magnitude"]
+        self.assertTrue(verdict_block.validate(bad, "node-path"))
+
+    def test_path_depth_pct_must_be_present(self):
+        """键必填(可为 null): 逼写手明确表态, 而不是忘了。"""
+        bad = legal_path()
+        del bad["left_tail"][0]["depth_pct"]
+        errs = verdict_block.validate(bad, "node-path")
+        self.assertTrue(errs and any("depth_pct" in e for e in errs))
+
+    def test_path_depth_pct_must_be_negative(self):
+        """左尾是跌幅, 正数是右尾 —— 走错门了。"""
+        bad = legal_path()
+        bad["left_tail"][0]["depth_pct"] = 42
+        self.assertTrue(verdict_block.validate(bad, "node-path"))
 
     def test_path_missing_falsifications(self):
         bad = legal_path()

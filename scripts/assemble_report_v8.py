@@ -324,7 +324,7 @@ def assemble_run(
     search_dirs.append(run_dir)
 
     nodes = assembly.load_nodes(nodes_dir)
-    bodies = assembly.load_node_bodies(nodes_dir)
+    bodies = assembly.load_node_bodies(nodes_dir, nodes)
     script_flags = load_audit_flags(audit_json, search_dirs)
 
     prev_nodes = prev_script_flags = None

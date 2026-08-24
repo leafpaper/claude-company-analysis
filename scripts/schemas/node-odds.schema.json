@@ -1,9 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "node-odds.schema.json",
-  "title": "③赔率节点 YAML verdict 块 — 贵不贵;区间锚[SOTP,DCF]两端同向规则",
+  "title": "③赔率节点 YAML verdict 块 — 贵不贵;区间锚[SOTP,DCF]两端同向规则 + 估值推导结构化(票 11)",
   "allOf": [{ "$ref": "common.schema.json#/$defs/node_base" }],
-  "required": ["node", "verdict", "sub_verdicts", "red_flag_nominations", "anchor_range"],
+  "required": ["node", "verdict", "sub_verdicts", "red_flag_nominations", "anchor_range", "derivation"],
   "properties": {
     "node": { "const": "odds" },
     "sub_verdicts": {
@@ -33,6 +33,121 @@
         "required": ["same_direction"]
       },
       "then": { "required": ["divergence_note"] }
+    },
+    "derivation": {
+      "type": "object",
+      "title": "估值推导 — 从分部利润到每股价格的每一步都是数据, 不是散文",
+      "description": "金额单位全块统一(unit), 分部不各带单位——不同单位相加正是这里要防的错。算术闭合由 lint_v8 R12 机检, 三张表由装配层渲染(正文写 {{sotp}} / {{discount_rate}} / {{dcf}} 占位)。",
+      "required": ["unit", "per_share_unit", "share_count", "p_f_n", "sotp", "dcf"],
+      "properties": {
+        "unit": { "type": "string", "minLength": 1, "description": "金额单位, 如「亿」「亿美元」" },
+        "per_share_unit": { "type": "string", "minLength": 1, "description": "每股价格单位, 如「元」" },
+        "share_count": {
+          "type": "object",
+          "title": "股本 — 每股换算的分母;票 08 那个真人才读出来的缺口就是它整个消失",
+          "required": ["value", "unit", "basis", "period"],
+          "properties": {
+            "value": { "type": "number", "exclusiveMinimum": 0 },
+            "unit": { "type": "string", "minLength": 1 },
+            "basis": { "type": "string", "minLength": 1, "description": "口径: 总股本 / 摊薄后 / 剔除回购库存股" },
+            "period": { "type": "string", "minLength": 1, "description": "期别: 如 2026-06-30" },
+            "source": { "type": "string" }
+          }
+        },
+        "p_f_n": {
+          "type": "object",
+          "title": "P = 基本面 F + 叙事溢价 N(手册 §1.1「必须出数字」的落盘处)",
+          "required": ["market_cap", "fact", "narrative", "narrative_share", "kind", "fact_basis"],
+          "properties": {
+            "market_cap": { "type": "number", "exclusiveMinimum": 0 },
+            "fact": { "type": "number" },
+            "narrative": { "type": "number" },
+            "narrative_share": { "type": "number", "minimum": 0, "maximum": 1 },
+            "kind": {
+              "enum": ["free_option", "embedded_obligation"],
+              "description": "远期可选项是白送的彩票, 还是市场已收费的义务"
+            },
+            "fact_basis": { "type": "string", "minLength": 1, "description": "F 是怎么算出来的(哪些分部、什么倍数、什么期别)" },
+            "growth_compare": { "type": "string", "description": "N′/N vs F′/F 的方向比较" }
+          }
+        },
+        "sotp": {
+          "type": "object",
+          "title": "叙事分部 SOTP = 锚区间低端",
+          "required": ["segments", "net_debt", "equity_value", "per_share"],
+          "properties": {
+            "segments": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "required": ["name", "profit", "multiple", "value", "basis"],
+                "properties": {
+                  "name": { "type": "string", "minLength": 1 },
+                  "profit": { "type": "number", "description": "该分部的年化利润(口径写进 basis)" },
+                  "multiple": { "type": "number", "exclusiveMinimum": 0 },
+                  "value": { "type": "number", "description": "= profit × multiple(机检)" },
+                  "basis": { "type": "string", "minLength": 1, "description": "倍数凭什么是这个数" },
+                  "falsify": { "type": "string", "description": "这个倍数被证伪的观测指标" }
+                }
+              }
+            },
+            "profit_label": { "type": "string", "minLength": 1, "description": "分部利润列的表头, 缺省「年化利润」;口径不同就跟着改(如「年化扣非」)" },
+            "enterprise_value": { "type": "number", "description": "缺省 = 分部加总;显式落盘时机检两者一致(允许四舍五入差)" },
+            "net_debt": { "type": "number" },
+            "equity_value": { "type": "number", "description": "= EV − net_debt(机检)" },
+            "per_share": { "type": "number", "description": "= equity_value ÷ share_count(机检), 且 = anchor_range.low.value" },
+            "note": { "type": "string", "description": "合计行末格的一句注(如隐含混合 PE)" }
+          }
+        },
+        "dcf": {
+          "type": "object",
+          "title": "概率加权 DCF = 锚区间高端",
+          "required": ["discount_rate", "scenarios", "equity_value", "per_share"],
+          "properties": {
+            "discount_rate": {
+              "type": "object",
+              "required": ["total", "components"],
+              "properties": {
+                "total": { "type": "number", "exclusiveMinimum": 0, "description": "百分数, 如 10.5 表示 10.5%;= 分项加总(机检)" },
+                "components": {
+                  "type": "array",
+                  "minItems": 2,
+                  "items": {
+                    "type": "object",
+                    "required": ["name", "value"],
+                    "properties": {
+                      "name": { "type": "string", "minLength": 1 },
+                      "value": { "type": "number" },
+                      "basis": { "type": "string" }
+                    }
+                  }
+                },
+                "note": { "type": "string" }
+              }
+            },
+            "scenarios": {
+              "type": "array",
+              "minItems": 2,
+              "items": {
+                "type": "object",
+                "required": ["name", "p", "pv"],
+                "properties": {
+                  "name": { "type": "string", "minLength": 1 },
+                  "p": { "type": "number", "minimum": 0, "maximum": 1, "description": "概率;全部情景加总 = 1(机检)" },
+                  "pv": { "type": "number", "description": "该情景的折现值(股权口径)" },
+                  "cagr": { "type": "number", "description": "百分数, 如 25 表示 25%" },
+                  "margin": { "type": "number", "description": "成熟期净利率, 百分数" },
+                  "exit_multiple": { "type": "number", "exclusiveMinimum": 0 }
+                }
+              }
+            },
+            "equity_value": { "type": "number", "description": "= Σ(p × pv)(机检)" },
+            "per_share": { "type": "number", "description": "= equity_value ÷ share_count(机检), 且 = anchor_range.high.value" },
+            "note": { "type": "string" }
+          }
+        }
+      }
     }
   },
   "$defs": {

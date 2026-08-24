@@ -120,7 +120,7 @@ Fresh-restart 每次重传完整任务描述 + 上轮 FIX(~500-2000 token),换�
 
 ### 4.1 Phase 3 波次门控(v8)
 
-1. 每波的写手用同一批 prompt 字段(`run_dir` / `artifacts_dir` / `company` / `ticker` / `market` / `date` / `PYBIN`),第一波三个 `run_in_background=True` 并行,第二、三波前台。
+1. 每波的写手用同一批 prompt 字段(`run_dir` / `artifacts_dir` / `company` / `ticker` / `market` / `date` / `PYBIN`),第一、二波各两个 `run_in_background=True` 并行,第三波前台。
 2. **主 agent 复核 schema**:`{PYBIN} -m scripts.verdict_block --schema node-X --file {run_dir}/nodes/node-X.md`;退出 0 才进下一波(sub-agent 的自证不算数)。
 3. 波次顺序由 `{PYBIN} -m scripts.node_graph`(全量 `--all` / 增量 `--nodes …`)算出,不手写。
 4. 单个写手最多 fresh-restart 1 次;仍红 → 转人工,**不许主 agent 手改 YAML 块**。

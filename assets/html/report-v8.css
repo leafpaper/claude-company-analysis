@@ -294,3 +294,90 @@ a.cite:hover{color:var(--accent); border-bottom-color:var(--accent)}
   .drill .dd{padding-left:2px}
   .foldbar{display:none}
 }
+
+/* ============================================================================
+   票 11 三张图:P=F+N 占比尺 / 左尾深度阶梯 / 面板 sparkline
+   数据全部来自 YAML 契约(odds.derivation.p_f_n · path.left_tail[].depth_pct ·
+   quality.panel.indicators[].series), 零写手工作。
+
+   ★ 图色与红标状态色**分开取**。--crit/--seri/--warn/--good 是保留的状态档
+   (🔴🟠🟡🟢), 拿去当"系列 4"会让读者把一条数据系列读成一个风险等级。
+   所以另开 --viz-* 三支, 明暗各自取色(不是把浅色翻过来):
+
+     --viz-1 蓝    F 段 · sparkline        light #2a78d6 / dark #3987e5
+     --viz-2 品红  N 段                    light #e87ba4 / dark #d55181
+     --viz-neg 红  左尾阶梯(单色)          light #e34948 / dark #e66767
+
+   六项检查跑的是 dataviz 的 scripts/validate_palette.js, 不是肉眼:
+     · (viz-1, viz-2) 明暗两套均 ALL CHECKS PASS —— CVD ΔE 13.0 明 / 15.9 暗,
+       常色视觉 ΔE 27.5 明 / 26.5 暗, 都在门槛之上;
+     · 浅色下 viz-2 对白面的对比度 2.69:1 触发 relief 条款 —— 已由图例里的
+       **可见直标(金额 + 占比)** 解除, 不靠颜色单通道传身份;
+     · viz-neg 单色无配对, 明暗对比度均 ≥3:1。
+   换品红而不用调色板里相邻的橙, 是因为橙会和 🟠 状态色撞脸。
+   ========================================================================= */
+:root{
+  --viz-1:#2a78d6; --viz-2:#e87ba4; --viz-neg:#e34948;
+  --viz-track:#eceae3;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --viz-1:#3987e5; --viz-2:#d55181; --viz-neg:#e66767;
+    --viz-track:#2a2a27;
+  }
+}
+:root[data-theme="dark"]{
+  --viz-1:#3987e5; --viz-2:#d55181; --viz-neg:#e66767;
+  --viz-track:#2a2a27;
+}
+
+/* ---------- P=F+N 占比尺:一根条两段, 段间留 2px 表面色缝隙(不描边) ---------- */
+.pfn{margin:2px 0 16px; padding:12px 14px; background:var(--surface);
+     border:1px solid var(--hair); border-radius:10px}
+.pfn figcaption{font-size:12.5px; color:var(--muted); margin-bottom:10px; letter-spacing:.02em}
+.pfn .bar{display:flex; gap:2px; height:14px}
+.pfn .sg{flex-grow:0; flex-shrink:1; min-width:2px; border-radius:3px}
+.pfn .sg.f{background:var(--viz-1)}
+.pfn .sg.n{background:var(--viz-2)}
+.pfn .lg{display:flex; flex-wrap:wrap; gap:6px 20px; margin-top:12px;
+         font-size:12.5px; color:var(--ink2)}
+.pfn .lg span{display:flex; align-items:baseline; gap:6px; flex:1 1 240px}
+.pfn .lg small{color:var(--muted); font-size:12.5px}
+.pfn .sw{width:10px; height:10px; border-radius:3px; flex:none; transform:translateY(1px)}
+.pfn .sw.f{background:var(--viz-1)}
+.pfn .sw.n{background:var(--viz-2)}
+
+/* ---------- 左尾深度阶梯:一条一级台阶, 由浅到深往下走 ---------- */
+.ladder{margin:2px 0 16px; padding:12px 14px; background:var(--surface);
+        border:1px solid var(--hair); border-radius:10px}
+.ladder figcaption{font-size:12.5px; color:var(--muted); margin-bottom:10px; letter-spacing:.02em}
+.ladder .rungs{list-style:none; margin:0; padding:0; display:grid; gap:6px}
+.ladder .rungs li{
+  display:grid; grid-template-columns:minmax(0,15em) 1fr auto;
+  align-items:center; gap:10px;
+}
+.ladder .lb{color:var(--ink2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+            font-size:13px}
+.ladder .tr{height:10px; border-radius:999px; background:var(--viz-track)}
+.ladder .tr i{display:block; height:10px; border-radius:999px; background:var(--viz-neg)}
+.ladder .dv{color:var(--ink); font-variant-numeric:tabular-nums; font-size:13px; font-weight:650}
+.ladder .foot{margin:10px 0 0; font-size:12.5px; color:var(--muted); line-height:1.6}
+
+/* ---------- 面板 sparkline:无轴无网格, 末点一颗直标点 ---------- */
+.spark{width:72px; height:20px; margin-left:10px; vertical-align:middle; overflow:visible}
+.spark .ln{fill:none; stroke:var(--viz-1); stroke-width:2;
+           stroke-linecap:round; stroke-linejoin:round; vector-effect:non-scaling-stroke}
+.spark .pt{fill:var(--viz-1); stroke:var(--surface); stroke-width:1.5;
+           vector-effect:non-scaling-stroke}
+.spark .z{stroke:var(--hair); stroke-width:1; vector-effect:non-scaling-stroke}
+
+@media (max-width:620px){
+  /* 手机上标签独占一行, 条与数值并排 —— 改结构不缩字号 */
+  .ladder .rungs li{grid-template-columns:1fr auto; row-gap:4px}
+  .ladder .lb{grid-column:1 / -1; white-space:normal}
+  .pfn .lg span{flex:1 1 100%}
+  .spark{display:block; margin:6px 0 0}
+}
+@media print{
+  .pfn,.ladder{break-inside:avoid}
+}

@@ -78,13 +78,13 @@ output/{company}/
 
 ```
 {PYBIN} -m scripts.node_graph --all
-→ 第1波(并行): ①质地 ∥ ③赔率 ∥ ④路径   第2波: ②状态   第3波: ⑤决策
+→ 第1波(并行): ①质地 ∥ ③赔率   第2波(并行): ④路径 ∥ ②状态   第3波: ⑤决策
 ```
 
 | 波 | 谁 | 产物 | 验收 |
 |:-:|---|---|---|
-| 1 | node-quality ∥ node-odds ∥ node-path(3 个 `run_in_background=True`) | `{run_dir}/nodes/node-{quality,odds,path}.md` | 三条 `verdict_block --schema node-X` 退出 0 |
-| 2 | node-state(前台;引用③ verdict) | `node-state.md`(含 `critical_point`) | `verdict_block --schema node-state` 退出 0 |
+| 1 | node-quality ∥ node-odds(2 个 `run_in_background=True`) | `{run_dir}/nodes/node-{quality,odds}.md` | 两条 `verdict_block --schema node-X` 退出 0 |
+| 2 | node-path ∥ node-state(2 个 `run_in_background=True`;都引用③) | `node-path.md`(含 `left_tail[].depth_pct`)· `node-state.md`(含 `critical_point`) | 两条 `verdict_block --schema node-X` 退出 0 |
 | 3 | decision-writer(前台;只读四个 YAML 块) | `node-decision.md`(含 `gear_cap` / `front_page_intro`) | `verdict_block --schema node-decision` 退出 0 + triad 与②③④同源 + 有 🔴 必封顶 |
 | — | 装配脚本 | `assembly/assembly.json` + 主报告 md | `assemble_report_v8` 退出 0 + Top3 非空 + 无缺附录告警 |
 

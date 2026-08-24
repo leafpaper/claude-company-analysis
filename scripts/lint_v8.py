@@ -23,6 +23,8 @@
 | R8 | 越权发声 | fail | 仓位 / 行动档位 / 买卖建议只能出现在⑤决策(链手册 §2.8) |
 | R9 | 无记忆性反例 | fail | 禁「跌久了该涨 / 估值压久了该修复」当买入理由 |
 | R10 | 报告与节点同步 | fail | 主报告五章正文 = 节点 md 正文(改完正文没重跑装配, 在这里现形) |
+| R11 | 散文密度 | warn | 列表形状的内容被焊成段落(定位器, 判官是 reviewer) |
+| R12 | 推导闭合 | fail + warn | ③估值推导十条算术闭合 + 三张表真渲染; 可视化数值字段齐备 = warn |
 
 CLI:
     python -m scripts.lint_v8 --run-dir output/{company}/runs/{date}
@@ -43,6 +45,7 @@ from pathlib import Path
 
 from . import assemble_report_v8 as render
 from . import assembly
+from . import derivation
 from . import red_flags as rf
 from . import verdict_block
 
@@ -441,6 +444,64 @@ def rule_anchor(nodes: dict) -> tuple[RuleResult, RuleResult]:
 
 
 # ============================================================================
+# R12 推导闭合(票 11)
+# ============================================================================
+def rule_derivation(nodes: dict, nodes_dir: Path) -> tuple[RuleResult, RuleResult]:
+    """③赔率的估值推导必须算得平, 而且必须真渲染到读者眼前。
+
+    起因是票 08 首份成品的「从 1,421 亿到 77.6 元/股」—— 中间要 ÷18.31 亿股, 股本一次都没出现,
+    三轮双 reviewer 全没抓到, 是真人读者读出来的。**散文里的数字机器查不了**, 所以票 11
+    把推导搬进契约, 这条规则就是那份契约的执行者。
+
+    fail 两类:算术对不上(derivation.check 十条)· 数据填了却没有占位去渲染(读者一格看不到)。
+    warn 两类:面板一条 sparkline 都出不来 · 左尾阶梯凑不够两级台阶。
+    """
+    fails, warns = [], []
+    odds = nodes.get("odds") or {}
+    deriv = odds.get("derivation")
+
+    if not deriv:
+        fails.append("③赔率块缺 derivation(估值推导已进契约, 不再允许只写在散文里)")
+    else:
+        fails += [f"③赔率 derivation: {f}" for f in
+                  derivation.check(deriv, odds.get("current_price"), odds.get("anchor_range"))]
+        odds_md = Path(nodes_dir) / "node-odds.md"
+        if odds_md.exists():
+            raw = assembly.strip_yaml_block(odds_md.read_text(encoding="utf-8"), "odds")
+            missing = derivation.missing_slots(raw)
+            if missing:
+                fails.append(
+                    "③赔率正文缺表格占位 " + "、".join("{{%s}}" % s for s in missing)
+                    + "(推导数据填了却没地方渲染 —— 读者一格也看不到)"
+                )
+
+    indicators = ((nodes.get("quality") or {}).get("panel") or {}).get("indicators") or []
+    if indicators and not any(i.get("series") for i in indicators):
+        warns.append(
+            f"面板 {len(indicators)} 个指标的 series 全为 null —— 一条 sparkline 都渲染不出来"
+            "(优先选有历史序列的指标进面板)"
+        )
+
+    left_tail = (nodes.get("path") or {}).get("left_tail") or []
+    graded = [t for t in left_tail if isinstance(t.get("depth_pct"), (int, float))]
+    if left_tail and len(graded) < 2:
+        warns.append(
+            f"左尾 {len(left_tail)} 条里只有 {len(graded)} 条量化到价格 —— 深度阶梯排不出台阶"
+            "(量不到价格的照写, 但能量的要给 depth_pct)"
+        )
+
+    return (
+        RuleResult(
+            name="R12 推导闭合", passed=not fails,
+            detail="分部乘法/加总 · EV−净负债 · Σ概率=1 · Σ(p×pv) · 折现率加法栈 · "
+                   "每股换算 · 锚=推导值 · P=F+N · 市值=现价×股本 · 三张表已渲染",
+            findings=fails,
+        ),
+        RuleResult(name="R12w 可视化数据齐备", severity=WARN, passed=not warns, findings=warns),
+    )
+
+
+# ============================================================================
 # R6 外链引用
 # ============================================================================
 FORBIDDEN_LINKS = [
@@ -622,11 +683,11 @@ def lint_run(run_dir, md_path=None, artifacts_dir=None, audit_json=None) -> Lint
     result.rules.append(schema_rule)
     if nodes is None:                # 块都不合契约, 后面的规则判不了(判了也是噪音)
         for name in ("R2 红旗闭环", "R3 数字唯一 home", "R5 区间锚",
-                     "R7 决策字段 + 封顶", "R10 报告与节点同步"):
+                     "R7 决策字段 + 封顶", "R10 报告与节点同步", "R12 推导闭合"):
             result.rules.append(RuleResult(name=name, skipped=True, detail="R1 未过, 跳过"))
         return result
 
-    bodies = assembly.load_node_bodies(nodes_dir)
+    bodies = assembly.load_node_bodies(nodes_dir, nodes)
     search_dirs = [Path(artifacts_dir)] if artifacts_dir else []
     search_dirs += [run_dir, run_dir.parent.parent]      # runs/{date} → output/{company}
     script_flags = render.load_audit_flags(Path(audit_json) if audit_json else None, search_dirs)
@@ -644,11 +705,13 @@ def lint_run(run_dir, md_path=None, artifacts_dir=None, audit_json=None) -> Lint
         )
         closure_warn = RuleResult(name="R2w 🟠 高级红旗归家", severity=WARN, skipped=True)
     anchor_fail, anchor_warn = rule_anchor(nodes)
+    deriv_fail, deriv_warn = rule_derivation(nodes, nodes_dir)
     decision_fail, decision_warn = rule_decision(nodes, flags)
     result.rules += [
         closure_fail,
         rule_number_home(bodies),
         anchor_fail,
+        deriv_fail,
         rule_links(bodies),
         decision_fail,
         rule_overreach(bodies),
@@ -658,6 +721,7 @@ def lint_run(run_dir, md_path=None, artifacts_dir=None, audit_json=None) -> Lint
         rule_prose_density(bodies),
         closure_warn,
         anchor_warn,
+        deriv_warn,
         decision_warn,
     ]
     if not script_flags:

@@ -1,7 +1,7 @@
 ---
 name: node-quality
 description: |
-  ①质地节点写手(v8 判断链第一波,与 node-odds / node-path 并行)。全链只有它回答「是不是好公司」,
+  ①质地节点写手(v8 判断链第一波,与 node-odds 并行)。全链只有它回答「是不是好公司」,
   并挑出首页「赚不赚钱」面板的 3-5 个指标。只读 judgment-chain + node-quality 两份手册,
   产 runs/{date}/nodes/node-quality.md(顶部 YAML verdict 块 + 正文 ≤70 行),自跑 schema 校验。
   使用场景:
@@ -75,6 +75,17 @@ panel:
       peer_percentile: null
       red_flag_ref: buffett-quality-xxxxxx    # 抄 red_flags.json 的 id
       note: null
+      series:                                 # ★ 票 11: sparkline 的数值序列(≥3 点)
+        unit: x
+        points: [{label: '2023', value: 2.31}, {label: '2024', value: 1.62},
+                 {label: '2025', value: -0.42}]
+    - name: ROE + peer 分位
+      value: 1.58%
+      trend: 杜邦:改善靠杠杆非经营效率
+      peer_percentile: 0% 分位
+      red_flag_ref: null
+      note: null
+      series: null                            # 取不到序列就明说 null, 那格不出图
 ```
 
 **判定:部分好——真卡位+平庸财务。**(verdict 先行,一句话说清"好在哪、差在哪")
@@ -106,6 +117,10 @@ panel:
 - verdict 与子判定表不打架(表里 3 个 ✗ 却写"好"= 错位)
 - 正文没有分数/权重/综合评级、没有仓位与行动档位、没有来源标签 `[…]`、没有手工标红
 - 面板 `red_flag_ref` 的每个 id 都能在 `red_flags.json` 里找到(找不到装配会硬失败)
+- 面板每个指标的 `series` 都表了态:有历史序列就给 ≥3 点(按时间排、期别口径别混),
+  取不到就填 `null`。**别把 `trend` 那句话重抄一遍当序列**——`trend` 是「怎么变的」,
+  `series` 是「变的那条线本身」。五个全 `null` 会被 R12w warn(一条 sparkline 都出不来),
+  所以选指标时优先选取得到序列的那些
 
 ## 输出格式(★ 只在响应里,严禁写进 md 文件)
 

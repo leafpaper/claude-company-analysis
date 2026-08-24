@@ -32,7 +32,11 @@
 摘要层(机器装配:决断卡/赚钱面板/Top3/主页 metadata;人工只写 3-5 句导读)
 ```
 
-**写作顺序 ≠ 章节顺序**:第一波 ①质地 ∥ ③赔率 ∥ ④路径 并行 → 第二波 ②状态(四层验证第④关引用赔率 verdict)→ 决策层。排版是装配脚本的事。
+**写作顺序 ≠ 章节顺序**:第一波 ①质地 ∥ ③赔率 并行 → 第二波 ②状态 ∥ ④路径 并行 → 第三波 决策层。排版是装配脚本的事。
+
+第二波两个节点都在等③的同一样东西:②状态的四层验证第④关引用赔率 verdict;④路径的左尾深度
+`depth_pct`(「跌回③锚要跌多少」)分母就是③的锚与现价。**④从第一波挪到第二波不加波次**——
+第二波原本只有②一个节点在跑。反向的引用(③手册 §6「地板见④」)是指路不是取数,不构成环。
 
 ### 1.3 四问定义与 verdict 取值域
 
@@ -225,9 +229,9 @@
 | 写手 | 读(只此两份 + 数据产物) | 产 | 章 | 波次 |
 |---|---|---|---|:--:|
 | node-quality | 本手册 + `node-quality.md` | `node-quality.md`(YAML 块 + 正文)+ 面板自选 3-5 指标 | ①质地 | 第一波 |
-| node-odds | 本手册 + `node-odds.md` | `node-odds.md` + 区间锚两端与同向标记 | ③赔率 | 第一波 |
-| node-path | 本手册 + `node-path.md` | `node-path.md` + 证伪清单 + 左尾清单 | ④路径 | 第一波 |
+| node-odds | 本手册 + `node-odds.md` | `node-odds.md` + 区间锚两端与同向标记 + **估值推导 `derivation`** | ③赔率 | 第一波 |
 | node-state | 本手册 + `node-state.md` | `node-state.md` + 临界点(该等什么) | ②状态 | 第二波(可引用③ verdict) |
+| node-path | 本手册 + `node-path.md` | `node-path.md` + 证伪清单 + 左尾清单(**带 `depth_pct`**) | ④路径 | 第二波(可引用③锚) |
 | decision-writer | 本手册(§2/§3)+ 五个节点的 **YAML 块** | `node-decision.md` + 首页 3-5 句导读 | ⑤怎么办 + 首页导读 | 第三波 |
 
 数据产物(全员可读,只取证据不取结论):`data_snapshot.md` / `audit_report.md` / `peer_analysis.md` / `capital_flow.md` / `technical_analysis.md` / Phase 2 文档精析。

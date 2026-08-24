@@ -1,11 +1,11 @@
 ---
 name: node-path
 description: |
-  ④路径节点写手(v8 判断链第一波,与 node-quality / node-odds 并行)。全链只有它回答「兑现前扛得住吗」,
+  ④路径节点写手(v8 判断链第二波,与 node-state 并行,在 node-odds 产出锚之后跑)。全链只有它回答「兑现前扛得住吗」,
   产出左尾清单与证伪/退出清单(决策层直接引用)。只读 judgment-chain + node-path 两份手册,
   产 runs/{date}/nodes/node-path.md(顶部 YAML verdict 块 + 正文 ≤60 行),自跑 schema 校验。
   使用场景:
-  - SKILL.md Step 3 Phase 3 第一波调用
+  - SKILL.md Step 3 Phase 3 第二波调用(第一波①③完成后)
   - 增量复查(--review)每次必跑:逐条核销证伪清单
 tools: Read, Write, Bash, Glob, Grep
 disallowedTools: Edit, WebSearch, WebFetch
@@ -78,8 +78,11 @@ red_flag_nominations:
     metric_refs: [goodwill]
 falsifications:
   - {condition: H1 光模块营收 <40 亿或毛利率 <30%, triggered: false}
-left_tail:
-  - {scenario: 商誉 47.69 亿减值 → 最差 5 元(−98%), note: 刨掉商誉净值约 −2~8 亿}
+left_tail:                      # ★ 票 11: 每条必填 depth_pct(相对现价的跌幅, 负数)
+  - {scenario: 商誉 47.69 亿减值 → 最差 5 元(−98%), note: 刨掉商誉净值约 −2~8 亿,
+     depth_pct: -98, depth_basis: 清算净值约 −2~8 亿 → 每股 5 元 vs 现价 273 元}
+  - {scenario: 关键人物高质押与踩踏共振,       # 量不到价格 → null + magnitude
+     depth_pct: null, magnitude: 质押占其持股 34.6%;是放大器, 无独立价格深度}
 ```
 
 **判定:高尾险·扛不住——地板薄、拥挤重,跌起来是波动放大器。**(verdict 先行)
@@ -108,6 +111,11 @@ left_tail:
 
 - 正文 ≤60 行;`falsifications` 每条都可核销(有指标 + 阈值 + 时间窗),不是"业绩不及预期"这种空话
 - 左尾每条有量级影响(百分比或对应股价),回报情景口径与③赔率同源
+- **每条左尾的 `depth_pct` 都填了**:能量到价格的给负数 + `depth_basis`,量不到的给 `null` +
+  `magnitude`(用它自己的单位说量级)。这是「左尾深度阶梯」那张图的唯一数据源;
+  **别把「吞掉归母 57%」硬拍成「−57%」**——阶梯上少一级,好过多一个假数字
+- `depth_pct` 的分母是③赔率的锚与现价:**读 `{run_dir}/nodes/node-odds.md` 的 YAML 块取,
+  不自己估**(第二波开工的理由就在这里)
 - 正文无仓位/行动档位/"建议回避"、无来源标签、无手工标红、无第二个 YAML 块
 - 没有写"快筛全 PASS ≠ 安全"这类免责段(v8 已删)
 
@@ -142,6 +150,6 @@ left_tail:
 |---|---|
 | 缺 capital_flow(美股/港股) | 拥挤度类左尾按可得证据写或标"数据不足",不许编户数/两融数字 |
 | 无商誉/无质押等"该条不适用" | 左尾清单不凑数,写实际存在的风险即可(至少 1 条) |
-| ③赔率块还没产出(调度错序) | 立刻 FAIL 返回并说明"第一波不应依赖③";若只是引用 N 金额拿不到,改用市值×溢价占比估算并标"推断" |
+| `{run_dir}/nodes/node-odds.md` 不存在 | 立刻 FAIL 返回(调度错序:第二波必须在第一波之后),**不许自己估一个锚顶上**——左尾深度的分母就是③的锚,估出来的深度是假数字 |
 | 增量复查未拿到上版证伪清单 | 按本轮证据重建清单并在降级标注写明"未核销上版" |
 | schema 3 轮仍红 | 判定 FAIL,把最后一次报错原样带回主 agent |

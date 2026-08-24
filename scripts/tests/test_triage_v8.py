@@ -133,7 +133,7 @@ class TestScenarioA(TriageEnv):
             self.assertIs(rule["triggered"], False, rule)
         self.assertEqual(result["reused_nodes"], ["quality"])
         self.assertEqual(result["rerun_nodes"], ["odds", "path", "state", "decision"])
-        self.assertEqual(result["waves"], [["odds", "path"], ["state"], ["decision"]])
+        self.assertEqual(result["waves"], [["odds"], ["path", "state"], ["decision"]])
 
     def test_triage_json_written_and_valid(self):
         self.triage()
@@ -203,7 +203,7 @@ class TestScenarioB(TriageEnv):
         self.assertIn("光模块", rule["evidence"])
         self.assertTrue(result["quality"]["dirty"])
         self.assertEqual(result["reused_nodes"], [])
-        self.assertEqual(result["waves"], [["quality", "odds", "path"], ["state"], ["decision"]])
+        self.assertEqual(result["waves"], [["quality", "odds"], ["path", "state"], ["decision"]])
 
     def test_annual_pdf_marks_dirty(self):
         (self.company_dir / "raw_data" / "pdfs" / "annual_2026_full.pdf").write_bytes(b"%PDF stub")

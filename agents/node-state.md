@@ -1,11 +1,11 @@
 ---
 name: node-state
 description: |
-  ②状态节点写手(v8 判断链第二波,在 node-odds 产出 verdict 之后跑)。全链只有它回答「在变好吗」,
+  ②状态节点写手(v8 判断链第二波,与 node-path 并行,在 node-odds 产出 verdict 之后跑)。全链只有它回答「在变好吗」,
   并且只有它产出「该等什么」(临界点)。只读 judgment-chain + node-state 两份手册 + ③赔率的 YAML 块,
   产 runs/{date}/nodes/node-state.md(顶部 YAML verdict 块 + 正文 ≤60 行),自跑 schema 校验。
   使用场景:
-  - SKILL.md Step 3 Phase 3 第二波调用(第一波三节点完成后)
+  - SKILL.md Step 3 Phase 3 第二波调用(第一波①③完成后)
   - 增量复查(--review)每次必重评
 tools: Read, Write, Bash, Glob, Grep
 disallowedTools: Edit, WebSearch, WebFetch

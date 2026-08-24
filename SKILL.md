@@ -54,8 +54,8 @@ Agent(subagent_type="X", prompt="...", run_in_background=True/False, description
 |:-:|---|---|---|
 | 1 | 数据采集 | **data-collector** | 12+ artifact + `red_flags.json` + phase1-data.md |
 | 2 | 文档精析 | **doc-analyst** | phase2-documents.md(§1-§8) |
-| 3 第一波 | ①质地 ∥ ③赔率 ∥ ④路径 | **node-quality / node-odds / node-path**(3 并行) | `runs/{date}/nodes/node-{quality,odds,path}.md` |
-| 3 第二波 | ②状态(引用③ verdict) | **node-state** | `nodes/node-state.md`(含临界点=该等什么) |
+| 3 第一波 | ①质地 ∥ ③赔率 | **node-quality / node-odds**(2 并行) | `runs/{date}/nodes/node-{quality,odds}.md` |
+| 3 第二波 | ④路径 ∥ ②状态(都引用③) | **node-path / node-state**(2 并行) | `nodes/node-{path,state}.md`(左尾深度 / 临界点=该等什么) |
 | 3 第三波 | ⑤怎么办 + 首页导读 | **decision-writer** | `nodes/node-decision.md`(含封顶检查/仓位) |
 | 3 装配 | 首页 + 五章 + 附录A-E | 主 agent + `assemble_report_v8` | `assembly.json` + 主报告 md |
 | 6 | 质量环 + 发布 | 主 agent + `lint_v8` → **reviewer-logic ∥ reviewer-delivery** → `build_html` / `update_index` | HTML + `phase6-review-log.md` + GitHub Pages |
@@ -157,8 +157,8 @@ Agent(subagent_type="X", prompt="...", run_in_background=True/False, description
 
 ```
 Phase 1 (data-collector) → Phase 2 (doc-analyst)
-  → Phase 3 第一波 (node-quality ∥ node-odds ∥ node-path)
-      → 第二波 (node-state) → 第三波 (decision-writer) → 装配 (assemble_report_v8)
+  → Phase 3 第一波 (node-quality ∥ node-odds)
+      → 第二波 (node-path ∥ node-state) → 第三波 (decision-writer) → 装配 (assemble_report_v8)
   → Phase 6 机器门控 (lint_v8) → reviewer-logic ∥ reviewer-delivery → 修正循环 → 出片发布
 ```
 

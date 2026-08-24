@@ -427,11 +427,130 @@ class TestIndexCardV8(unittest.TestCase):
         self.assertTrue(card.one_liner.startswith("老本行是赚辛苦钱的 PCB 红海龙头"))
 
 
+# ---------------------------------------------------------------- 票 11: 三张图
+
+class TestContractDrivenFigures(_Built):
+    """P=F+N 占比尺 / 左尾深度阶梯 / 面板 sparkline —— 三张图全部由 YAML 契约驱动, 零写手工作。
+
+    只断言页面上看得见的东西: 图在不在、数据对不对、身份传了几个通道、量不到的有没有被静默丢。
+    颜色是否 CVD 安全由 dataviz 的 validate_palette.js 在设计期跑过, 不在这里重判。
+    """
+
+    def figure(self, cls: str) -> str:
+        m = re.search(rf'<figure class="{cls}".*?</figure>', self.html, re.S)
+        self.assertIsNotNone(m, f"没渲染出 .{cls}")
+        return m.group(0)
+
+    # ---- P=F+N 占比尺 ----
+    def test_pfn_bar_splits_market_cap_into_two_segments(self):
+        fig = self.figure("pfn")
+        self.assertIn('class="sg f"', fig)
+        self.assertIn('class="sg n"', fig)
+        self.assertEqual(fig.count('class="sg '), 2, "两段的部分-整体, 不是三段")
+
+    def test_pfn_widths_come_from_the_contract(self):
+        """东山 fixture: N 占 80% → 两段宽度 20% / 80%(不是写手手填的百分比)。"""
+        fig = self.figure("pfn")
+        self.assertIn("flex-basis:calc(20.00% - 1px)", fig)
+        self.assertIn("flex-basis:calc(80.00% - 1px)", fig)
+
+    def test_pfn_identity_is_not_colour_alone(self):
+        """身份三通道: 色块 + 图例文字 + 直标金额与占比。浅色主题下 N 段对比度 2.69:1,
+        relief 条款要求可见直标 —— 这条就是那份 relief 的机检。"""
+        fig = self.figure("pfn")
+        self.assertIn("已赚到的 F", fig)
+        self.assertIn("为想象多付的 N", fig)
+        self.assertIn("1,000 亿", fig)      # F 金额直标
+        self.assertIn("4,000 亿", fig)      # N 金额直标
+        self.assertIn("80%", fig)           # 占比直标
+
+    def test_pfn_says_obligation_or_option_in_words(self):
+        self.assertIn("市场已收费的义务", self.figure("pfn"))
+
+    def test_pfn_has_an_alt_text(self):
+        self.assertRegex(self.figure("pfn"), r'role="img" aria-label="[^"]{20,}"')
+
+    # ---- 左尾深度阶梯 ----
+    def test_ladder_rung_count_matches_quantified_tails(self):
+        """东山 fixture 五条左尾里三条量化到价格 → 三级台阶。"""
+        fig = self.figure("ladder")
+        self.assertEqual(fig.count("<li "), 3)
+
+    def test_ladder_is_sorted_shallow_to_deep(self):
+        depths = [float(m) for m in re.findall(r'<b class="dv">−([\d.]+)%</b>', self.figure("ladder"))]
+        self.assertEqual(depths, sorted(depths), "阶梯要一级比一级深, 否则不叫阶梯")
+
+    def test_ladder_normalises_to_its_own_deepest_rung(self):
+        """满格 = 本图最深那级, 不是 −100% —— 否则八条都在 −70% 上下时会压成一样长。"""
+        widths = [float(m) for m in re.findall(r'<i style="width:([\d.]+)%"></i>', self.figure("ladder"))]
+        self.assertEqual(max(widths), 100.0)
+        self.assertLess(min(widths), 100.0)
+
+    def test_ladder_never_silently_drops_unquantified_tails(self):
+        """量不到价格的两条不上阶梯, 但必须在图下点名 + 给出它自己的量级。"""
+        fig = self.figure("ladder")
+        self.assertIn("另 2 条量不到价格", fig)
+        self.assertIn("质押占其持股 34.6%", fig)
+
+    def test_ladder_label_never_cuts_a_number_in_half(self):
+        """截断只在标点/空白边界落刀 —— 砍在数字中间会印出一个假数字。"""
+        for label in re.findall(r'<span class="lb">(.*?)</span>', self.figure("ladder")):
+            if label.endswith("…"):
+                self.assertNotRegex(label[:-1], r"\d[\d,.]*$", f"标签砍在数字中间: {label}")
+
+    def test_ladder_full_text_is_reachable(self):
+        """截断的是版面, 不是信息: title 与 aria-label 走全名。"""
+        fig = self.figure("ladder")
+        self.assertIn("商誉 47.69 亿减值", fig)
+
+    # ---- 面板 sparkline ----
+    def test_sparkline_per_indicator_with_a_series(self):
+        """东山 fixture 五个指标里四个有序列 → 四条 sparkline。"""
+        self.assertEqual(len(re.findall(r'<svg class="spark"', self.html)), 4)
+
+    def test_sparkline_point_count_matches_the_series(self):
+        svg = re.search(r'<svg class="spark".*?</svg>', self.html, re.S).group(0)
+        path = re.search(r'd="([^"]+)"', svg).group(1)
+        self.assertEqual(len(re.findall(r"[ML]", path)), 4)      # 毛利率序列四期
+
+    def test_sparkline_draws_a_zero_baseline_when_it_crosses_zero(self):
+        """FCF 从 +11.6 亿走到 −24.01 亿、现金含量从 2.31x 走到 −0.42x —— 没有零基线看不出谁在水下。
+
+        另两条(毛利率 / 扣非占比)全程为正, 不该多画一根线。
+        """
+        svgs = re.findall(r'<svg class="spark".*?</svg>', self.html, re.S)
+        crossing = [s for s in svgs if 'class="z"' in s]
+        self.assertEqual(len(crossing), 2, "跨零的两条各要一根零基线")
+        self.assertTrue(any("FCF" in s for s in crossing))
+        self.assertTrue(any("现金含量" in s for s in crossing))
+        self.assertFalse([s for s in svgs if 'class="z"' in s and "毛利率" in s],
+                         "全程为正的序列不该有零基线")
+
+    def test_sparkline_values_are_also_readable_as_text(self):
+        """图不是读到数值的唯一通道: aria-label 逐期报数, 瓦片上还有 value/trend 原文。"""
+        svg = re.search(r'<svg class="spark"[^>]*aria-label="([^"]+)"', self.html).group(1)
+        self.assertIn("2022", svg)
+        self.assertIn("→", svg)
+
+    def test_indicator_without_a_series_gets_no_sparkline(self):
+        """series 为 null 的那格不出图, 也不炸 —— 面板照常渲染五块。"""
+        self.assertEqual(self.html.count('class="st'), 5)
+
+    def test_figure_colours_are_not_the_status_ramp(self):
+        """图色与红标状态色分开取: --viz-* 是自己的三支, 不复用 --crit/--seri/--warn/--good。"""
+        for token in ("--viz-1", "--viz-2", "--viz-neg"):
+            self.assertIn(token, CSS)
+        block = CSS.split("票 11 三张图")[1]
+        self.assertNotIn("background:var(--crit)", block)
+        self.assertNotIn("background:var(--seri)", block)
+
+
 def main():
     loader = unittest.TestLoader()
     suite = unittest.TestSuite()
     for cls in (TestDashboardFrontPage, TestRedMarkThreeChannels, TestMobileFirstClass,
-                TestDualTheme, TestPageIntegrity, TestIncrementalChangeBlock, TestIndexCardV8):
+                TestDualTheme, TestPageIntegrity, TestIncrementalChangeBlock, TestIndexCardV8,
+                TestContractDrivenFigures):
         suite.addTests(loader.loadTestsFromTestCase(cls))
     result = unittest.TextTestRunner(verbosity=2).run(suite)
     sys.exit(0 if result.wasSuccessful() else 1)

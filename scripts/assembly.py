@@ -15,6 +15,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from . import derivation
 from . import red_flags as rf
 from . import verdict_block
 
@@ -75,15 +76,24 @@ def load_nodes(nodes_dir) -> dict[str, dict]:
     return blocks
 
 
-def load_node_bodies(nodes_dir) -> dict[str, str]:
-    """读五个节点 md 的正文(剥掉顶部 YAML 块与写手自带的章节标题行)。"""
+def load_node_bodies(nodes_dir, nodes: dict[str, dict] | None = None) -> dict[str, str]:
+    """读五个节点 md 的正文(剥掉顶部 YAML 块与写手自带的章节标题行)。
+
+    给了 `nodes`(已过 schema 的五块)就顺手把③赔率正文里的
+    `{{sotp}}` / `{{discount_rate}}` / `{{dcf}}` 占位换成机器渲染的表(票 11)——
+    **装配与 lint 必须传同一个 nodes**, 否则 R10「报告与节点同步」会拿展开前的正文
+    去比展开后的报告, 每次都判不同步。
+    """
     nodes_dir = Path(nodes_dir)
     bodies = {}
     for node, fname in NODE_FILES.items():
         path = nodes_dir / fname
         if not path.exists():
             continue
-        bodies[node] = strip_yaml_block(path.read_text(encoding="utf-8"), node)
+        body = strip_yaml_block(path.read_text(encoding="utf-8"), node)
+        if node == "odds" and nodes:
+            body = derivation.expand_tables(body, nodes.get("odds") or {})
+        bodies[node] = body
     return bodies
 
 
