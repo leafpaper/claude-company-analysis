@@ -577,6 +577,9 @@ class TestPublish(CompareEnv):
         self.assertEqual(card["member_count"], 2)
         self.assertEqual(card["missing_count"], 1)
         self.assertEqual(card["href"], f"compare/{SLUG}/index.html")
+        # 站点按市场分区, 对比组要能报出自己覆盖哪些市场(否则市场 tab 下无从取舍)
+        self.assertEqual(card["markets"], ["a"])
+        self.assertTrue(all(m["market"] == "a" for m in card["members"]))
         # 成员链接从对比页视角(../../)换成首页视角(站点根)
         self.assertTrue(all(not m["href"].startswith("..") for m in card["members"]))
 

@@ -450,6 +450,11 @@ def compare_card(product: dict) -> dict:
     judge = product.get("judge") or {}
     winner = min(judge["ranking"], key=lambda r: r["rank"])["company"] if judge.get("ranking") else ""
     group = product["group"]
+    markets = []
+    for m in product["members"]:
+        mk = m.get("market") or _detect_market(m.get("ticker") or "", m["company"])
+        if mk and mk not in markets:
+            markets.append(mk)
     return {
         "kind": "compare",
         "slug": group["slug"],
@@ -460,6 +465,7 @@ def compare_card(product: dict) -> dict:
         "generated": product["generated"],
         "verdict": judge.get("verdict", ""),
         "winner": winner,
+        "markets": markets,
         "member_count": len(product["members"]),
         "missing_count": len(product["missing_members"]),
         "stale_count": sum(1 for m in product["members"] if m["stale"]),
@@ -467,6 +473,7 @@ def compare_card(product: dict) -> dict:
             {
                 "company": m["company"],
                 "ticker": m["ticker"],
+                "market": m.get("market") or _detect_market(m.get("ticker") or "", m["company"]),
                 "action_gear": m["action_gear"],
                 "quality_field": m["quality_field"],
                 "report_date": m["report_date"],
