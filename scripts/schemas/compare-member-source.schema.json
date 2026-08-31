@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "compare-member-source.schema.json",
+  "title": "对比页从成员报告里取的那几样 — 只校验真正被消费的字段(票 10)",
+  "description": "成员的报告是**不同时间**产出的, 契约会往前走(如票 11 给面板指标加了必填的 series)。对比页只搬决断卡 / Top3 / metadata, 拿整份 assembly.schema 去卡会把一份完整的旧报告误判成「缺报告」——那是把无关的 schema 演进变成了对比功能的故障。所以这里只 $ref 真正消费的三处, 定义仍在 assembly.schema.json, 不留第二份真相源。 ③赔率的区间锚与现价同理: 只 $ref node-odds 的那两处, 不整块校验节点。",
+  "type": "object",
+  "required": [
+    "verdict_card",
+    "top3",
+    "metadata"
+  ],
+  "properties": {
+    "verdict_card": {
+      "$ref": "assembly.schema.json#/properties/verdict_card"
+    },
+    "top3": {
+      "$ref": "assembly.schema.json#/properties/top3"
+    },
+    "metadata": {
+      "$ref": "assembly.schema.json#/properties/metadata"
+    },
+    "red_flags": {
+      "$ref": "assembly.schema.json#/properties/red_flags"
+    },
+    "anchor_range": {
+      "$ref": "node-odds.schema.json#/properties/anchor_range"
+    },
+    "current_price": {
+      "$ref": "node-odds.schema.json#/properties/current_price"
+    }
+  }
+}

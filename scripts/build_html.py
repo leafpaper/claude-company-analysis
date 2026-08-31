@@ -1187,7 +1187,235 @@ def check_v8_coverage(html: str, product: dict, parts: dict) -> list[str]:
     return missing
 
 
+# ---------- 对比页(票 10 --compare): compare.json → 一页上下两半 ----------
+
+V8_COMPARE_TEMPLATE = ASSETS_DIR / "compare-v8.html"
+
+
+def _member_head(member: dict) -> str:
+    """表头一格 = 公司(链接回它的单报告)+ ticker + 基准日 + 陈旧徽章。"""
+    anchor_mark = '<span class="anch">锚</span>' if member.get("is_anchor") else ""
+    kind = "全量" if member["run_type"] == "full" else "增量"
+    parts = [
+        f'<a class="who" href="{_esc(member.get("report_href") or "#")}">'
+        f'{_esc(member["company"])}</a>{anchor_mark}',
+        f'<span class="code">{_esc(member["ticker"] or "–")}</span>',
+        f'<span class="asof">基准日 {_esc(member["report_date"])} · {kind} · '
+        f'{member["age_days"]} 天前</span>',
+    ]
+    if member["stale"]:
+        parts.append('<span class="stale">⚠️ 陈旧 · 建议先跑 --review 复查再比</span>')
+    return "".join(parts)
+
+
+def _top3_cell(member: dict) -> str:
+    items = "".join(
+        f'<li>{_esc(item["level"])} {_esc(LEVEL_WORDS.get(item["level"], ""))}'
+        f' {_esc(item["title"])}</li>'
+        for item in member["top3"]
+    )
+    return f"<ol>{items}</ol>" if items else "–"
+
+
+def render_compare_matrix(product: dict) -> str:
+    """并排矩阵: 行 = 决断卡五问 + 锚/红旗/Top3/披露日, 列 = 各家。搬运, 不判断。"""
+    from . import compare as cmp_mod
+
+    members = product["members"]
+    heads = "".join(f"<th>{_member_head(m)}</th>" for m in members)
+    rows = [
+        ("行动档位", [f'<span class="pill">{_esc(m["action_gear"])}</span>' for m in members], "gear"),
+    ]
+    for i, question in enumerate(cmp_mod.CARD_QUESTIONS):
+        rows.append((question, [_esc(m["verdict_card"][i]["verdict"]) for m in members], ""))
+    rows += [
+        ("区间锚", [_esc(cmp_mod.anchor_text(m)) for m in members], ""),
+        ("红旗", [_esc(cmp_mod.flags_text(m)) for m in members], ""),
+        ("Top3 风险", [_top3_cell(m) for m in members], ""),
+        ("下次披露", [_esc(m.get("next_disclosure_date") or "–") for m in members], ""),
+    ]
+    body = "".join(
+        f"<tr><th>{_esc(label)}</th>"
+        + "".join(f'<td class="{cls}">{cell}</td>' for cell in cells)
+        + "</tr>"
+        for label, cells, cls in rows
+    )
+    return (
+        f'<table class="cmp"><thead><tr><th></th>{heads}</tr></thead>'
+        f"<tbody>{body}</tbody></table>"
+    )
+
+
+def render_compare_facts(product: dict) -> str:
+    members, missing = product["members"], product["missing_members"]
+    stale = [m for m in members if m["stale"]]
+    judge = product.get("judge")
+    winner = min(judge["ranking"], key=lambda r: r["rank"])["company"] if judge else "待产出"
+    facts = [
+        ("组内成员", f"{len(members)} 家",
+         f"另 {len(missing)} 家缺报告" if missing else "全员有完整报告"),
+        ("裁决首位", winner, "compare-judge 判" if judge else "跑 compare-judge 后重装配"),
+        ("基准日新鲜度", f"{len(stale)} 家陈旧",
+         f"超 {product['stale_threshold_days']} 天档线" if stale else "全部在档线内"),
+    ]
+    return "".join(
+        f'<div class="fact"><div class="l">{_esc(label)}</div>'
+        f'<div class="v">{_esc(value)} <small>{_esc(note)}</small></div></div>'
+        for label, value, note in facts
+    )
+
+
+def render_compare_notes(product: dict) -> str:
+    notes = product.get("notes") or []
+    if not notes:
+        return ""
+    items = "".join(f"<li>{_esc(n)}</li>" for n in notes)
+    return f'<div class="change"><ul>{items}</ul></div>'
+
+
+def render_compare_chain_note(product: dict) -> str:
+    note = product["group"].get("chain_note")
+    if not note:
+        return ""
+    return f'<p class="reason">同行口径:{_esc(note)}</p>'
+
+
+def render_compare_judge(product: dict) -> str:
+    """下半 = 唯一判断节点。没有裁决就明说待产出, 不拿并排卡片冒充结论。"""
+    judge = product.get("judge")
+    if not judge:
+        return (
+            '<div class="pending">⏳ 组内裁决尚未产出 —— 上半并排卡片已就绪, '
+            "由 compare-judge 读 <code>compare.json</code> 写 <code>compare-judge.md</code> 后重跑装配。</div>"
+        )
+    cards = "".join(
+        f'<div class="rank"><div class="no">第 {item["rank"]} 位</div>'
+        f'<div class="who">{_esc(item["company"])}</div>'
+        f'<div class="why">{_esc(item["one_liner"])}</div>'
+        f'<div class="basis">依据:'
+        + "、".join(_esc(assembly.NODE_LABELS.get(b, b)) for b in item["basis"])
+        + "</div></div>"
+        for item in sorted(judge["ranking"], key=lambda r: r["rank"])
+    )
+    out = [f'<div class="jv">{_esc(judge["verdict"])}</div>', f'<div class="ranks">{cards}</div>']
+    if judge.get("common_risk"):
+        out.append(f'<p class="reason">全组共担:{_esc(judge["common_risk"])}</p>')
+    if judge.get("not_comparable"):
+        items = "".join(f"<li>{_esc(x)}</li>" for x in judge["not_comparable"])
+        out.append(f'<div class="intro"><p>这次不可比的维度:</p><ul>{items}</ul></div>')
+    return "".join(out)
+
+
+def render_compare_missing(product: dict) -> str:
+    """缺报告成员 —— 全报告制的另一半: 不凑数, 但要看得见、知道怎么补。"""
+    missing = product["missing_members"]
+    if not missing:
+        return ""
+    rows = "".join(
+        f'<tr><td>{_esc(m["company"])}</td><td>{_esc(m.get("ticker") or "–")}</td>'
+        f'<td>{_esc(m.get("source") or "–")}</td><td>{_esc(m["reason"])}</td>'
+        f'<td><code>{_esc(m.get("command") or "–")}</code></td></tr>'
+        for m in missing
+    )
+    return (
+        '<div class="secl" id="missing"><span class="t">缺报告成员</span> '
+        '<span class="chip">未进对比 · 补跑后重装配即并入</span></div>'
+        '<div class="tblwrap"><table class="cmp">'
+        "<thead><tr><th>公司</th><th>ticker</th><th>候选来源</th><th>原因</th><th>补跑</th></tr></thead>"
+        f"<tbody>{rows}</tbody></table></div>"
+    )
+
+
+def build_compare_html(product: dict, version: str = "v8.0") -> str:
+    """compare.json → 对比页成品 HTML(与单报告同一套 token 与组件, 不另起一套版式)。"""
+    base = V8_COMPARE_TEMPLATE.read_text(encoding="utf-8")
+    css = V8_CSS.read_text(encoding="utf-8")
+    html = base.replace("<!-- PLACEHOLDER: styles -->", css)
+
+    fills = {
+        "chain_note": render_compare_chain_note(product),
+        "hero_facts": render_compare_facts(product),
+        "notes": render_compare_notes(product),
+        "matrix": render_compare_matrix(product),
+        "judge": render_compare_judge(product),
+        "missing": render_compare_missing(product),
+    }
+    for key, value in fills.items():
+        placeholder = f"<!-- PLACEHOLDER: {key} -->"
+        if placeholder not in html:
+            raise AssertionError(f"compare-v8.html 缺占位 {placeholder}(内容会静默丢失)")
+        html = html.replace(placeholder, value)
+
+    group = product["group"]
+    for key, value in {
+        "{{group_name}}": group["name"],
+        "{{group_slug}}": group["slug"],
+        "{{anchor}}": group["anchor"],
+        "{{generated}}": product["generated"],
+        "{{stale_days}}": product["stale_threshold_days"],
+        "{{skill_version}}": version,
+    }.items():
+        html = html.replace(key, _esc(value))
+    return html
+
+
+def check_compare_coverage(html: str, product: dict) -> list[str]:
+    """成品自检: 每家的公司名、五行判定与回原报告的链接一个都不能少。"""
+    text = re.sub(r"<[^>]+>", " ", html_lib.unescape(html))
+    flat = re.sub(r"\s+", "", text)
+    missing = []
+    for member in product["members"]:
+        if re.sub(r"\s+", "", member["company"]) not in flat:
+            missing.append(f"成员「{member['company']}」未出现")
+        if member.get("report_href") and member["report_href"] not in html:
+            missing.append(f"成员「{member['company']}」缺回原报告的链接")
+        for row in member["verdict_card"]:
+            head, _ = _split_verdict(row["verdict"])
+            if re.sub(r"\s+", "", head) not in flat:
+                missing.append(f"{member['company']}「{row['question']}」判定未出现")
+    judge = product.get("judge")
+    if judge:
+        for item in judge["ranking"]:
+            if re.sub(r"\s+", "", item["one_liner"]) not in flat:
+                missing.append(f"裁决「{item['company']}」的一句原因未出现")
+    return missing
+
+
 # ---------- CLI ----------
+
+def _build_compare(args) -> int:
+    """--compare-slug 通道: compare.json → 对比页 HTML(装配归 scripts.compare, 这里只出片)。"""
+    from . import compare as cmp_mod
+
+    try:
+        product = cmp_mod.load_product(args.compare_slug)
+    except cmp_mod.CompareError as exc:
+        print(f"❌ {exc}", file=sys.stderr)
+        return 1
+    if not product.get("judge"):
+        print("⚠️ 这个组还没有组内裁决 —— 页面下半会明写「待产出」;发布前请先跑 compare-judge")
+
+    html = build_compare_html(product, version=args.version or "v8.0")
+    out_path = Path(args.out) if args.out else (
+        cmp_mod.group_dir(args.compare_slug)
+        / f"{args.compare_slug}-compare-{product['generated']}.html"
+    )
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(html, encoding="utf-8")
+
+    print(f"✅ HTML(对比页)已写入 {out_path} ({len(html):,} chars)")
+    print(f"   {len(product['members'])} 家并排 · "
+          f"{'含组内裁决' if product.get('judge') else '裁决待产出'} · "
+          f"{len(product['missing_members'])} 家缺报告 · "
+          f"{sum(1 for m in product['members'] if m['stale'])} 家陈旧")
+    missing = check_compare_coverage(html, product)
+    if missing:
+        print("❌ 成品自检未过:", file=sys.stderr)
+        for item in missing:
+            print(f"   - {item}", file=sys.stderr)
+        return 2
+    return 0
+
 
 def main():
     for stream in (sys.stdout, sys.stderr):      # Windows 控制台 GBK 下 print emoji 会炸
@@ -1196,8 +1424,9 @@ def main():
         except (AttributeError, OSError):
             pass
 
-    ap = argparse.ArgumentParser(description="MD → HTML 报告构建器 (v8 仪表盘 / v7 兼容)")
-    ap.add_argument("--company", required=True, help="公司目录名, 例 实丰文化")
+    ap = argparse.ArgumentParser(description="MD → HTML 报告构建器 (v8 仪表盘 / 对比页 / v7 兼容)")
+    ap.add_argument("--company", help="公司目录名, 例 实丰文化(出对比页时不需要)")
+    ap.add_argument("--compare-slug", help="v8 票10: 出产业链对比页(读该组的 compare.json)")
     ap.add_argument("--run-dir", help="v8: runs/{date}/ 目录(含 nodes/ 与 assembly/assembly.json)")
     ap.add_argument("--md", help="MD 路径 (默认自动找最新)")
     ap.add_argument("--out", help="输出 HTML 路径 (默认同目录同名 .html)")
@@ -1205,6 +1434,12 @@ def main():
     ap.add_argument("--version", default="", help="skill 版本号(默认 v8 报告 v8.0 / v7 报告 v6.0)")
     ap.add_argument("--skip-lint", action="store_true", help="跳过 v8 lint 门控(不推荐, 仅 debug 用)")
     args = ap.parse_args()
+
+    # ---- 对比页通道: 输入是 compare.json, 没有 md 也没有 lint(判断在各家自己的报告里已过关)----
+    if args.compare_slug:
+        return _build_compare(args)
+    if not args.company:
+        ap.error("--company 必填(或用 --compare-slug 出对比页)")
 
     # 定位 MD
     if args.md:

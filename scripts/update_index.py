@@ -435,11 +435,153 @@ def refresh_preview_data(repo: Path, create: bool = False) -> bool:
     return True
 
 
+# ---------- 对比页发布(票 10): compare/{slug}/ + data/compare.json ----------
+
+COMPARE_PREVIEW_HEADER = (
+    "// 本地预览兜底数据 (内容 = data/compare.json 快照)。线上以实时 fetch data/compare.json 为准。"
+)
+
+
+def compare_card(product: dict) -> dict:
+    """对比组 → 首页卡片条目(与单报告卡片并列, 互相可点)。
+
+    卡片上不放新结论: verdict 直接引裁决那一句, 成员各自的档位引各自报告 —— 同「上半零新判断」。
+    """
+    judge = product.get("judge") or {}
+    winner = min(judge["ranking"], key=lambda r: r["rank"])["company"] if judge.get("ranking") else ""
+    group = product["group"]
+    return {
+        "kind": "compare",
+        "slug": group["slug"],
+        "name": group["name"],
+        "anchor": group["anchor"],
+        "chain_note": group.get("chain_note", ""),
+        "href": f"compare/{group['slug']}/index.html",
+        "generated": product["generated"],
+        "verdict": judge.get("verdict", ""),
+        "winner": winner,
+        "member_count": len(product["members"]),
+        "missing_count": len(product["missing_members"]),
+        "stale_count": sum(1 for m in product["members"] if m["stale"]),
+        "members": [
+            {
+                "company": m["company"],
+                "ticker": m["ticker"],
+                "action_gear": m["action_gear"],
+                "quality_field": m["quality_field"],
+                "report_date": m["report_date"],
+                "stale": m["stale"],
+                # 站点视角的相对路径(compare.json 里存的是对比页自己的 ../../ 相对链接)
+                "href": (m.get("report_href") or "").replace("../../", ""),
+            }
+            for m in product["members"]
+        ],
+    }
+
+
+def upsert_compare_json(repo_data_json: Path, card: dict, force: bool = False) -> bool:
+    """合并对比卡到 data/compare.json(按 slug upsert)。返回是否新增。
+
+    语义合并, 不整文件覆盖 —— 这个仓库有别的会话与 cron 在写, 覆盖会毁掉别人的条目。
+    """
+    if repo_data_json.exists():
+        data = json.loads(repo_data_json.read_text(encoding="utf-8-sig"))
+    else:
+        data = {"schema_version": "v1", "groups": []}
+    groups = data.setdefault("groups", [])
+
+    existing = next((i for i, g in enumerate(groups) if g.get("slug") == card["slug"]), None)
+    if existing is None:
+        groups.append(card)
+        is_new = True
+    else:
+        old_date = groups[existing].get("generated", "")
+        if not force and old_date > card["generated"]:
+            print(f"[WARN] compare.json 里已有更新版本 {old_date} > {card['generated']},"
+                  "跳过(用 --force 强制覆盖)")
+            return False
+        groups[existing] = card
+        is_new = False
+
+    groups.sort(key=lambda g: g.get("generated", ""), reverse=True)
+    data["last_updated"] = card["generated"]
+    repo_data_json.parent.mkdir(parents=True, exist_ok=True)
+    repo_data_json.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    return is_new
+
+
+def refresh_compare_preview(repo: Path, create: bool = False) -> bool:
+    """compare.data.js = data/compare.json 的快照(file:// 本地预览读它, 同 reports.data.js)。"""
+    target = repo / "compare.data.js"
+    source = repo / "data" / "compare.json"
+    if not source.exists() or (not target.exists() and not create):
+        return False
+    body = json.dumps(json.loads(source.read_text(encoding="utf-8-sig")), ensure_ascii=False, indent=2)
+    target.write_text(f"{COMPARE_PREVIEW_HEADER}\nwindow.COMPARE_RAW = {body};\n", encoding="utf-8-sig")
+    return True
+
+
+def publish_compare(slug: str, repo: Path | None, force: bool = False,
+                    create_preview: bool = False, version: str = "v8.0") -> int:
+    """装配产物 → 对比页 HTML + 站点条目。HTML 当场从 compare.json 渲染, 不捡旧文件。"""
+    from . import build_html as bh
+    from . import compare as cmp_mod
+
+    try:
+        product = cmp_mod.load_product(slug)
+    except cmp_mod.CompareError as exc:
+        print(f"❌ {exc}", file=sys.stderr)
+        return 1
+    if not product.get("judge"):
+        print("⚠️ 这个组还没有组内裁决 —— 页面下半会明写「待产出」;发布前请先跑 compare-judge")
+
+    html = bh.build_compare_html(product, version=version)
+    gaps = bh.check_compare_coverage(html, product)
+    if gaps:
+        print("❌ 对比页成品自检未过:", file=sys.stderr)
+        for gap in gaps:
+            print(f"   - {gap}", file=sys.stderr)
+        return 2
+
+    card = compare_card(product)
+    local_html = cmp_mod.group_dir(slug) / f"{slug}-compare-{product['generated']}.html"
+    local_html.write_text(html, encoding="utf-8")
+    card_path = cmp_mod.group_dir(slug) / "card-metadata.json"
+    card_path.write_text(json.dumps(card, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"✅ 对比页 {local_html}")
+
+    if not repo:
+        return 0
+    if not repo.exists():
+        print(f"⚠️  {repo} 不存在,跳过发布")
+        return 0
+    page = repo / "compare" / slug / "index.html"
+    page.parent.mkdir(parents=True, exist_ok=True)
+    page.write_text(html, encoding="utf-8")
+    (page.parent / "card-metadata.json").write_text(
+        json.dumps(card, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"✅ 复制到 {page}")
+
+    is_new = upsert_compare_json(repo / "data" / "compare.json", card, force=force)
+    print(f"✅ {'新增' if is_new else '更新'} data/compare.json 条目 (slug={slug})")
+    if refresh_compare_preview(repo, create=create_preview):
+        print(f"✅ 同步 {repo / 'compare.data.js'}(本地预览兜底; 记得一起 git add)")
+    print(f"\n下一步: cd {repo} && git add compare/{slug}/ data/compare.json && git commit && git push")
+    return 0
+
+
 # ---------- 主入口 ----------
 
 def main():
+    for stream in (sys.stdout, sys.stderr):      # Windows 控制台 GBK 下 print emoji 会炸
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, OSError):
+            pass
+
     ap = argparse.ArgumentParser(description="Inves-Report 主页卡片元数据自动化 (v4.6)")
-    ap.add_argument("--company", required=True, help="公司目录名, 例 实丰文化")
+    ap.add_argument("--company", help="公司目录名, 例 实丰文化(发布对比页时不需要)")
+    ap.add_argument("--compare-slug", help="v8 票10: 发布产业链对比页(compare/{slug}/ + data/compare.json)")
     ap.add_argument("--output-dir", help="output 根目录 (默认 output/)")
     ap.add_argument("--repo", help="Inves-Report 仓库路径 (例 /tmp/Inves-Report-v2). 若指定则自动 upsert reports.json")
     ap.add_argument("--force", action="store_true", help="强制覆盖 reports.json 中的现有条目")
@@ -449,6 +591,15 @@ def main():
         help="reports.data.js 不存在时也生成(已存在的话 upsert 后总会自动刷新)",
     )
     args = ap.parse_args()
+
+    # ---- 对比页通道: 输入是组的 compare.json, 与单报告卡片各走各的 ----
+    if args.compare_slug:
+        return publish_compare(
+            args.compare_slug, Path(args.repo) if args.repo else None,
+            force=args.force, create_preview=args.refresh_preview_data,
+        )
+    if not args.company:
+        ap.error("--company 必填(或用 --compare-slug 发布对比页)")
 
     output_root = Path(args.output_dir) if args.output_dir else None
     # 搜索 output 目录 — 优先选含主报告 md 的,而非仅 exists 的

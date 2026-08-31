@@ -2,7 +2,7 @@
 
 主智能体(SKILL.md)与所有 sub-agent 之间的统一调度规范。**已对照 Claude Code 真实工具 schema 修订** — v5.1.0 ~ v5.1.2 的 `Agent(resume=...)` / ID 探测 / 伪函数协议**已删除**,因为 Agent 工具实际不支持。
 
-**v8.0 的 sub-agent 名册**(9 个):`data-collector` / `doc-analyst` / `node-quality` / `node-odds` / `node-path` / `node-state` / `decision-writer` / `reviewer-logic` / `reviewer-delivery`。旧的 `phase3-part{1-5}` 五个写手随判断链收敛删除;旧的 `reviewer-{narrative,valuation,redflag}` 随质量环重写删除(抄写一致性校验已无对象,红旗闭环改机检)。
+**v8.0 的 sub-agent 名册**(10 个):`data-collector` / `doc-analyst` / `node-quality` / `node-odds` / `node-path` / `node-state` / `decision-writer` / `reviewer-logic` / `reviewer-delivery` / `compare-judge`(票 10,只在 `--compare` 产业链对比页上场,不进单公司分析流水线)。旧的 `phase3-part{1-5}` 五个写手随判断链收敛删除;旧的 `reviewer-{narrative,valuation,redflag}` 随质量环重写删除(抄写一致性校验已无对象,红旗闭环改机检)。
 
 ---
 

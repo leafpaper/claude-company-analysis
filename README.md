@@ -1,11 +1,11 @@
-# YEZHI Company Analysis (v8.0)
+# YEZHI Company Analysis (v8.3)
 
 > **像一个谨慎的投资人那样，把一家公司从头到尾看一遍** —— 结构化财报数据 + 年报/季报 PDF 原文 + 11 大师框架自动审计 + 一张看得懂的「投资决断卡」，**全程说人话**。
 >
 > 支持 A 股 / 美股 / 港股 · 跑在 Anthropic Claude Code 里的 `/company-analysis` 命令 · 帮你**一眼筛好公司**，并把"是不是好公司"和"现在该不该买"分开回答
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v8.0-blue" alt="version">
+  <img src="https://img.shields.io/badge/version-v8.3-blue" alt="version">
   <img src="https://img.shields.io/badge/markets-A%E8%82%A1%20%7C%20%E7%BE%8E%E8%82%A1%20%7C%20%E6%B8%AF%E8%82%A1-green" alt="markets">
   <img src="https://img.shields.io/badge/audit-11%20frameworks-orange" alt="frameworks">
   <img src="https://img.shields.io/badge/report-%E9%A6%96%E9%A1%B5%2B%E4%BA%94%E7%AB%A0%2B%E9%99%84%E5%BD%95A--E-purple" alt="chapters">
@@ -94,7 +94,7 @@ Phase 6 质量环与发布
 
 > 每波结束由主 agent 复核 `verdict_block` schema 门控，过了才进下一波；写手只读「链手册 + 自己那份节点手册」，跨节点只引用对方 verdict。完整调度协议 / 质量门控 / 异常处理见 [SKILL.md](./SKILL.md) + [references/phase-orchestration.md](./references/phase-orchestration.md) + [phases/phase3-node-writing.md](./phases/phase3-node-writing.md)。
 
-**sub-agent（9 个）**：`data-collector`（1）+ `doc-analyst`（1）+ **判断链四节点写手** `node-{quality,state,odds,path}`（4）+ `decision-writer`（1）+ 质量环 `reviewer-{logic,delivery}`（2）。全量与增量复查共用同一套「按依赖图跑任意节点子集」的调度。
+**sub-agent（10 个）**：`data-collector`（1）+ `doc-analyst`（1）+ **判断链四节点写手** `node-{quality,state,odds,path}`（4）+ `decision-writer`（1）+ 质量环 `reviewer-{logic,delivery}`（2）+ `compare-judge`（1，只在 `--compare` 产业链对比页上场）。全量与增量复查共用同一套「按依赖图跑任意节点子集」的调度。
 
 ---
 
@@ -163,13 +163,16 @@ claude-company-analysis/
 │   ├── node-state.md               # 写手：②状态 在变好吗（+ 临界点=该等什么，第二波）
 │   ├── decision-writer.md          # 写手：⑤怎么办（三元组→档位+封顶+仓位）+ 首页导读
 │   ├── reviewer-logic.md           # 质量环评审：判断链逻辑（引用不重推/影子结论/证据真硬）
-│   └── reviewer-delivery.md        # 质量环评审：可读性与交付（结论先行/人话/390px 走查）
+│   ├── reviewer-delivery.md        # 质量环评审：可读性与交付（结论先行/人话/390px 走查）
+│   └── compare-judge.md            # 组内裁决：同行组里钱该放哪家（只引用各家决断卡，不自产证据）
 │
 ├── phases/                     # 阶段执行指令
 │   ├── phase1-data-collection.md   # data-collector 内部读
 │   ├── phase2-document-analysis.md # doc-analyst 内部读
 │   ├── phase3-node-writing.md      # ⭐ 主 agent 读：波次 / prompt 模板 / 逐波验收 / 装配
-│   └── phase6-review-publish.md    # ⭐ 主 agent 读：机器门控 + 两 reviewer + 出片发布
+│   ├── phase6-review-publish.md    # ⭐ 主 agent 读：机器门控 + 两 reviewer + 出片发布
+│   ├── review-pipeline.md          # ⭐ 主 agent 读：增量复查 `--review` 四段链 R0-R4
+│   └── compare-pipeline.md         # ⭐ 主 agent 读：产业链对比 `--compare` 五段链 C0-C4
 │
 ├── references/                 # 参考文档
 │   ├── agent-protocol.md           # ⭐ Agent 调度协议 + Fresh-Restart
@@ -183,7 +186,7 @@ claude-company-analysis/
 │   └── html-template-guide.md      # HTML 可视化规范
 │
 ├── assets/
-│   └── html/                       # report-v8.html/css（v8 仪表盘）+ base/styles/components（v7 兼容）
+│   └── html/                       # report-v8.html/css（v8 仪表盘）+ compare-v8.html（对比页）+ base/styles/components（v7 兼容）
 │
 └── scripts/                    # ⭐ Python 数据层
     ├── config.py               # Token / 缓存 / 速率
@@ -208,7 +211,9 @@ claude-company-analysis/
     ├── red_flags.py            # ⭐ 红旗两源合并 / Top3 / 红标反查
     ├── assembly.py             # ⭐ 摘要层装配（决断卡/面板/Top3/变化区块）
     ├── assemble_report_v8.py   # ⭐ 报告总装（首页 + 五章 + 附录A-E）
-    ├── schemas/                # 契约层 JSON Schema（节点×5 + assembly + manifest + common）
+    ├── compare.py              # ⭐ 产业链对比：成组 / 并排装配（零新判断）/ 组内裁决四条机检
+    ├── derivation.py           # ⭐ ③估值推导：十条算术闭合 + 三张表机器渲染
+    ├── schemas/                # 契约层 JSON Schema（节点×5 + assembly/manifest/triage + 对比×3 + common）
     ├── lint_v8.py              # ⭐ 质量环机器门控（10 条：schema/红旗闭环/数字home/封顶/越权…）
     ├── review_loop.py          # ⭐ 两 reviewer 判定合并 + FIX 分诊 + 对抗检测
     ├── build_html.py           # HTML 渲染
@@ -286,6 +291,17 @@ cd 到 skill 根目录(`~/.claude/skills/company-analysis`)后:
 > 质地默认复用，仅四条标脏机检（年报披露 / 分部占比跨档 / 新质地红旗 / 关键指标变号）触发才重评；
 > 状态/赔率/路径/决策每次必重评，lint + 双 reviewer 不打折。
 
+产业链同行对比（答「同行组里钱该放哪家」）：
+
+```
+/company-analysis 东山精密 --compare
+```
+
+> 自然语言「和同行比比 / 同行里买哪个 / 对比」同触发。流程：查候选（Longbridge 产业链 → 库内 peer →
+> 模型兜底）→ **用户确认成组并命名** → 上半各家决断卡并排（机器装配，**零新判断**，超 90 天标「陈旧」）
+> → 下半 `compare-judge` 组内裁决（排序 + 每家一句原因，**只引用不自产证据**）→ 发布独立对比页。
+> **全报告制**：只在有完整报告的成员间对比，缺报告的列出来由你决定分批补跑。
+
 ---
 
 ## 与 Inves-Report 仓库的关系
@@ -304,6 +320,9 @@ Phase 6 自动把 HTML 推到 Inves-Report 仓库。
 
 | 版本 | 发布 | 关键变化 |
 |------|------|---------|
+| **v8.3** | 2026-08-25 | 产业链同行对比 `--compare`: 上半各家决断卡并排（机器搬运，零新判断，基准日超 90 天标陈旧）+ 下半 `compare-judge` 组内裁决（第 10 个 sub-agent，只引用不自产，四条机检: 具名成员/排名连号/全组覆盖/数字回得了源）; 全报告制（缺报告成员列出+分批补跑）; 站点独立对比页 `compare/{slug}/` + `data/compare.json` 语义合并; `--review` 收尾问过用户才重装配 |
+| **v8.2** | 2026-08-25 | ③估值推导进契约: `derivation.py` 十条算术闭合（lint R12）+ 三张表机器渲染 + 三张契约图（P=F+N 占比尺 / 左尾深度阶梯 / 面板 sparkline） |
+| **v8.1** | 2026-08-24 | 增量复查 `--review` 四段链（证据刷新 → 纯脚本分诊 → 标脏子集重评 + 复用盖戳 → 决策层与首页必重装配）取代 `--monitor`; 首页「较上版变化」区块 |
 | **v8.0** | 2026-08-19 | 判断链收敛: 9 章节 → 首页一眼结论 + 五章（①质地/②状态/③赔率/④路径/⑤怎么办）+ 附录A-E; 一处权威（删 10 维评分/定性综合方向/快筛章节/§七 7.1-7.3/§一人工抄本）; 5 个 part 写手 → 四节点写手 + decision-writer，依赖图两波调度; 首页与附录机器装配（YAML verdict 块为唯一数据源）; 框架文档 4 份 → 链手册 1 + 节点手册 4; runs/{date}/ + manifest 状态制; 质量环重写（anti_lazy_lint → lint_v8 十条机器规则，reviewer 3→2 并行 + FIX 判断/表述分诊）; 交付形态换 B 仪表盘 HTML（红标三通道 + 390px 手机一等场景）; 创业公司口径移除 |
 | **v7.1** | 2026-06-23 | 可读性重写（全说人话）: 框架退为内部思考引擎，正文大白话 + 证据 + **5 行投资决断卡**（分开"是不是好公司"与"现在该不该买"）+ §四 四维体检（懂财报/叙事/估值/热点）+ 实锤/传闻表; §七 短合成（7.1-7.3 一句话+详见，重心压到 7.4 决策）; "谁在买"统一归 §八; anti_lazy_lint Rule5 = §一/§五/§七 正文无来源标签; 项目更名 **YEZHI Company Analysis** |
 | **v7.0** | 2026-06-22 | 投资决策内核（贝叶斯之美五篇）: 8→9 章新增 §七 投资决策内核（状态后验×赔率×路径 → 好公司/好下注/好价格三分 + 行动档位）; §五 估值重做（P=F+N/反向DCF/叙事SOTP，DCF 降为交叉验证）; §四 加 4.11 状态评估; §六 加 6.4 左尾防护; anti_lazy_lint +Rule6/7; phase3 写手 4→5 |

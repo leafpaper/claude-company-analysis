@@ -84,6 +84,22 @@
 
 - manifest 由 init_run 自动登记(runs +1 incremental / incremental_count+1 / 全量日期不动);
   发布后确认 `manifest --show` 与实际一致。旧版 run 整目录留档,站点条目按日期自然替换。
-- 该公司在对比组(manifest.compare_groups 非空)→ 提示用户一句"对比页成员已更新,可重跑对比"
-  (对比页重装配是票 10 的 `--compare`,本流程不自动触发)。
+- **对比组联动(票 10)**:复查收尾读 manifest 的 `compare_groups`,在组里就问一句 ——
+
+  ```
+  {PYBIN} -m scripts.compare status --company {company}
+  ```
+
+  `needs_rebuild: true` → 转告用户一句「{company} 的判断更新了,它在对比组 {slug} 里,要现在重装配对比页吗?」
+  **用户确认后**才走重装配(卡片刷新 + **裁决重跑**,成员判断变了旧裁决就是过期结论):
+
+  ```
+  {PYBIN} -m scripts.compare assemble --slug {slug}        # 上半刷新
+  → Agent(compare-judge)                                    # 下半重跑, 见 phases/compare-pipeline.md C3
+  {PYBIN} -m scripts.compare assemble --slug {slug} --require-judge
+  {PYBIN} -m scripts.build_html --compare-slug {slug}
+  {PYBIN} -m scripts.update_index --compare-slug {slug} --repo $INVES_REPORT_DIR --force
+  ```
+
+  **不做自动联动** —— 不问就重跑等于替用户花钱;用户说不用就只在完成消息里留一句,组状态照旧记着。
 - main-log.md 记账贯穿 R0-R4,每段一行(同全量双层日志规范)。

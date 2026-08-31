@@ -4,6 +4,58 @@
 
 ---
 
+## [v8.3] — 2026-08-25 — 产业链同行对比 `--compare`(ticket 10)
+
+> **主题**: 回答一个此前全链都没答过的问题——**同一条产业链上,钱该放哪家**。
+> 难点不在"把两份报告并排",在于**并排的时候不许再判断一次**:五个节点已经在各家自己的报告里
+> 判过了,再判一次就是第二处权威,和 v8 砍掉"结论假面"的整条思路对着干。所以这一页被切成上下两半,
+> 上半纯搬运(机器,零新判断),下半只留**一个**具名判断节点 `compare-judge`,而且它只能引用不能自产。
+
+**Added**
+- **`scripts/compare.py`** + **契约三件**(`compare-group` / `compare` / `compare-judge` schema):
+  成组(`init`)· 库内候选(`candidates`)· 并排装配(`assemble`)· 同步状态(`status`)。
+  产物 `output/_compare/{slug}/compare.json` + `{slug}-compare-{date}.md` 本地底稿。
+- **上半 = 各家决断卡并排,零新判断**:每一格搬自那家最新 run 的 `assembly/assembly.json`
+  与 `nodes/node-odds.md` 的 YAML 块——行动档位 / 决断卡五问 / 区间锚 vs 现价 / 红旗计数 /
+  Top3 / 下次披露日。装配层不新增一个字,也不重排任何结论。
+- **新鲜度**:每家标基准日与"几天前";**超 90 天标「陈旧」**并在页面与完成消息里提示先 `--review`
+  (档线记进产物 `stale_threshold_days`,不做成隐藏常量)。
+- **`agents/compare-judge.md`(第 10 个 sub-agent)**:唯一判断节点,只读 `compare.json`,
+  产排序 + 每家一句原因 + 全组共担风险。硬边界四条:不读任何一家的原报告 / 不自产数字 /
+  不发仓位与档位(那是各家决策层的唯一出处)/ 不给缺报告成员排序。
+- **裁决四条机检**(schema 之外,`compare.check_judge`):具名成员 · 排名从 1 连号 ·
+  **有报告的成员一个不落** · **数字回得了源**——裁决里带小数点或两位以上的数,必须在组内某家卡片上
+  出现过,否则直接判错。个位裸数字(第 1 位、3 家)放过:那是行文不是证据。
+- **全报告制**:只在有完整 v8 报告的成员间对比。缺报告的成员成组时就列在 `missing_members`
+  (带原因 + 补跑命令),页面上单列一节;补跑完重跑一次装配即并入。不建 peer-lite 轻判断管线。
+- **交付**:`assets/html/compare-v8.html` + `build_html --compare-slug`(复用报告页同一套 CSS token
+  与组件,不另起一套版式;并排矩阵在横滚容器内,媒体查询零 `font-size`)· `update_index --compare-slug`
+  发布到 `compare/{slug}/` 并**语义合并**进站点 `data/compare.json`(按 slug upsert,不整文件覆盖)。
+- **`phases/compare-pipeline.md`**:C0 查候选(① Longbridge 产业链/成分股 → ② 库内 peer →
+  ③ 模型按业务描述兜底)→ C1 用户确认成组 + 命名 slug → C2 上半装配 → C3 裁决 → C4 出片发布。
+  候选**必经用户确认**,slug 由用户命名(建议产业链英文短名,兜底 `{锚ticker}-peers`)。
+- **`--review` 收尾联动落地**:复查收尾读 `manifest.compare_groups` → `compare status --company`
+  判要不要重装配 → **问过用户**才重跑(卡片刷新 + **裁决重跑**)。不做自动联动:不问就重跑等于替用户花钱。
+
+**Changed**
+- `manifest.py` 增 `add/remove_compare_group`——"我在哪些对比组里"归公司级状态唯一源。
+- `config.py` 增 `find_company_dir()` / `compare_root()`:消费侧与产出侧问同一个人解析 output 根。
+- `update_index.main()` 补上 Windows 控制台 GBK 守卫(其余脚本都有,这里一直漏着,
+  在 cp936 终端上第一个 `✅` 就会炸)。
+- `install.sh` 的逐文件清单补齐**票 09/11 漏下的 `triage.py` / `derivation.py` / `review-pipeline.md` /
+  `triage.schema.json`**——`install.ps1` 是整目录拷所以没暴露,`install.sh` 装出来的是缺件版本。
+  计数期望同步为 phases=6 agents=10 refs=9 scripts=33 assets=6。
+
+**Notes**
+- 49 项对比测试(全库 400 项绿)。测试缝仍是唯一那条 = run 目录契约:成员的 `runs/{date}/` 与
+  manifest 进,`compare.json` / md 底稿 / 对比页 HTML 出。
+- 语料现状:库内只有东山精密一份 v8 报告,所以**"东山 + 中际旭创 成组走通"的 live demo 尚未跑**——
+  中际旭创正好是"缺报告成员"那条路径的真实用例,该路径已用真数据验过。补齐第二份报告后即可跑通。
+- 首页对比卡与单报告卡并列的**站点侧渲染**(Inves-Report 的 `src/app.jsx` 读 `data/compare.json`)
+  是另一个仓库的改动,本票只产出站点条目与页面本体。
+
+---
+
 ## [v8.2] — 2026-08-25 — 估值推导结构化(ticket 11)
 
 > **主题**: 把③赔率的推导从「散文里的数字」变成「契约里的数据」。起因是票 08 首份成品的一处真缺陷:

@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "compare-group.schema.json",
+  "title": "对比组定义 — 锚公司 + 成员名单 + 用户命名的组 slug(票 10)",
+  "description": "成组是人的决定, 不是脚本的: 候选按三路优先级查出来(Longbridge 产业链 → 库内 peer → 模型兜底), 但必经用户确认/增删。member.source 记住每家是从哪条路来的, 验收时可回查。",
+  "type": "object",
+  "required": ["slug", "name", "anchor", "created", "members"],
+  "properties": {
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$",
+      "description": "站点路径 compare/{slug}/;用户命名(建议产业链 kebab-case 英文短名), 兜底 {锚ticker}-peers"
+    },
+    "name": { "type": "string", "minLength": 1, "description": "组的人话名字, 上标题" },
+    "anchor": { "type": "string", "minLength": 1, "description": "锚公司(发起 --compare 的那家), 必须也在 members 里" },
+    "created": { "$ref": "common.schema.json#/$defs/iso_date" },
+    "chain_note": { "type": "string", "description": "这组凭什么算同行(产业链上下游关系一句话)" },
+    "members": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "required": ["company", "ticker", "source"],
+        "properties": {
+          "company": { "type": "string", "minLength": 1, "description": "= output/{company}/ 的目录名" },
+          "ticker": { "type": "string", "minLength": 1 },
+          "market": { "type": ["string", "null"] },
+          "source": {
+            "enum": ["anchor", "longbridge", "library", "model"],
+            "description": "候选来源: 锚 / Longbridge 产业链成分股 / 报告库内 peer 对标 / 模型按业务描述兜底"
+          },
+          "note": { "type": "string", "description": "为什么留它在组里(用户确认时的一句)" }
+        }
+      }
+    }
+  }
+}

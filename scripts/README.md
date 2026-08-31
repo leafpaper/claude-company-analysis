@@ -60,6 +60,9 @@ python3 -m scripts.check_env
 | `red_flags` | v8 附录D:脚本 audit ⊕ 写手提名两源合并 / Top3 / 红标反查 | `normalize_audit(j)`, `merge(a, b)`, `top3(flags)`, `red_mark_map(flags, inds)` |
 | `assembly` | v8 摘要层装配:决断卡/面板/Top3/主页 metadata/变化区块 | `load_nodes(dir)`, `build_assembly(...)`, `build_change_block(...)` |
 | `assemble_report_v8` | v8 报告渲染 CLI:首页 + 五章 + 附录A-E 挂载 | `assemble_run(run_dir, company, date)`, CLI `--run-dir --company --date` |
+| `triage` | v8 增量复查 R2 纯脚本分诊:质地标脏机检 / 重评波次 / 指标与红旗 diff | `run_triage(company_dir, run_dir)`, CLI `--company-dir --run-dir --apply-reuse` |
+| `derivation` | v8 ③估值推导:十条算术闭合 + 三张表渲染 | `check(odds)`, `expand_tables(body, odds)`, `missing_slots(body, odds)` |
+| `compare` | v8 产业链对比:成组 / 各家决断卡并排装配(零新判断)/ 组内裁决四条机检 | `create_group(...)`, `assemble(slug)`, `check_judge(judge, members)`, `status(slug)`, CLI `init/candidates/assemble/status/list` |
 
 ---
 

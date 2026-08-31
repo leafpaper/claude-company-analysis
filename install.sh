@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Claude Code 投资分析 Skill — 一键安装 (v8.0)
+# Claude Code 投资分析 Skill — 一键安装 (v8.3)
 #
 # 使用方法：
 #   curl -fsSL https://raw.githubusercontent.com/leafpaper/claude-company-analysis/main/install.sh | bash
@@ -12,7 +12,7 @@ SKILL_DIR="$HOME/.claude/skills/company-analysis"
 REPO_URL="https://raw.githubusercontent.com/leafpaper/claude-company-analysis/main"
 
 echo "================================================"
-echo "  Claude Code — 投资分析 Skill 安装程序 v8.0"
+echo "  Claude Code — 投资分析 Skill 安装程序 v8.3"
 echo "  结构化数据 + PDF 精析 + 11 大师框架审计"
 echo "  v8.0: 判断链五节点(质地/状态/赔率/路径/怎么办) + 依赖图两波调度"
 echo "        首页一眼决断与附录全部机器装配"
@@ -41,14 +41,16 @@ curl -fsSL "$REPO_URL/CHANGELOG.md" -o "$SKILL_DIR/CHANGELOG.md"
 curl -fsSL "$REPO_URL/.env.sample" -o "$SKILL_DIR/.env.sample"
 
 # ------------------------------------------------
-# [3/6] 下载 4 个阶段文件 + 9 个 sub-agent
+# [3/6] 下载 6 个阶段文件 + 10 个 sub-agent
 # ------------------------------------------------
-echo "[3/6] 下载 4 个阶段文件 + 9 个 sub-agent..."
+echo "[3/6] 下载 6 个阶段文件 + 10 个 sub-agent..."
 for phase in \
     phase1-data-collection \
     phase2-document-analysis \
     phase3-node-writing \
-    phase6-review-publish; do
+    phase6-review-publish \
+    review-pipeline \
+    compare-pipeline; do
   curl -fsSL "$REPO_URL/phases/${phase}.md" -o "$SKILL_DIR/phases/${phase}.md"
 done
 
@@ -61,7 +63,8 @@ for agent in \
     node-state \
     decision-writer \
     reviewer-logic \
-    reviewer-delivery; do
+    reviewer-delivery \
+    compare-judge; do
   curl -fsSL "$REPO_URL/agents/${agent}.md" -o "$SKILL_DIR/agents/${agent}.md"
 done
 
@@ -86,7 +89,8 @@ done
 # [5/6] 下载 assets/ (HTML 模板)
 # ------------------------------------------------
 echo "[5/6] 下载 assets/（HTML 模板）..."
-# 5 个 HTML(report-v8.* = v8 B 仪表盘版式; base/styles/components = v7 兼容通道)
+# 6 个 HTML(report-v8.* = v8 B 仪表盘版式; compare-v8 = 产业链对比页; base/styles/components = v7 兼容通道)
+curl -fsSL "$REPO_URL/assets/html/compare-v8.html" -o "$SKILL_DIR/assets/html/compare-v8.html"
 curl -fsSL "$REPO_URL/assets/html/report-v8.html"  -o "$SKILL_DIR/assets/html/report-v8.html"
 curl -fsSL "$REPO_URL/assets/html/report-v8.css"   -o "$SKILL_DIR/assets/html/report-v8.css"
 curl -fsSL "$REPO_URL/assets/html/base.html"       -o "$SKILL_DIR/assets/html/base.html"
@@ -120,6 +124,9 @@ for py in \
     report_parser \
     monitor \
     node_graph \
+    triage \
+    derivation \
+    compare \
     red_flags \
     assembly \
     assemble_report_v8 \
@@ -132,7 +139,7 @@ for py in \
 done
 curl -fsSL "$REPO_URL/scripts/requirements.txt" -o "$SKILL_DIR/scripts/requirements.txt"
 curl -fsSL "$REPO_URL/scripts/README.md" -o "$SKILL_DIR/scripts/README.md"
-# v8 契约层 schema(节点×4 + decision + assembly + appendix-d + manifest + common)
+# v8 契约层 schema(节点×4 + decision + assembly + appendix-d + manifest + triage + 对比×3 + common)
 mkdir -p "$SKILL_DIR/scripts/schemas"
 for schema in \
     common \
@@ -143,7 +150,11 @@ for schema in \
     node-decision \
     assembly \
     appendix-d \
-    manifest; do
+    manifest \
+    triage \
+    compare \
+    compare-group \
+    compare-judge; do
   curl -fsSL "$REPO_URL/scripts/schemas/${schema}.schema.json" -o "$SKILL_DIR/scripts/schemas/${schema}.schema.json"
 done
 
@@ -155,18 +166,21 @@ AGENT_COUNT=$(find "$SKILL_DIR/agents" -name "*.md" 2>/dev/null | wc -l | tr -d 
 REF_COUNT=$(find "$SKILL_DIR/references" -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
 SCRIPT_COUNT=$(find "$SKILL_DIR/scripts" -name "*.py" 2>/dev/null | wc -l | tr -d ' ')
 ASSETS_COUNT=$(find "$SKILL_DIR/assets" -type f 2>/dev/null | wc -l | tr -d ' ')
-# v8.0 期望: 4 phases + 9 agents + 9 refs + 30 scripts + 5 assets + 1 SKILL.md
+# v8.3 期望: 6 phases + 10 agents + 9 refs + 33 scripts + 6 assets + 1 SKILL.md
 # (v7.2→v8.0 变更: phases 5→4 删 phase3-analysis-report/phase7-quantitative-monitor, 新增 phase3-node-writing;
 #  agents 删 phase3-part1-5 与 reviewer-{narrative,valuation,redflag}、新增 node-{quality,odds,path,state} +
 #    decision-writer + reviewer-{logic,delivery} → 9;
 #  scripts 删 assemble_report/anti_lazy_lint、新增 node_graph/lint_v8(仍 30);
 #  assets 6→4 删 9 章节骨架与执行摘要 schema、交付票 +2 v8 模板 → 6, 质量环票删 report-checklist.json → 5
 #    —— 章节结构由链手册与装配层定义, 审核清单由 lint_v8 + 两个 reviewer 定义, 不再留第二份 JSON 真相源)
+# v8.3 变更: phases +review-pipeline(票09) +compare-pipeline(票10) → 6; agents +compare-judge → 10;
+#   assets +compare-v8.html → 6; scripts +triage(票09) +derivation(票11) +compare(票10) → 33
+#   —— 前两个此前只进了 install.ps1(整目录拷), install.sh 的逐文件清单漏了, 一并补上)
 
-if [ "$PHASE_COUNT" -eq "4" ] && [ "$AGENT_COUNT" -eq "9" ] && [ "$REF_COUNT" -eq "9" ] && [ "$SCRIPT_COUNT" -eq "30" ] && [ "$ASSETS_COUNT" -eq "5" ]; then
+if [ "$PHASE_COUNT" -eq "6" ] && [ "$AGENT_COUNT" -eq "10" ] && [ "$REF_COUNT" -eq "9" ] && [ "$SCRIPT_COUNT" -eq "33" ] && [ "$ASSETS_COUNT" -eq "6" ]; then
     echo ""
     echo "============================================"
-    echo "  ✅ 安装成功！(v8.0)"
+    echo "  ✅ 安装成功！(v8.3)"
     echo "============================================"
     echo ""
     echo "  协调器:  SKILL.md"
@@ -203,7 +217,7 @@ if [ "$PHASE_COUNT" -eq "4" ] && [ "$AGENT_COUNT" -eq "9" ] && [ "$REF_COUNT" -e
 else
     echo ""
     echo "❌ 错误：安装不完整"
-    echo "  预期(v8.0): phases=4 agents=9 refs=9 scripts=30 assets=5"
+    echo "  预期(v8.3): phases=6 agents=10 refs=9 scripts=33 assets=6"
     echo "  实际:       phases=$PHASE_COUNT agents=$AGENT_COUNT refs=$REF_COUNT scripts=$SCRIPT_COUNT assets=$ASSETS_COUNT"
     exit 1
 fi

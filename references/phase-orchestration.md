@@ -28,6 +28,12 @@ output/{company}/
     ├── baseline/               仅增量 run: 刷新前证据快照(init_run incremental 自动拷)
     ├── triage.json             仅增量 run: R2 分诊单(scripts/triage.py 产)
     └── {company}-analysis-{date}.md   主报告
+
+output/_compare/{slug}/          对比组(票 10, 不属于任何一家公司)
+├── group.json                   组定义(锚 + 成员 + 候选来源, 用户确认后建)
+├── compare-judge.md             组内裁决(compare-judge 写, 顶部 YAML 块)
+├── compare.json                 并排装配产物(= 出片与站点条目的唯一输入)
+└── {slug}-compare-{date}.md     本地 md 底稿
 ```
 
 `{artifacts_dir}` = `output/{company}/`;`{run_dir}` = `output/{company}/runs/{date}/`。两个路径都要写进每个 sub-agent 的 prompt。
@@ -150,3 +156,4 @@ R4 装配带 `--prev-run-dir` + `--metric-deltas`(首页「较上版变化」区
 - 节点 → 写手 → 手册 → schema 的绑定表:`references/judgment-chain.md` §5 消化路径总表
 - 依赖图与波次:`scripts/node_graph.py`(全量与增量共用,票 09 的子集调度复用同一套)
 - 装配产物字段:`scripts/schemas/assembly.schema.json`(文档不复制字段表)
+- 两条支线流程:增量复查 `phases/review-pipeline.md`(R0-R4)· 产业链对比 `phases/compare-pipeline.md`(C0-C4,唯一在单公司流水线之外上场的 sub-agent = `compare-judge`)

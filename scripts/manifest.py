@@ -150,6 +150,35 @@ def set_next_disclosure(company_dir: Path, date: str | None) -> bool:
     return True
 
 
+# ---------- 对比组归属(票 10 --compare 的成员登记)----------
+
+def add_compare_group(company_dir: Path, slug: str) -> bool:
+    """把组 slug 记进这家的 manifest.compare_groups, 返回是否写了(已在组里就不动)。
+
+    manifest 是公司级状态唯一源, 「我在哪些对比组里」也归它 —— `--review` 收尾靠这个字段
+    知道该不该提示重装配对比页。没有 manifest(这家还没跑过 v8 分析)返回 False, 不建空壳。
+    """
+    m = load(company_dir)
+    if m is None:
+        return False
+    groups = m.setdefault("compare_groups", [])
+    if slug in groups:
+        return False
+    groups.append(slug)
+    save(company_dir, m)
+    return True
+
+
+def remove_compare_group(company_dir: Path, slug: str) -> bool:
+    """从 manifest.compare_groups 摘掉一个组(退组/删组时用), 返回是否写了。"""
+    m = load(company_dir)
+    if m is None or slug not in (m.get("compare_groups") or []):
+        return False
+    m["compare_groups"] = [g for g in m["compare_groups"] if g != slug]
+    save(company_dir, m)
+    return True
+
+
 def main() -> int:
     import argparse
 

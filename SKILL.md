@@ -60,7 +60,7 @@ Agent(subagent_type="X", prompt="...", run_in_background=True/False, description
 | 3 装配 | 首页 + 五章 + 附录A-E | 主 agent + `assemble_report_v8` | `assembly.json` + 主报告 md |
 | 6 | 质量环 + 发布 | 主 agent + `lint_v8` → **reviewer-logic ∥ reviewer-delivery** → `build_html` / `update_index` | HTML + `phase6-review-log.md` + GitHub Pages |
 
-**Sub-agent(9)**:data-collector(1)/ doc-analyst(1)/ 四节点写手(4)/ decision-writer(1)/ reviewer-{logic,delivery}(2)。
+**Sub-agent(10)**:data-collector(1)/ doc-analyst(1)/ 四节点写手(4)/ decision-writer(1)/ reviewer-{logic,delivery}(2)/ **compare-judge**(1,仅 `--compare` 走对比页时上场)。
 
 **报告结构 = 判断链本身**:
 
@@ -117,6 +117,11 @@ Agent(subagent_type="X", prompt="...", run_in_background=True/False, description
 > 四段链(R1 证据刷新 → R2 纯脚本分诊 → R3 标脏子集重评 → R4 决策层+首页重装配),不跑全量。
 > 敲 `--monitor` → 同上,先告知一句:「--monitor 已改名 --review(量化监控升级为分层增量复查),下版起移除旧名」。
 > 硬规则 1:基线不是 v8 结构(init_run 退出码 3)→ 告知后改跑全量。
+>
+> **产业链对比入口**:用户敲 `--compare {公司}` / 说"和同行比比、同行里买哪个、对比" → 走
+> `phases/compare-pipeline.md` 五段链(C0 查候选三路 → C1 用户确认成组+命名 → C2 上半并排装配 →
+> C3 compare-judge 组内裁决 → C4 出片发布),**不跑任何公司的分析管线**。
+> 全报告制:缺完整报告的成员成组时列出、由用户决定分批补跑;锚自己没报告 → 先跑全量再来。
 
 ---
 
@@ -252,11 +257,12 @@ Phase 1 (data-collector) → Phase 2 (doc-analyst)
 | `scripts/lint_v8.py` ★ | 质量环机器门控(10 条:schema / 红旗闭环 / 数字唯一 home / 封顶 / 越权 / 报告同步…) |
 | `scripts/review_loop.py` | 两 reviewer 判定合并 + FIX 分诊(判断类→写手 / 表述类→主 agent) |
 | `scripts/lessons_manager.py` | 全局经验库 (append / recent) |
-| `scripts/build_html.py` + `update_index.py` | HTML + 主页联动 |
+| `scripts/compare.py` ★ | 产业链对比 `--compare`:成组 / 并排装配(零新判断)/ 组内裁决四条机检(产 `compare.json`) |
+| `scripts/build_html.py` + `update_index.py` | HTML + 主页联动(`--compare-slug` 出对比页与站点条目) |
 
 ### Phase 详细指令
 
-`phases/phase1-data-collection.md`(data-collector 内部读)· `phases/phase2-document-analysis.md`(doc-analyst 内部读)· `phases/phase3-node-writing.md`(**主 agent 读**)· `phases/phase6-review-publish.md`(**主 agent 读**:机器门控 / reviewer / 修正循环 / 发布 / 缺口补查)· `phases/review-pipeline.md`(**主 agent 读**:增量复查 `--review` 四段链 R0-R4)。
+`phases/phase1-data-collection.md`(data-collector 内部读)· `phases/phase2-document-analysis.md`(doc-analyst 内部读)· `phases/phase3-node-writing.md`(**主 agent 读**)· `phases/phase6-review-publish.md`(**主 agent 读**:机器门控 / reviewer / 修正循环 / 发布 / 缺口补查)· `phases/review-pipeline.md`(**主 agent 读**:增量复查 `--review` 四段链 R0-R4)· `phases/compare-pipeline.md`(**主 agent 读**:产业链对比 `--compare` 五段链 C0-C4)。
 
 ---
 

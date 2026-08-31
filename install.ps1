@@ -1,5 +1,5 @@
 # ==============================================================
-#  Claude Code Investment-Analysis Skill - Windows installer (v8.0)
+#  Claude Code Investment-Analysis Skill - Windows installer (v8.3)
 #  Mirrors install.sh for Windows. Installs this repo into ~/.claude:
 #    - skill body    -> ~/.claude/skills/company-analysis/
 #    - sub-agents    -> ~/.claude/agents/company-analysis/  (subagent_type source)
@@ -18,7 +18,7 @@ $Skill  = Join-Path $env:USERPROFILE ".claude\skills\company-analysis"
 $Agents = Join-Path $env:USERPROFILE ".claude\agents\company-analysis"
 
 Write-Host "================================================"
-Write-Host "  Claude Code - Investment Analysis Skill (Windows v8.0)"
+Write-Host "  Claude Code - Investment Analysis Skill (Windows v8.3)"
 Write-Host "  Source: $Src"
 Write-Host "================================================"
 
