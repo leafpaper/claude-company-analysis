@@ -14,6 +14,14 @@
 
 **在线报告示例**: [leafpaper.github.io/Inves-Report](https://leafpaper.github.io/Inves-Report)
 
+看实物比看说明快 —— 两份 v8 报告与一份产业链对比页：
+
+| | 结论 | 看什么 |
+|---|---|---|
+| [东山精密 002384](https://leafpaper.github.io/Inves-Report/reports/002384_东山精密/分析报告_dashboard.html) | 等证据临界 · 0 仓位 | 卡位是真的,但股价早已付完账 |
+| [中际旭创 300308](https://leafpaper.github.io/Inves-Report/reports/300308_中际旭创/分析报告_dashboard.html) | 回避 | 利润率顶格,护城河却建在外采芯片上 |
+| [PCB↔光模块产业链对比](https://leafpaper.github.io/Inves-Report/compare/pcb-optics/) | 钱两家都不放 | 同一条链的两端,分散不了同一个风险 |
+
 ---
 
 ## 这是什么
