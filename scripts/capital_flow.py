@@ -28,6 +28,7 @@ Usage:
         --out output/闻泰科技/capital_flow.md
 """
 from __future__ import annotations
+import sys
 
 import argparse
 import datetime as dt
@@ -794,6 +795,12 @@ def _format_markdown(target_code: str, raw: dict, m: dict) -> str:
 
 
 def main():
+    for stream in (sys.stdout, sys.stderr):      # Windows 控制台 GBK 下 print emoji 会炸
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, OSError):
+            pass
+
     ap = argparse.ArgumentParser(description="A 股主力控盘与资金流向分析 (v4.4)")
     ap.add_argument("ts_code", help="A 股代码")
     ap.add_argument("--days", type=int, default=60, help="数据窗口 (默认 60 日)")

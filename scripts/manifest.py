@@ -17,6 +17,7 @@ CLI(查状态 / 手工登记预约披露日, A 股由 tushare_collector 自动�
   python -m scripts.manifest --company-dir output/Apple --set-next-disclosure 2026-10-29
 """
 from __future__ import annotations
+import sys
 
 import datetime as _dt
 import json
@@ -180,6 +181,12 @@ def remove_compare_group(company_dir: Path, slug: str) -> bool:
 
 
 def main() -> int:
+    for stream in (sys.stdout, sys.stderr):      # Windows 控制台 GBK 下 print emoji 会炸
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, OSError):
+            pass
+
     import argparse
 
     ap = argparse.ArgumentParser(description="查看 / 更新公司 manifest.json")

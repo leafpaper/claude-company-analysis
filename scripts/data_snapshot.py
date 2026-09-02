@@ -722,6 +722,12 @@ def build_snapshot(bundle_dir: Path, ts_code: str = "", company: str = "") -> st
 
 
 def main():
+    for stream in (sys.stdout, sys.stderr):      # Windows 控制台 GBK 下 print emoji 会炸
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, OSError):
+            pass
+
     ap = argparse.ArgumentParser(description="确定性产出 data_snapshot.md, 修复 Phase 3 数据漏读")
     ap.add_argument("--bundle", required=True, help="raw_data 目录路径")
     ap.add_argument("--out", required=True, help="输出 data_snapshot.md 路径")

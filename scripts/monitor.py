@@ -392,6 +392,12 @@ class Monitor:
 # ---------- CLI ----------
 
 def main():
+    for stream in (sys.stdout, sys.stderr):      # Windows 控制台 GBK 下 print emoji 会炸
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, OSError):
+            pass
+
     print(
         "⚠️ --monitor 已并入 v8 增量复查 --review(分层重评 + 首页「较上版变化」)。\n"
         "   本脚本保留为 v7 旧报告的量化监控别名, 将在下一个版本周期移除;\n"
