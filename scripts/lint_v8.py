@@ -36,6 +36,7 @@ CLI:
 """
 from __future__ import annotations
 
+import difflib
 import argparse
 import json
 import re
@@ -657,6 +658,150 @@ def rule_report_sync(md_path: Path | None, bodies: dict[str, str]) -> RuleResult
 
 
 # ============================================================================
+# R13 证伪清单同源(⑤ 的退出线必须在 ④ 的清单里)
+# ============================================================================
+
+# 比对前先把条件句压成「可核销的骨架」:去掉标签、括注、口径说明与全部空白,
+# 只留数字与关键词。⑤ 会把 ④ 的长条件压缩成一句(这是允许的, 手册要它只列相关的几条),
+# 所以不能要求逐字相等 —— 要求的是「⑤ 说的那条, 在 ④ 里找得到同一个门槛」。
+_FALS_LABEL = re.compile(r"^\s*【[^】]*】\s*")
+_FALS_PAREN = re.compile(r"[((][^))]*[))]")
+_FALS_NOISE = re.compile(r"[\s,,、;;::。.\-—－_「」\"'']+")
+# 门槛指纹 = 条件句里的数字串(带小数/百分号/倍数), 两条件同源必然共享至少一个
+_FALS_NUMBER = re.compile(r"\d[\d,]*(?:\.\d+)?")
+
+
+# 年份与两位以内的小整数不进指纹:日期(2026/2027/04/30)与「>20%」这类量词满篇都是,
+# 拿它们当同源证据, 任意两条件都能撞上 —— 实测就是这么把一条真孤儿放过去的。
+_FALS_YEAR = re.compile(r"^(?:19|20)\d{2}$")
+
+
+def _fals_fingerprint(text: str) -> set[str]:
+    """条件句的**门槛指纹**:有辨识度的数字(带小数, 或 ≥3 位且不是年份)。
+
+    空集合 = 这条没有可比对的门槛, 由骨架比对兜底。
+
+    ⚠️ 指纹取**全文**(只去标签), **不剥括注** —— 基线数字常常正在括注里
+    (「>80% 或客户 A >30%(FY2025 为 75.98% / 24.06%)」, 剥掉就只剩两位数, 指纹变空后误报孤儿)。
+    剥括注只用于骨架比对。
+    """
+    body = _FALS_LABEL.sub("", str(text or ""))
+    out = set()
+    for raw in _FALS_NUMBER.findall(body):
+        n = raw.replace(",", "")
+        if _FALS_YEAR.match(n):
+            continue
+        if "." in n or len(n.lstrip("0")) >= 3:
+            out.add(n.rstrip("0").rstrip(".") if "." in n else n)
+    return out
+
+
+def _fals_skeleton(text: str) -> str:
+    body = _FALS_PAREN.sub("", _FALS_LABEL.sub("", str(text or "")))
+    return _FALS_NOISE.sub("", body)
+
+
+def rule_falsification_source(nodes: dict) -> RuleResult:
+    """⑤ 的每条退出线都要在 ④ 的证伪清单里找得到源。
+
+    手册 §1.4:左尾情景与证伪条件的**唯一出处是 ④**,决策层从 ④ 取、不新编。
+    机检的是集合差 —— ⑤ 持有而 ④ 没有的,就是孤儿。
+
+    这条为什么值得单开一条规则:数字对不对机器早就在查(R3/R12),
+    但「这个**条目**还该不该存在」查不了。实战里的形态是——
+    ③ 换了权重依据 → ④ 主动改写了对应的证伪 → ⑤ 那条**因 ④ 而写、又只在 ④ 被删掉**的
+    退出线留在原地,成了全链唯一持有它的节点,下次增量复查逐条核销时无源可核
+    (票 10 实战,reviewer-logic 手工抓到)。
+    「A 因 B 而生,B 消失后 A 无人回收」是修正循环里最脆的接口,比数字更容易掉队。
+    """
+    decision = nodes.get("decision") or {}
+    path = nodes.get("path") or {}
+    exits = [str(x) for x in (decision.get("falsification_exit") or [])]
+    sources = [str(f.get("condition") or "") for f in (path.get("falsifications") or [])]
+    if not exits:
+        return RuleResult(name="R13 证伪清单同源", skipped=True, detail="⑤ 无退出线")
+    if not sources:
+        return RuleResult(
+            name="R13 证伪清单同源", passed=False,
+            detail="④ 没有 falsifications, 但 ⑤ 列了退出线 —— 证伪的唯一出处是 ④",
+            findings=[f"⑤ 独有:{e[:60]}" for e in exits],
+        )
+
+    src_prints = [_fals_fingerprint(s) for s in sources]
+    src_skeletons = [_fals_skeleton(s) for s in sources]
+    findings = []
+    for item in exits:
+        marks = _fals_fingerprint(item)
+        skeleton = _fals_skeleton(item)
+        # 命中任一即算有源:① 共享门槛数字 ② 骨架互为子串(⑤ 压缩了 ④ 的长条件)
+        # 骨架兜底用相似度而非子串包含:④ 写「谷歌 200G EML 验证未过」、⑤ 压成「谷歌验证未过」
+        # 是**合法的压缩**(手册要 ⑤ 只列与本档位相关的几条), 但它既不共享辨识数字、也不是子串。
+        hit = any(marks & sp for sp in src_prints if sp) or any(
+            skeleton and sk and difflib.SequenceMatcher(None, skeleton, sk).ratio() >= 0.6
+            for sk in src_skeletons
+        )
+        if not hit:
+            findings.append(
+                f"⑤ 的退出线在 ④ 的证伪清单里找不到源(孤儿条):{item[:70]}"
+            )
+    return RuleResult(
+        name="R13 证伪清单同源", passed=not findings,
+        detail=f"⑤ {len(exits)} 条退出线 vs ④ {len(sources)} 条证伪:逐条对得上源",
+        findings=findings,
+    )
+
+
+# ============================================================================
+# R14 机器数据块里的过程注释(时态词)
+# ============================================================================
+
+# 「正在」「以…为准」这类词写下的那一刻是诚实的, 指向的东西一落定就变成空指针,
+# 而它会随成品长期留档。机器数据块里只该有落定的事实 —— 要么落定, 要么删。
+_TENSE_WORDS = (
+    "正在同步", "正在改写", "正在重写", "待定稿", "以.{0,6}定稿为准", "以.{0,6}为准后",
+    "暂按", "暂定", "稍后补", "后续补充", "待补充", "待确认后", "TODO", "FIXME", "占位",
+)
+_TENSE_RE = re.compile("|".join(_TENSE_WORDS))
+# 白名单:这些是**判断内容**里合法的「待」,不是过程注释
+# (如临界点「待 FY2026 年报确认」是给读者的观察窗口, 不是给自己的备忘)
+_TENSE_OK = re.compile(r"待\s*(FY|20\d{2}|三季报|半年报|年报|中报|季报|披露|下一期|上市)")
+
+
+def _walk_strings(obj, path: str = ""):
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            yield from _walk_strings(v, f"{path}/{k}" if path else str(k))
+    elif isinstance(obj, list):
+        for i, v in enumerate(obj):
+            yield from _walk_strings(v, f"{path}[{i}]")
+    elif isinstance(obj, str):
+        yield path, obj
+
+
+def rule_no_process_notes(nodes: dict) -> RuleResult:
+    """节点 YAML 块里不许留修正循环的过程注释。
+
+    实战原话:⑤ 的证伪条尾巴挂着「该条表述④正在同步改写,以④定稿为准」——
+    写下时诚实, ④ 定稿(方向是删除)那一刻就成了指向空处的指针, 且随成品长期留档。
+    机器数据块是给装配层与下次复查读的, 里面只该有落定的事实(票 10 实战 lesson)。
+    """
+    findings = []
+    for node, block in nodes.items():
+        for field, text in _walk_strings(block):
+            m = _TENSE_RE.search(text)
+            if m and not _TENSE_OK.search(text[max(0, m.start() - 8):m.end() + 12]):
+                findings.append(
+                    f"{LABELS.get(node, node)} {field}:「{m.group(0)}」—— "
+                    f"机器块里不留过程注释,要么落定要么删({text[:48]}…)"
+                )
+    return RuleResult(
+        name="R14 机器块无过程注释", severity=WARN, passed=not findings,
+        detail="节点 YAML 块里无「正在/待定稿/暂按」这类时态词(它们会变成过期指针)",
+        findings=findings,
+    )
+
+
+# ============================================================================
 # 公共 API
 # ============================================================================
 def find_report_md(run_dir: Path) -> Path | None:
@@ -717,12 +862,14 @@ def lint_run(run_dir, md_path=None, artifacts_dir=None, audit_json=None) -> Lint
         rule_overreach(bodies),
         rule_memoryless(bodies),
         rule_report_sync(Path(md_path) if md_path else find_report_md(run_dir), bodies),
+        rule_falsification_source(nodes),
         rule_budget(bodies),
         rule_prose_density(bodies),
         closure_warn,
         anchor_warn,
         deriv_warn,
         decision_warn,
+        rule_no_process_notes(nodes),
     ]
     if not script_flags:
         result.rules.append(RuleResult(
