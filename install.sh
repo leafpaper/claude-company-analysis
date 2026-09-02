@@ -154,7 +154,8 @@ for schema in \
     triage \
     compare \
     compare-group \
-    compare-judge; do
+    compare-judge \
+    compare-member-source; do
   curl -fsSL "$REPO_URL/scripts/schemas/${schema}.schema.json" -o "$SKILL_DIR/scripts/schemas/${schema}.schema.json"
 done
 
