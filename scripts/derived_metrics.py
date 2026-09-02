@@ -388,7 +388,10 @@ def main():
         metrics = compute_us({k.removeprefix("yf_"): v for k, v in bundle.items() if k.startswith("yf_")})
 
     out_path = Path(args.out) if args.out else d.parent / "metrics.json"
-    out_path.write_text(json.dumps(metrics, ensure_ascii=False, indent=2, default=str))
+    # encoding 必须显式: Windows 默认 ANSI 会把中文段名写成 GBK, 下游按 JSON 规范 utf-8 读会炸
+    out_path.write_text(
+        json.dumps(metrics, ensure_ascii=False, indent=2, default=str), encoding="utf-8"
+    )
     print(f"Wrote metrics to {out_path}")
     print(json.dumps(metrics, ensure_ascii=False, indent=2, default=str)[:2000])
 

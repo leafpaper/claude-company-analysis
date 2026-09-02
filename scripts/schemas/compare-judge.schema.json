@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "compare-judge.schema.json",
+  "title": "「组内裁决」YAML 块 — 排序 + 每家一句原因;只引用各家决断卡, 不自产证据(票 10)",
+  "description": "对比页下半唯一的判断节点。它读的是已经成稿的各家决断卡, 所以它能说的只有「相对」——谁排前面、凭哪个节点的结论。任何新数字都要能在组内某家的卡片上找到(scripts/compare.py 机检)。",
+  "type": "object",
+  "required": ["node", "group", "verdict", "ranking"],
+  "properties": {
+    "node": { "const": "compare-judge" },
+    "group": { "type": "string", "minLength": 1, "description": "组 slug, 必须与 group.json 一致" },
+    "verdict": {
+      "type": "string",
+      "minLength": 1,
+      "description": "一句话答「同行组里钱该放哪家」——先给答案, 不铺垫"
+    },
+    "ranking": {
+      "type": "array",
+      "minItems": 2,
+      "description": "全组有报告的成员一个不落, rank 从 1 连号(compare.py 机检)",
+      "items": {
+        "type": "object",
+        "required": ["rank", "company", "one_liner", "basis"],
+        "properties": {
+          "rank": { "type": "integer", "minimum": 1 },
+          "company": { "type": "string", "minLength": 1 },
+          "one_liner": { "type": "string", "minLength": 1, "description": "这家排这个位置的原因, 一句" },
+          "basis": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "enum": ["quality", "state", "odds", "path", "decision"] },
+            "description": "这一句靠的是该公司决断卡的哪几行 —— 越权引用别的东西就是自产证据"
+          }
+        }
+      }
+    },
+    "common_risk": { "type": "string", "description": "全组共担的那个风险(有就写, 没有就别凑)" },
+    "not_comparable": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "口径不同、这次不可比的维度(如各家锚区间用了不同方法)——说出来比硬比强"
+    }
+  }
+}

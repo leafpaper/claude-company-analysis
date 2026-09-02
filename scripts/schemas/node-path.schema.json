@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "node-path.schema.json",
-  "title": "④路径节点 YAML verdict 块 — 扛得住吗;证伪清单与左尾清单权威",
+  "title": "④路径节点 YAML verdict 块 — 扛得住吗;证伪清单与左尾清单权威(左尾带深度数值, 票 11)",
   "allOf": [{ "$ref": "common.schema.json#/$defs/node_base" }],
   "required": ["node", "verdict", "sub_verdicts", "red_flag_nominations", "falsifications", "left_tail"],
   "properties": {
@@ -26,13 +26,40 @@
     "left_tail": {
       "type": "array",
       "minItems": 1,
+      "description": "左尾清单。depth_pct 是「阶梯」这张图的唯一数据源: 相对现价的跌幅, 负数。量不到价格的情景照写, 但 depth_pct 落 null 并用 magnitude 说清它自己的量级——阶梯上不摆, 图下注明「另 N 条未量化到价格」, 不静默丢。",
       "items": {
         "type": "object",
-        "required": ["scenario"],
+        "required": ["scenario", "depth_pct"],
         "properties": {
           "scenario": { "type": "string", "minLength": 1 },
-          "note": { "type": "string" }
-        }
+          "note": { "type": "string" },
+          "depth_pct": {
+            "type": ["number", "null"],
+            "minimum": -100,
+            "maximum": 0,
+            "description": "相对现价的跌幅百分数, 负数(−64 表示 −64%);量不到价格填 null"
+          },
+          "depth_basis": {
+            "type": "string",
+            "minLength": 1,
+            "description": "这个跌幅怎么来的, 如「回吐到③锚低端 73 元」"
+          },
+          "magnitude": {
+            "type": "string",
+            "minLength": 1,
+            "description": "depth_pct 为 null 时, 用该情景自己的单位说量级, 如「吞掉 H1 归母的 57%」"
+          }
+        },
+        "allOf": [
+          {
+            "if": { "properties": { "depth_pct": { "type": "number" } }, "required": ["depth_pct"] },
+            "then": { "required": ["depth_basis"] }
+          },
+          {
+            "if": { "properties": { "depth_pct": { "type": "null" } }, "required": ["depth_pct"] },
+            "then": { "required": ["magnitude"] }
+          }
+        ]
       }
     }
   }

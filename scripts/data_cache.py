@@ -24,6 +24,23 @@ def _meta_path(p: Path) -> Path:
     return p.with_suffix(p.suffix + _META_SIDECAR_SUFFIX)
 
 
+def _effective_ttl_days() -> float:
+    """TTL 上限可用环境变量收紧(不放宽): CA_CACHE_MAX_AGE_DAYS=0 → 强制全部重取。
+
+    增量复查 R1 用它兑现「证据层脚本全量刷新」——默认 7 天 TTL 会把披露后的行情/筹码
+    悄悄换成缓存旧值, 分诊 diff 就成了自己跟自己比(票 09 东山验收实测踩到)。
+    """
+    import os
+
+    raw = os.environ.get("CA_CACHE_MAX_AGE_DAYS")
+    if raw is None:
+        return float(config.CACHE_TTL_DAYS)
+    try:
+        return min(float(config.CACHE_TTL_DAYS), max(0.0, float(raw)))
+    except ValueError:
+        return float(config.CACHE_TTL_DAYS)
+
+
 def get(key: str) -> Optional[pd.DataFrame]:
     """Return cached DataFrame if fresh, else None."""
     p = config.cache_path(key)
@@ -36,7 +53,7 @@ def get(key: str) -> Optional[pd.DataFrame]:
     except Exception:
         return None
     age = dt.datetime.now() - fetched_at
-    if age.total_seconds() > config.CACHE_TTL_DAYS * 86400:
+    if age.total_seconds() > _effective_ttl_days() * 86400:
         return None
     try:
         return pd.read_parquet(p)

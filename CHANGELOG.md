@@ -4,6 +4,497 @@
 
 ---
 
+## [v8.4] — 2026-09-02 — 首次双报告实战暴露的 11 处缺陷(中际旭创 run + 首份对比页)
+
+> **主题**: 这一版没有新功能,全部来自**第二份真实报告**与**第一份真实对比页**跑出来的缺陷。
+> 票 10 交付时库里只有东山一份 v8 报告,很多问题要等「第二份」才显形 —— 尤其是跨报告、
+> 跨轮次、跨节点的那些。11 处里有 6 处是**每份报告都会中**的系统性缺陷。
+
+**Fixed — 展示层(每份报告都会中)**
+
+- **决断卡切在左括号上**:`_split_verdict` 的兜底断行点是 `quality_field` 的分隔符集(含 `(`),
+  于是③的取值域「买完完美未来(无 slack)」被切成 判定行`买完完美未来` / 说明行`无 slack);锚区间…`
+  —— 第二行以孤儿英文词加一个不成对的右括号开头。改为**先找括号之外的分号/破折号/逗号**
+  (带括号深度计数,括注内的分隔符不算),没有才回退按括号切。4 个用例回归。
+- **左尾阶梯图**三处:图脚把每条未量化左尾的名字与量级全摊开(实测 380 字,在 390px 上把本章判定
+  推下一屏)→ 改为只报条数并指向正文;`_ladder_label` 由 Python 加省略号(与 CSS 的 `text-overflow`
+  重复截断,且切出过「存货 198.26…」这种半截数字)→ 交给 CSS,Python 只负责不留半截数字;
+  截断**停在未闭合括注**里(「…或客户 A」「…(FY2025 占营收」,窄屏全宽展开后完整可见,
+  读者看不出是截断只会觉得句子写坏了)→ 退到括号之前。
+- **③占比尺图例**塞进 F 的完整算式(170 字)→ 算式进 `figure title`,图例只留身份+数值;
+  拆瘦后又暴露 `.pfn .lg span` 在 ≤620px 缺 `flex-wrap` 被挤成两窄列 → 补上。
+  **内容变短不等于版式变安全**。
+- **Top3 证据尾拖渲染碎片**:同组红旗的标题被**裸拼**在证据句尾(「…= 4.6x · PB 历史分位(脚本)」)
+  → 改为有标签的「(同组另有:…)」,信息保留、不再是半句。
+- **面板空列占宽**:md 面板表无条件输出「peer 分位」「红标」两列,本次五行全为「—」
+  → 整列为空时不再输出该列。
+- **附录B 无就地口径提示**:读者从面板跳到附录B,当场看到本公司 ROE 6.74 / 毛利率 32.76
+  与正文 44.16% / 46.25% 打架(采集脚本取了旧期行)。正文、面板 note、附录E 都交代过,
+  **唯独出事的那张表上没有** → 装配层在附录B 顶部固定输出一行口径提示。
+
+**Fixed — 数据正确性**
+
+- **首页卡片印了一个不存在的估值锚**:`valuation_tag` 沿用 v7 的散文正则
+  `估值锚…([\d.]+)\s*元` grep 整份报告,在 v8 上**扫进附录D 的红旗行** ——
+  命中「一致预期目标价 1,245.60 元」,而千分位逗号截断数字串,抓出 `245.6`
+  (真值 482.4–535.3)。改为从③的结构化 `anchor_range` 取并**覆盖**正则结果。
+- **`derivation.cagr` 口径未约束**:装配层情景表表头写死「收入 5 年 CAGR」,而 schema 只说「百分数」。
+  填成利润 CAGR 时 schema 与 R12 十条闭合**会全绿**、渲染出来的表却是错标签 ——
+  机检抓不到的静默错标。schema 与 `node-odds` 手册各补一条口径约束。
+
+**Fixed — Windows GBK 假失败(第 3、4 次出现)**
+
+- `check_env` / `verdict_block` / `update_index.main` 补上 stdout 守卫。
+  `verdict_block` 那个最伤:**成功时 print `✓` 抛异常、返回 exit 1**,每个节点写手都会中,
+  本次实战里白白触发过一次重跑。**仍有 14 个脚本缺这个守卫**(见下「已知未做」)。
+
+**Fixed — 文档与代码漂移**
+
+- `phases/phase3-node-writing.md` 的波次仍写「第一波三个写手并行(含④路径)」,
+  而票 11 已把④挪到第二波(`node_graph` 是对的,文档没跟上)。§1/§2/§3 一并对齐,
+  并补上④的派活模板与「depth_pct 分母 = ③的锚」的理由。
+- `judgment-chain.md` §4.7 的 BEFORE→AFTER 范例带着东山的形态(「小分部撑起大故事」),
+  写手照抄结论方向 → 补一行「学的是写法不是结论,形态可能反向」
+  (本次旭创正是反向:高 λ 分部占营收 99%,风险从"小分部撑大故事"翻成"大分部只有一条腿")。
+- v8.3 的日期写成了 2026-08-25(那是拍板解票的日子,不是落地日)→ 改为 2026-09-01。
+
+**Notes**
+
+- 406 项测试绿(新增 3 条回归:决断卡断行 4 用例、阶梯标签不留半截数字、标签不停在未闭合括注)。
+- **中际旭创报告已发布**(`300308_中际旭创`),v8 判断链五节点全量 run,
+  双 reviewer 三轮 **24 条 FIX 全部应用**,`lint_v8` exit 0。
+- **首份产业链对比页已上线**(`compare/pcb-optics/`,东山精密 ↔ 中际旭创),
+  票 10 的五条验收全部走通。compare-judge 首次实战即被四条机检拦下一次越权引用
+  (它想引用两家 `divergence_note` 里的分歧率,那不在决断卡语料里)。
+
+---
+
+## [v8.3] — 2026-09-01 — 产业链同行对比 `--compare`(ticket 10)
+
+> **主题**: 回答一个此前全链都没答过的问题——**同一条产业链上,钱该放哪家**。
+> 难点不在"把两份报告并排",在于**并排的时候不许再判断一次**:五个节点已经在各家自己的报告里
+> 判过了,再判一次就是第二处权威,和 v8 砍掉"结论假面"的整条思路对着干。所以这一页被切成上下两半,
+> 上半纯搬运(机器,零新判断),下半只留**一个**具名判断节点 `compare-judge`,而且它只能引用不能自产。
+
+**Added**
+- **`scripts/compare.py`** + **契约三件**(`compare-group` / `compare` / `compare-judge` schema):
+  成组(`init`)· 库内候选(`candidates`)· 并排装配(`assemble`)· 同步状态(`status`)。
+  产物 `output/_compare/{slug}/compare.json` + `{slug}-compare-{date}.md` 本地底稿。
+- **上半 = 各家决断卡并排,零新判断**:每一格搬自那家最新 run 的 `assembly/assembly.json`
+  与 `nodes/node-odds.md` 的 YAML 块——行动档位 / 决断卡五问 / 区间锚 vs 现价 / 红旗计数 /
+  Top3 / 下次披露日。装配层不新增一个字,也不重排任何结论。
+- **新鲜度**:每家标基准日与"几天前";**超 90 天标「陈旧」**并在页面与完成消息里提示先 `--review`
+  (档线记进产物 `stale_threshold_days`,不做成隐藏常量)。
+- **`agents/compare-judge.md`(第 10 个 sub-agent)**:唯一判断节点,只读 `compare.json`,
+  产排序 + 每家一句原因 + 全组共担风险。硬边界四条:不读任何一家的原报告 / 不自产数字 /
+  不发仓位与档位(那是各家决策层的唯一出处)/ 不给缺报告成员排序。
+- **裁决四条机检**(schema 之外,`compare.check_judge`):具名成员 · 排名从 1 连号 ·
+  **有报告的成员一个不落** · **数字回得了源**——裁决里带小数点或两位以上的数,必须在组内某家卡片上
+  出现过,否则直接判错。个位裸数字(第 1 位、3 家)放过:那是行文不是证据。
+- **全报告制**:只在有完整 v8 报告的成员间对比。缺报告的成员成组时就列在 `missing_members`
+  (带原因 + 补跑命令),页面上单列一节;补跑完重跑一次装配即并入。不建 peer-lite 轻判断管线。
+- **交付**:`assets/html/compare-v8.html` + `build_html --compare-slug`(复用报告页同一套 CSS token
+  与组件,不另起一套版式;并排矩阵在横滚容器内,媒体查询零 `font-size`)· `update_index --compare-slug`
+  发布到 `compare/{slug}/` 并**语义合并**进站点 `data/compare.json`(按 slug upsert,不整文件覆盖)。
+- **`phases/compare-pipeline.md`**:C0 查候选(① Longbridge 产业链/成分股 → ② 库内 peer →
+  ③ 模型按业务描述兜底)→ C1 用户确认成组 + 命名 slug → C2 上半装配 → C3 裁决 → C4 出片发布。
+  候选**必经用户确认**,slug 由用户命名(建议产业链英文短名,兜底 `{锚ticker}-peers`)。
+- **`--review` 收尾联动落地**:复查收尾读 `manifest.compare_groups` → `compare status --company`
+  判要不要重装配 → **问过用户**才重跑(卡片刷新 + **裁决重跑**)。不做自动联动:不问就重跑等于替用户花钱。
+
+**Changed**
+- `manifest.py` 增 `add/remove_compare_group`——"我在哪些对比组里"归公司级状态唯一源。
+- `config.py` 增 `find_company_dir()` / `compare_root()`:消费侧与产出侧问同一个人解析 output 根。
+- `update_index.main()` 补上 Windows 控制台 GBK 守卫(其余脚本都有,这里一直漏着,
+  在 cp936 终端上第一个 `✅` 就会炸)。
+- `install.sh` 的逐文件清单补齐**票 09/11 漏下的 `triage.py` / `derivation.py` / `review-pipeline.md` /
+  `triage.schema.json`**——`install.ps1` 是整目录拷所以没暴露,`install.sh` 装出来的是缺件版本。
+  计数期望同步为 phases=6 agents=10 refs=9 scripts=33 assets=6。
+
+**Notes**
+- 49 项对比测试(全库 400 项绿)。测试缝仍是唯一那条 = run 目录契约:成员的 `runs/{date}/` 与
+  manifest 进,`compare.json` / md 底稿 / 对比页 HTML 出。
+- 语料现状:库内只有东山精密一份 v8 报告,所以**"东山 + 中际旭创 成组走通"的 live demo 尚未跑**——
+  中际旭创正好是"缺报告成员"那条路径的真实用例,该路径已用真数据验过。补齐第二份报告后即可跑通。
+- 首页对比卡与单报告卡并列的**站点侧渲染**(Inves-Report 的 `src/app.jsx` 读 `data/compare.json`)
+  是另一个仓库的改动,本票只产出站点条目与页面本体。
+
+---
+
+## [v8.2] — 2026-08-25 — 估值推导结构化(ticket 11)
+
+> **主题**: 把③赔率的推导从「散文里的数字」变成「契约里的数据」。起因是票 08 首份成品的一处真缺陷:
+> 「从 1,421 亿到 77.6 元/股」这一步**全章没有交代**——要 ÷18.31 亿股,而股本数字一次都没出现,
+> 三轮双 reviewer 全没抓到,是**真人读者读出来的**。机器抓不到的原因很单纯:那些数字只以散文形式
+> 存在,没有可校验的结构。结构化之后顺带解锁了三张此前做不了的图——**结构化不只是为了机器验算术,
+> 更是可视化的前提**。
+
+**Added**
+- **`scripts/derivation.py`**:③估值推导的两个消费者——**十条算术闭合**(lint R12 调用)+ 三张表的
+  机器渲染。闭合覆盖:分部乘法 · 分部加总=EV · EV−净负债=股权 · **股权÷股本=每股** ·
+  **两端锚 = 两法各自推出来的每股价**(锚不能是第三个数字)· Σ概率=1 · Σ(p×pv)=股权 ·
+  Σ折现率分项=折现率 · F+N=市值 · **市值=现价×股本**。
+- **契约层三处补数值字段**:`node-odds.derivation`(`share_count` 带口径/期别 · `p_f_n` ·
+  `sotp.segments[]` · `dcf.discount_rate` 加法栈 + `scenarios[]`)· `node-path.left_tail[].depth_pct`
+  (相对现价的跌幅,量不到价格填 `null` + `magnitude`)· `common.panel_indicator.series`
+  (sparkline 的数值序列,取不到填 `null`)。后两处**键必填、值可空**——逼写手明说「没有」,而不是忘了。
+- **`lint_v8` R12 推导闭合**(fail)+ **R12w 可视化数据齐备**(warn):R12 另查三个表格占位是否真在
+  正文里(数据填了却没占位去渲染 = 读者一格看不到);R12w 提示面板 sparkline 全空 / 左尾阶梯凑不够台阶。
+- **装配层渲染三张表**:写手在正文写 `{{sotp}}` / `{{discount_rate}}` / `{{dcf}}` 占位,
+  `assembly.load_node_bodies` 按 `derivation` 渲染——**写手只填数据,不手搓 markdown 表**。
+  折现率此前是散文里的一串括注(R11 眼里「焊成段落的表」),现在是表。
+- **三张图**(全部由 YAML 契约驱动,零写手工作):③章 **P=F+N 占比尺**(两段部分-整体)·
+  ④章 **左尾深度阶梯**(由浅到深排台阶,满格=本图最深那级)· 首页面板 **sparkline**(跨零补零基线)。
+- 测试 +43 项:`test_derivation_v8`(26 项,两个头等用例就是票 08 那两类错——**每股换算整个丢失**
+  与**合计加错**)+ `test_delivery_html_v8.TestContractDrivenFigures`(17 项)。全库 351 项绿。
+
+**Changed**
+- **④路径从第一波挪到第二波**(裁决票 09 遗留项①)。票 09 验收暴露:③④同波时④只拿得到**上一版**
+  的③锚,终稿两套锚并存、靠评审轮回填。左尾还是散文时这只是措辞不齐,票 11 把左尾深度变成
+  **数值字段**之后就是硬错——`depth_pct` 的分母就是③的锚与现价。
+  两个候选解里选了挪波次而不是**装配期锚占位**:占位只能让④「拿到」数字,不能让它**据此推理**
+  (「回吐到 F 是 −64%」本身就是④的结论);而挪波次**代价是零**——第二波原本只有②一个节点在跑,
+  总波次仍是 3、前两波仍各两个并行。反向引用(③手册 §6「地板见④」)是指路不是取数,不构成环。
+  同步改:`node_graph.DEPS` · 链手册 §1.2 与写手表 · `phase-orchestration` · `agent-protocol` ·
+  `SKILL.md` · 四个 agent 名册。`agents/node-path.md` 的「第一波不应依赖③」FAIL 条款改成
+  「③块不存在 = 调度错序,**不许自己估一个锚顶上**」。
+- 手册补三节:`node-odds.md` §2.5(推导契约 + 三个占位 + 填数不填话三条纪律)·
+  `node-path.md` §1.1(`depth_pct` 怎么填、量不到怎么办)· `node-quality.md` §3.1(`series`)。
+
+**Fixed**
+- 无(本票不修既有缺陷;下面两条是实现期学到的东西)。
+
+### 票 11 学到的两条
+
+1. **容差要按「写出来的精度」算,不能用相对百分比。** 写手落盘的是四舍五入后的展示值
+   (20.9 × 30 = 627 写成 626),两边都只精确到各自最低位,所以容差 = 逐项半 ulp 累加。
+   一刀切的「1% 相对容差」两头都不对:对分部合计**太松**(东山漏一个 11 亿的分部只差 0.74%,
+   会溜过去),对每股换算又**没有意义**(丢失换算是 18 倍的差,什么容差都能抓)。
+   另有两个坑各踩了一次:`float(626)` 会变成 `626.0`,半 ulp 从 0.5 掉到 0.05,容差凭空收紧 5 倍,
+   东山那张真表第一行就被误判;概率若也按 ulp 算(`0.3` → ±0.05),`Σ(p×pv)` 的容差会被撑到
+   247 亿,等于没查——概率是**声明值不是测量值**,ulp 记 0、和另按 ±0.5pp 定死。
+2. **★ 散文拆成表格时,出处引用要跟着拆到每一格。** R3「数字唯一 home」按**行**判:散文里
+   「资产负债率 64.51%、第一大客户占收入 46.46%(①质地)」一句话末尾挂一个出处就够了,
+   拆成折现率表之后每格自成一行,两个异地数字立刻裸奔。东山倒灌验收时被 R3 判红一次才发现。
+   已写进 `node-odds.md` §2.5 与 agent 自检。
+
+### 东山零漂移验收(2026-08-25)
+
+把东山 2026-08-24 那份**人工写的**推导原样倒灌进契约(数字一个没改),让机器重新渲染:
+
+- **十条算术闭合在真实数据上全过**(`ALL CLOSED`);三个节点块过 schema。
+- **SOTP 表 6 行 × 5 列、三情景 DCF 表 5 行 × 6 列,与人工版逐格一致**(零漂移);
+  其余四章正文一字未动。折现率表是新增的(人工版原本是一句散文括注)。
+- `lint_v8` **exit 0**,R12 PASS、R12w PASS;**R4 章预算 PASS**(主体 190 行 / 上限 400,
+  表格化没有把章预算吃爆)。
+- 成品 HTML 三张图渲染正确:P=F+N 36.2% / 63.8%、左尾四级台阶(−19.5% → −96.3%)+
+  图下点名「另 4 条量不到价格」、四条 sparkline(FCF 与现金含量各带零基线)。
+- ⚠️ **这只是倒灌验证,不是重跑**:东山下一次 `--review` 才会由写手真正按新契约重新推导
+  (③的契约变了,票 09 验收后重评过的③需要再跑一次)。
+
+### 三张图的取色(设计期决定,不在测试里重判)
+
+图色与红标状态色**分开取**:`--crit/--seri/--warn/--good` 是保留的状态档(🔴🟠🟡🟢),
+拿去当「系列 4」会让读者把一条数据系列读成一个风险等级。所以另开 `--viz-*` 三支,
+明暗**各自取色**(不是把浅色翻过来):
+
+| token | 用在哪 | light | dark |
+|---|---|---|---|
+| `--viz-1` 蓝 | P=F+N 的 F 段 · sparkline | `#2a78d6` | `#3987e5` |
+| `--viz-2` 品红 | P=F+N 的 N 段 | `#e87ba4` | `#d55181` |
+| `--viz-neg` 红 | 左尾阶梯(单色) | `#e34948` | `#e66767` |
+
+六项检查跑的是 `dataviz` 技能的 `validate_palette.js`,不是肉眼:(viz-1, viz-2) 明暗两套均全过
+(CVD ΔE 13.0 明 / 15.9 暗,常色 ΔE 27.5 / 26.5);浅色下 viz-2 对白面对比度 2.69:1 触发 relief 条款,
+已由图例里的**可见直标(金额 + 占比)**解除。用品红而不用调色板里相邻的橙,是因为橙会和 🟠 撞脸。
+左尾阶梯**单色**:长度已经编码了量级,再按深浅调色就是把同一件事编码两遍。
+
+---
+
+## [v8.1] — 2026-08-24 — 增量复查 `--review`(ticket 09)
+
+> **主题**: 财报季一条命令对已有 v8 报告做分层复查,成本约全量 1/3。四段链彻底取代 v7 的
+> `--monitor` 量化监控:R1 证据刷新(采集/精析增量模式)→ R2 **纯脚本零 LLM 分诊**(`scripts/triage.py`)
+> → R3 依赖图跑标脏子集(复用票 05 调度)→ R4 决策层 + 首页必重装配(「较上版变化」区块,
+> 首句机器答「阿尔法变了没」)。lint + 双 reviewer **不打折**;旧版整目录留档,发布替换。
+
+**Added**
+- **`scripts/triage.py` + `scripts/schemas/triage.schema.json`**:R2 分诊单为结构化产物——
+  质地标脏四条全部机检((a) 新增年报 PDF、(b) 分部占比跨 10%/25%/50% 档线(`fina_mainbz` 两版对比)、
+  (c) 新增 🔴/🟠/🟡 质地红旗(red_flags.json 按 id diff)、(d) 关键指标过零变号(OCF/FCF/净利/ROE/净利同比));
+  **拿不准一律标脏**(单侧数据缺失 → triggered=null 且整体标脏;两侧皆无 = 无变化信号,不永久标脏)。
+  另产重评波次(`node_graph.ALWAYS_RERUN` 补上 `path`——spec §8 路径每次核销=重跑)、±10% 指标 diff
+  (直接喂 `assemble_report_v8 --metric-deltas`)、红旗 diff、④路径核销清单、②状态临界点、建议档。
+- **`--apply-reuse` 复用盖戳**:未重评节点从上版拷 md,YAML 块盖 `reused_from`(连续复用保留最初
+  重评日期)+ 正文插一行 ♻️ 说明(读者可见,复用不藏着),拷完按节点 schema 复检。
+- **`init_run --run-type incremental`**:硬规则 1(基线无 manifest/runs 或上版节点块不合契约 →
+  `BaselineInvalid` 退出码 3,主 agent 改跑全量)+ 基线快照(采集产物落公司级会被 R1 原地覆盖,
+  刷新前把 metrics/red_flags/audit/fina_mainbz/PDF 清单拷进 `runs/{date}/baseline/`,是分诊 diff 的唯一 before 侧)。
+- **`phases/review-pipeline.md`**:主 agent 的 R0-R4 checklist(增量 prompt 注入:④路径逐条核销、
+  ②状态临界点到达判定、①质地标脏原因);SKILL.md Step 1/2 接入 `--review` 与自然语言触发。
+- **站点卡片超龄警示**:`update_index` 卡片新增 `review_hint` 字段(manifest 建议档:距上次全量
+  >12 个月 / 累计 ≥4 次增量 → 「建议全量重锚」);Inves-Report 卡片无披露日且基准日 >90 天 → 「陈旧,建议复查」。
+- 测试 29 项(`test_triage_v8`):东山中报双向场景 golden(场景 A 四条全不触发 → 质地复用、
+  场景 B 分部 3.6%→12% 跨档 → 标脏)、保守回退、建议档、硬规则 1、复用戳链式行为。
+
+**Changed**
+- `agents/data-collector.md` / `agents/doc-analyst.md` 增量模式段:脚本 artifact 全量刷新、PDF 只下
+  新增(对照 `baseline/pdfs_before.json`)、完成报告加 `**新增 PDF**:` 行;doc-analyst 只精读新增并
+  **并入更新** phase2-documents.md。
+- `--monitor` 保留为重定向别名:SKILL.md 入口改道 `--review` + 改名提示;`scripts/monitor.py` CLI
+  打印迁移提示(一个版本周期后删)。
+
+**Fixed**
+- 装配「较上版变化」区块的上版脚本红旗此前只在上版 run 目录找 `audit_report.json`——但采集产物落
+  公司级且被 R1 原地刷新,永远找不到 → 全部现红旗会被误报为「新增」。现在优先读本次 run 的
+  `baseline/red_flags.json`(已是契约条目),没有快照再退回旧逻辑。
+
+### 东山半年报真数据验收(2026-08-24,首个 --review 端到端 run)
+
+用 2026-08-22 披露的东山半年报跑通完整增量链(R0→R4 + 三轮质量环双 PASS + 发布)。
+真实分诊命中 research/03 场景 B 型标脏:光模块分部占比 3.6%→19.2% 跨 10% 档线 → 质地重评,
+五节点全跑;变化区块首句「阿尔法变了:②状态判定翻转;①质地子判定变化(判定语未变);档位
+回避→等证据临界…」;硬规则 2 触发照常产出。**验收途中修掉 6 个真缺陷**:
+
+- `derived_metrics` 写 metrics.json 未指定 encoding——Windows ANSI 控制台下写成 GBK,下游按
+  JSON 规范 utf-8 读直接炸(triage `_read_json` 同时加 utf-8/utf-8-sig/gbk 容错兜底存量文件)。
+- **7 天数据缓存吃掉披露后行情**:增量复查的意义就是披露后的新证据,daily/daily_basic 命中缓存后
+  「刷新」出的是 6 天前的价格(213.82 vs 真实 201.08),分诊 diff 变成自己跟自己比。
+  `data_cache` 新增 `CA_CACHE_MAX_AGE_DAYS` 环境变量(只收紧不放宽,0=强制重取),
+  R1 增量模式规定先设 0 再跑采集(review-pipeline.md + data-collector 增量段)。
+- triage 分部占比被腰斩:Tushare `fina_mainbz` P 口径常有一行「产品」= 全部之和,名字过滤
+  (合计/小计/总计)抓不住 → 按数值剔除(某行 ≈ 其余行之和 ±2% 即合计行)。
+- `red_flags.json` 实际是 `{"red_flags": [...]}` 包壳(red_flags.py CLI 落盘形态),triage 与装配的
+  baseline 读取都只认裸列表 → `_flag_list` 两种形态都认。
+- **变化区块 diff 精度**(两轮 reviewer 抓出):翻转判定从「verdict 全文比对」收敛为「首短语 +
+  符号子判定(✓/⚠️/✗)」——重评写手必然重写论据,全文比对把「买完完美未来(数字更新)」也判成
+  翻转(research/03 场景 A 反例);新增 `flip_kinds`(verdict|sub),「翻转」只留给判定语真变的节点,
+  子判定级说「子判定变化(判定语未变)」;红旗变化带 `level` 字段,🟢/ℹ️ 归「绿灯更新」不借红旗
+  名头,alpha 首句计数与渲染折叠组同源(md 与 HTML 一致)。
+- 事实条「下次预约披露」在披露日已过时改标「(已披露)」;HTML 变化区块三元组键中文化、
+  红旗/绿灯清单收折叠组;triage `--apply-reuse` 重跑改判后清掉旧复用戳文件。
+- 已知遗留(记入后续票):③④同波时,④第一波只能引上版③锚,终稿两套锚并存靠评审轮回填
+  (候选:装配期锚占位或④移二波);红旗 id 哈希含动态数值(Z=8.767)导致刷新必然成对新增/解除,
+  待 id 归一化(会破坏在途引用,单独切票);`references/html-template-guide.md` 仍是 v4.3 旧版。
+
+---
+
+## [v8.0] — 2026-08-19 — 判断链收敛（首页一眼决断 + 五章 + 附录A-E）
+
+> **主题**: 报告结构就是判断链本身。9 章节收敛成「首页一眼结论 + ①质地 / ②状态 / ③赔率 / ④路径 /
+> ⑤怎么办 + 附录A-E」,同一个问题全报告只答一次;10 维评分、定性综合方向、快筛章节、§七 7.1-7.3、
+> §一人工抄写的决断卡这些**结论假面**全部删除。判断的唯一数据源是五个节点 md 顶部的 fenced YAML
+> verdict 块,首页决断卡 / 赚钱面板 / Top3 红旗 / 附录 A-E **全部机器装配,零人工抄写**。
+> 管线 sub-agent 名册 9 个(data-collector / doc-analyst / 四节点写手 / decision-writer /
+> reviewer-{logic,delivery})、主 agent 退回纯调度;质量环换成「机器先于人」(`lint_v8` 十条规则挡完
+> 再派两个 reviewer);交付形态换成 B 仪表盘 HTML,手机 390px 升为一等场景。**只分析上市公司**——
+> 创业公司口径(C/D 轮评分 / 条款分析 / 实物期权 / 退出瀑布)随框架文档重组移除。
+>
+> 实现按 10 张票落地(01 契约 → 02 doc-analyst → 03 手册 → 04 装配 → 05 写手管线 → 06 质量环 →
+> 07 交付 → **08 全量整合上线** → 09 `--review` → 10 `--compare`);本版 = 01-08。09/10 的增量复查
+> 与多公司对比页在后续版本提供,`--monitor` 已随 Phase 7 量化监控一并退役。
+
+### 全量整合上线（ticket 08，2026-08-19）
+
+**Added**
+- **预约披露日有了生产者**：`manifest.nearest_future_disclosure()`（纯 dict 列表进，不依赖 pandas，列名按
+  `modify_date > pre_ann_date > pre_date > ann_date` 取最近的未来日期，列名不认识就留空**不猜**）+
+  `manifest.set_next_disclosure()` + `python -m scripts.manifest --company-dir X [--show|--set-next-disclosure]` CLI。
+  `tushare_collector` 采集结束时自动登记（失败只 warn，不影响采集）；美股/港股用 CLI 手工填一次。
+  此前 `manifest.next_disclosure_date` 恒为 `null` —— 报告头部的「下次预约披露日」一行、HTML 事实条、
+  主页卡片字段三处**全都读它**，所以三处一起是空的（票 08 端到端串联才暴露：字段、渲染、消费方都在，缺的是写入方）。
+- **`update_index.refresh_preview_data()`**：`reports.data.js`（`window.REPORTS_RAW`，utf-8-sig）跟着
+  `data/reports.json` 一起刷。线上页面实时 fetch reports.json，`file://` 本地预览被 CORS 挡住后退回读这个快照——
+  以前它是一步只存在于口头约定的手工操作，忘了刷本地预览就停在上一版报告。upsert 成功后自动同步（文件不存在时用
+  `--refresh-preview-data` 显式创建）。
+
+**Changed**
+- `manifest.RUN_SUBDIRS` 去掉 `raw_data/pdfs`：采集产物落**公司级** `output/{company}/`（= `{artifacts_dir}`，
+  跨 run 共享，`references/phase-orchestration.md` 目录结构约定与所有 collector 的实际落点都是这里），
+  run 目录里那份是没有生产者的空壳。
+- `phases/phase1-data-collection.md`：删掉 v7 残留的「Phase 3 = 3a 预加载 / 3b 分章 / 3c `assemble_report.py`
+  拼接 5 part，详见 phase3-analysis-report.md」——两个文件都已删除；改写为「data_snapshot.md = 四个写手共同的
+  证据底座 + 附录A 唯一挂载源」。另补 `disclosure_date.parquet` 与预约披露日登记说明。
+- `phases/phase6-review-publish.md` 发布段：`update_index` 顺带刷 `reports.data.js`（`git add` 清单加上它），
+  并提醒报告不在默认 `output/` 根下时要补 `--output-dir`。
+- `agents/doc-analyst.md` 禁改文件清单里的 `phase3-part*.md` → `runs/{date}/nodes/node-*.md`；
+  `scripts/lessons_manager.py` 的 `--category` 示例从 `phase3-part4` 换成 v8 的 `node-odds`。
+- `README.md` 升 v8.0（版本徽章 / 报告结构徽章 / 设计原则两行的 §一-§九 措辞 / 版本演进表 v8.0 行改已发布）。
+
+**Added — 交付可读性（票 08 收尾，真人读者反馈驱动）**
+
+读者读完首份成品的原话:**「几乎所有部分的计算和数字都堆叠到一起」**。量化后:五章 **17 行**「一行 ≥5 个数字」的散文，最密一行 **844 字 / 24 个数字**（在①质地，不在估值章）。
+
+- **根因不是写手不会写，是章预算数错了东西**。`R4` 数的是**行数**，写手要在 ≤70 行里交代完，唯一的办法就是把行写长；列表形状的内容（四个分部 / 五项折现率 / 三个情景 / 七条传导）因此被焊成段落。**约束定成行数，结果就是奖励高密度。** 更糟的是修正循环会放大它:reviewer 提「表格单元格太长」，主 agent 让写手把解释挪到表下，于是一张密表变成一个 711 字的密段落——密度没降，只是换了地方堆。
+- **`scripts/lint_v8.py` 新增 `R11 散文密度`**（warn，与 R4 同档不阻断）:一行散文 >5 个数字或 >200 字即报警，并直说「改成表格或分条」。**表格与标题不判**——表格不吃 R4（只数散文行）也不吃 R11，这条规则的作用就是把列表形状的内容推回表里。东山实测:19 行 → 五个写手返工后 **0 行**，最长散文行 844 → 94 字。4 项测试（数字超标 / 字数超标 / 同样的数字写成表就放行 / 是 warn 不是 fail）。
+- **`scripts/build_html.py` + `assets/html/report-v8.{css,html}` 四项渲染能力**（纯展示层，不动判断、不改写手契约）:
+  - **`<details>` 渐进披露**——章内 `###` 段折叠（东山 11 段）。写手的 `###` 标题本来就是结论句，所以**收起时读小标题就是一条判断链**，展开才看推导:信息一个字没删，只是默认不占屏。每章一个「展开全部 N 段 / 收起全部」控件；`beforeprint` 自动全展开（否则纸上缺内容）；锚点跳进折叠段会沿 DOM 向上逐层展开。⑤怎么办没有 `###`，整章常驻可见。
+  - **出处锚链接**——正文里的 `(见①质地)` / `(明细见附录A)` 渲染成真链接（东山 109 处），已在 `<a>` 内的不重复包裹。窄屏顶栏不吸顶，此前读者只能手动滚回去。
+  - **估值尺**——③赔率章顶的 meter:轨道 = 锚区间，标记 = 现价，出界标红并直接写「现价是区间高端的 2.18 倍」。形态按 `dataviz` 方法论选定——**不画三根柱**，柱子让人比高矮，而这里的信息是「出界」。数据全部取自 `node-odds` 已有的契约字段（`anchor_range` / `current_price`），**零写手工作**。
+  - **附录长表表头吸顶**（附录A 的趋势表 543 行）。
+- **票 07 的移动端一等场景规则当场生效**:`test_no_12px_text_anywhere` 与 `test_no_font_size_shrinking_in_media_queries` 拦下了本次新写的 `11.5px` 与媒体查询里的 `font-size:12px`——几个月前定的规则挡住了今天的实现。
+
+> **留给后续票**:P=F+N 占比尺、左尾深度阶梯、面板 sparkline 都做不了，因为**数字只以散文形式存在**——`odds.p_f_n` 字段为 null、`path.left_tail[]` 只有 `{scenario, note}` 自由文本、面板 `value` 是字符串。这给"把估值推导变成结构化数据"那张票加了一条此前没想到的理由:**结构化不只是为了机器验算术，更是可视化的前提**。
+
+**Fixed(东山精密端到端全量 run 实跑挖出，逐条带回归测试或复验）**
+- **`scripts/lint_v8.py` R3 判 home 的顺序错**：「带出处的引用」原先也会**认领 home**，于是章序在前的**借用方抢走主人的 home**，反过来把真正的出处判成「异地裸引自己的数字」——东山实测：现价 213.82 与锚区间 [77.6, 97.9] 归③赔率，②状态按规矩带出处引用了它们，②在③前，lint 就去告③的状（52 处告警里 5 处是这么来的）。改为**判 home 时跳过带出处的那些**，加 2 项回归测试。
+- **`scripts/build_html.py` 拆 verdict 括注留下孤立右括号**：按左括号切 `a`/`w` 两段，剥掉左括号却把右括号留在尾段，决断卡④显示成「高信仰体检 6/7)」。改为**括号成对剥离**（左右计数不平时才剥尾括号），全角半角混用也认。
+- **三个采集脚本把 v7 流水线指令印给读者**：`data_snapshot.py` 头部那段「★ Phase 3 必读规则：必须把整表 inline 完整搬入主报告 §二/§五/§六，严禁"同上"」——它是**附录A 的挂载源**，这段既泄漏内部指令、又引用已删章节号，**内容还与 v8 的「章预算是上限、全表下沉附录」正好相反**；`peer_collector.py` / `capital_flow.py` 的「供 Phase 3 §八 / §四 / §七 消费」同类。三份产物模板全部改为面向读者的落点说明。`phases/phase1-data-collection.md` 与 `agents/data-collector.md` 另加防复发规则（`sentiment.md` / `data_sources.md` 原样变附录 C/E，禁流水线词与 v7 章号）。
+- **`phases/phase2-document-analysis.md` §8 锚点模板仍按 9 章节制**：doc-analyst 据此把 20 条锚点的「可用于」列标成 `§一 / §五 5.4 / §六 6.3`，而 v8 报告根本没有这些章——写手拿到对不上。模板改为节点制并附常见映射表。
+- **`scripts/data_snapshot.py` §2.4 毛利率取错字段**：Tushare 的 `gross_margin` 是毛利**额**（元），毛利**率**是 `grossprofit_margin`；附录A 因此印出「毛利率(%) | 2539181351.98」这种量纲炸掉的脏数（同表「本季度毛利率 19.3275」才是对的，§3 趋势表一直用的是对的那个）。已改并保留毛利额于自己的标签下，加 2 项回归测试。
+- **`scripts/review_loop.py` 判定行只认 `###`**：reviewer 写成 `##` 就把整份判定丢成 UNKNOWN（fail-closed 不危险，但白丢一个判定）。放宽到 `##`-`####`，加「层级不吞判定」与「认不出必须 fail-closed」两项测试。
+- **`update_index.py` / `build_html.py` 硬编码他人机器路径**：`/Users/leafpaper/.claude/plugins/...` 作为查找 fallback，却**不问 `config`**——装好的 skill 从别处跑就找不到自己刚写的报告（票 08 发布时踩到，必须手动补 `--output-dir`）。改为与产出侧同源（`config.PLUGIN_ROOT/output` → `SKILL_ROOT/output` → 相对 `output/`）。
+- **`SKILL.md` Step 0 假定 Windows 一定有 `py -3`**：本机没有 Python launcher，裸 `python` 又可能是 Store 占位符。改为「按顺序试到第一个能跑通的，选定后必须用 `check_env` 验」，并把各 agent 文档里的 `{PYBIN}` 说明统一成「主 agent 给什么用什么，别自己换」。另补一条**每条命令自带 `cd`** 的硬规则——Bash 工具每次调用后工作目录会重置，忘了 cd 的症状是「改了没生效」（实测 `install.ps1` 用相对路径静默没装上，出片一直在用旧模板）。
+- **`references/judgment-chain.md` §2.2 映射表第 4 行是死条款制造机**：原写「↓变差，**或**(买完完美未来 且 高尾险)」，第二个子句与状态无关，把第 2 行「↑未确认 × 买完完美未来 × 高尾险 → 等证据临界 / 期权仓，看右尾大小」整行吞掉——只要又贵又扛不住就直接回避，"看右尾大小"永远走不到（decision-writer 实跑撞上，靠「取更保守一侧」自行绕过）。第 4 行限定为「**且右尾清单不成立**」，并写明必须逐条过清单再裁决：不许跳过清单直接回避（一刀切），也不许跳过清单直接开期权仓（赌）。
+
+**Fixed**
+- **`scripts/capital_flow.py` 户数 NaN 崩溃**：Tushare `stk_holdernumber` 会返回一批还没填 `holder_num`
+  的期（东山精密 2026-08 实测 279 行里 **152 行是 NaN**），排序后落到"最新一期"就在 `int(now["holder_num"])`
+  上抛 `ValueError: cannot convert float NaN to integer` —— **附录C 的资金底稿整份产不出来**。改为先丢掉
+  没有户数的行再取最近两期；全 NaN / 只剩一期则安静降级不写字段。新增 `scripts/tests/test_capital_flow.py` 3 项。
+- **`scripts/requirements.txt` 漏 `markdown`**：`build_html` 对它是 `ImportError → sys.exit(1)` 的硬依赖，
+  但照文档 `pip install -r scripts/requirements.txt` 装完，要一直跑到 Phase 6 出片才炸。`check_env.REQUIRED_PKGS`
+  同步补 `yaml` / `jsonschema` / `markdown` 三个 v8 硬依赖（此前只查 6 个数据层包，契约层缺件 Step 0 查不出来）。
+
+**Notes**
+- **东山精密端到端全量 run 走通（2026-08-19，基准日即当日）**：P1 采集（22 张 parquet / 5 份 PDF / 10 条脚本红旗）→ P2 精析（5 份全精读、20 条锚点）→ 两波写作（质地 ∥ 赔率 ∥ 路径 → 状态 → 决策）→ 装配 → 质量环 → B 仪表盘 HTML → 发布 Inves-Report。每个组件唯一生产者，与 research/09 零孤儿表逐项对上。
+  - **结论**：决断卡「部分好 / ↑变好但仅注意力·未确认 / 买完完美未来 / 高尾险·不可承受 / 现价回避 0 仓位」；锚区间 [SOTP 77.6, DCF 97.9] 两端同向 vs 现价 213.82；封顶未触发（零 🔴），档位由三元组自算得出。
+  - **质量环真在起作用**：两个 reviewer 前两轮都判 FAIL，共 19 条 FIX；第 3 轮双 PASS、`overall_pass: true`。修正循环里 reviewer 两次**纠正了主 agent 的回查错误**——先是「①里的 7.50% 是扣非增速不是净利率，数字串撞上了指标没撞上」，再是「17.59% 只在节点 md 的 YAML 块里、不在渲染后的①质地正文里，跨章指针要按渲染后的章正文核」。
+  - **写手自查抓到机器抓不到的错**：④路径发现正文「融资余额 109.88 亿 / −15.6%」在 artifacts 里**查无一手出处**（附录C 真值 107.57 亿 / −17.4%），且没有擅自改而是上报——因为该数字被③④两章共用，单方面改会破坏跨章一致。顺带追出「占流通市值 3.7%」是拿那个错值现算的衍生数（109.88 ÷ 2,964.23），挂载源里根本没有这个口径。**lint 抓不到这类错**：R3 只管「跨章重复要带出处」，不管数字本身能否回源，两章写同一个错值反而"自洽"。→ 候选新规则：跨章共用的数字要能回源到附录挂载源，回不到记 warn。
+  - **陈年产物会污染新 run**：公司目录里 v7 时代的 `phase3-part*.md` 与旧报告仍在，写手引到了只存在于旧稿的「三环 27.73%」。→ 候选:`init_run` 对同公司的历史非 run 目录产物做归档或标记。
+  - 报告主体 114 行（软目标 400 以内）、红旗 26 条零 🔴、Top3 与重算一致；报告内含「下次预约披露日 2026-08-22」一行（半年报 3 天后披露，②状态 2 条临界点与④路径 5 条证伪挂在这一天，是 `--review` 的第一个真实用例）。
+- **离线整合彩排**（东山 golden fixture 走真实 CLI 全链，不碰网络）：`init_run` → 五块 `verdict_block`
+  → `assemble_report_v8` → `lint_v8` → `build_html` → `update_index`，逐段退出码 0；装配产物为
+  决断卡 5 行 / 面板 5 块 / Top3 3 张 / 红旗 14 条 / 五章 5/5 / 附录 5 个 / 红标 5 处 / 表格横滚容器 6 个，
+  预约披露日贯穿「manifest → 报告头部行 → CARD_METADATA → HTML 事实条 → 卡片 JSON」五处。
+  fixture 正文是 3 行桩，所以 R2w 的 5 条 🟠 归家 warn 与主体行数不代表真实报告。
+- 契约与装配测试 98 项绿（+5 预约披露日 +3 预览快照）；全量 `python -m unittest discover -s scripts/tests -t .`
+  除既有 3 个缺 pandas 的环境错外全绿。
+
+### 装配层：首页与附录机器装配（ticket 04，2026-08-17）
+
+**Added**
+- **`scripts/red_flags.py`** — 附录D 红旗总清单**两源合并**（脚本 `financial_audit --json` ⊕ 写手在节点块里的
+  `red_flag_nominations`），按 `metric_refs[0]` 聚合去重、算 Top3 排序键、产红标反查表（`red_flags.json`
+  供写手引 id）。**`scripts/assembly.py`** — 摘要层装配：决断卡五行（逐行取自五个节点的 verdict，零人工抄写）/
+  赚钱面板（写手自选 3-5 指标 + 红标映射）/ Top3 / 主页 metadata / 「较上版变化」区块。
+  **`scripts/assemble_report_v8.py`** — 报告总装 CLI：首页 + 五章正文原样挂载 + 附录A-E（A/B/C/E 挂采集产物，
+  D 为机器合并产物），落 `assembly/assembly.json` + 主报告 md。
+- 变化区块的翻转判定落成四条机器规则；「跨两档 = 态度带距离 ≥ 2」；`scripts/tests/test_assembly_v8.py` 46 项
+  （东山 golden 进，装配产物出）。
+
+### 质量环：v8 lint + reviewer 3→2（ticket 06，2026-08-18）
+
+**Added**
+- **`scripts/lint_v8.py`** — 机器门控重写，判定对象从"9 章节主报告"换成 **run 目录契约**（五个节点 YAML 块 + 装配产物 + 装配后的报告）。10 条规则：
+  - `R1` 五块 schema 校验 · `R2` **红旗闭环**（Top3 与红旗清单按节点块**重算比对**；🔴 致命红旗必须在归属节点叙述过，🟠 未叙述记 warn）· `R3` **数字唯一 home**（同一数字跨章出现时异地必须带出处引用；首页机器装配与附录豁免）· `R5` **区间锚**（同向标记必填、不同向必写分歧原因、两端不倒置、verdict 与现价方向不自相矛盾）· `R7` **决策字段 + 致命红旗封顶**（有 🔴 → 档位强制「回避」且 `gear_cap.triggered`）· `R8` **越权发声**（仓位/行动档位/买卖建议只在⑤，写明「归⑤」的引用行豁免）· `R10` **报告与节点同步**（改了节点没重装配 = 脱节）—— 以上 fail 阻断；
+  - 留改自 v7：`R6` 外链引用（指向本报告附录的 `#锚点` 合法）· `R9` 无记忆性反例；
+  - `R4` 章预算 = **warn**（70/60/70/60/50 行上限 + 主体 400 行，**没有下限**）。
+- **`agents/reviewer-logic.md`**（维度 1）：跨节点引用不重推 / 影子结论 / verdict-正文自洽 / 最硬证据真硬 / 叙事 SOTP 与 N 有据；**`agents/reviewer-delivery.md`**（维度 2）：结论先行 / 全说人话 / 成品 HTML 的 390px 与明暗主题走查清单。两份都明写"机器已经查过的别重复"，并要求 FIX 带落点与类型。
+- **`scripts/tests/test_quality_loop_v8.py`** — 41 项（东山 golden fixture 进，lint 判定出）：越预算 / 缺字段 / 异地裸数字 / 红旗无家四类正反例齐全，另加封顶、Top3 漂移、提名后未重装配、报告脱节、越权与豁免、外链与锚点、无记忆性与元讨论豁免、CLI 三种退出码，以及 review_loop 的解析/去重/分诊/对抗检测。
+
+**Changed**
+- **`scripts/review_loop.py` 重写**：reviewer 3→2（`logic` ∥ `delivery`）、入参 `--output-dir` → `--run-dir`、diff signature 从 `phase3-part{1-5}.md` 改为五个节点 md。FIX 行格式加**类型字段**：`- [FIX-{node}-{判断|表述}] 问题 → 建议`（`node` 含 `front` 首页导读与 `delivery` HTML 交付），脚本据此**分诊**并直接给出 `restart_writers`（判断类 → fresh-restart 写手）/ `edit_targets`（表述类 → 主 agent Edit 正文）/ `delivery_fixes`（改模板），主 agent 只读 JSON。
+- **`scripts/build_html.py`**：v8 通道出片前内置跑一次 `lint_v8`（fail 阻断、warn 打印）；v7 兼容通道不再跑 lint（无节点块可判，只做渲染）。
+- `phases/phase6-review-publish.md` 重写为 v8 质量环（Step 0 机器门控规则表与修复指引 / 两 reviewer prompt 模板 / `review_loop` JSON 决策表 / 修正循环三类落点 / 出片发布 / **Part D 缺口补查改触发式**，补到的证据回到节点或采集产物而不是只改附录）。
+- `references/phase-orchestration.md` Phase 6 从「🚧 施工中」改为可执行 checklist；`references/agent-protocol.md` 名册 9 个 agent、reviewer 响应 schema 带 `kind` 分诊字段、失败处理改指 `lint_v8`。
+- `SKILL.md` Phase 6 行、质量门控汇总补三行（门控/评审/出片）、异常处理补 lint fail 与 3 轮上限、脚本索引换 `lint_v8`；`README.md` 流水线与目录树同步；`install.sh` agents 10→9、scripts 换 `lint_v8`、assets 6→5，校验计数同步。
+
+**Removed**（git 历史即归档）
+- `scripts/anti_lazy_lint.py` + `scripts/tests/test_anti_lazy_lint_v7.py` —— 章节字数下限与 artifact 关键短语覆盖率**与 v8 的「章预算是上限 + 全表下沉附录」正面冲突**，9 章节骨架比对的对象已不存在。
+- `agents/reviewer-{narrative,valuation,redflag}.md` —— 前两个专职校验"四套机制互抄一致"（复述层已删，无对象可校），红旗闭环改机检（lint R2）。
+- `assets/validation/report-checklist.json` —— 20 项 9 章节审核清单；v8 的审核标准落在 `lint_v8` 的规则集与两个 reviewer 的定义里，不再留一份没有代码读的 JSON 当第二真相源。
+
+**Notes**
+- **门控哲学**：机器先于人——`lint_v8` 没过不派 reviewer；确定性规则挡得住的错不花 LLM 注意力，LLM 只判机器判不了的（引用是不是重推、证据硬不硬、话说得像不像人）。
+- **🟠 未归家为什么只是 warn**：归家检查靠标题词与证据数字的文本命中，对 🔴 严格（漏讲致命红旗是真错，且条数少、误判可控），对 🟠 宽松（避免文本没命中就把出片卡死），漏网的由 reviewer-logic 兜。
+- 东山 golden run 实测：fail 项全过、5 条 🟠 归家 warn（fixture 正文是 3 行桩，真实报告不会这样）；全量 `python -m unittest discover -s scripts/tests -t .` 195 项，除既有 3 个缺 pandas 的环境错外全绿。
+
+### 全量写手管线：四节点写手 + decision-writer + 依赖图两波（ticket 05，2026-08-18）
+
+**Added**
+- **五个写作 agent**：`agents/node-quality.md`（①质地五子判定 + 赚钱面板选 3-5 指标）/ `agents/node-odds.md`（③赔率三件套 + **区间锚 [SOTP,DCF] 与同向标记**）/ `agents/node-path.md`（④路径左尾清单 + **证伪/退出清单**）/ `agents/node-state.md`（②状态 λ 与稀释 / 实锤 vs 传闻 / **临界点=该等什么**，第二波引用③ verdict）/ `agents/decision-writer.md`（⑤三元组→六档 + **封顶检查** + 仓位唯一出处 + 首页 3-5 句导读）。每个写手**只读「链手册 + 本节点手册」两份**，产 `runs/{date}/nodes/node-{node}.md`（顶部 fenced YAML verdict 块 + 正文 verdict 先行 + 最硬证据子判定表），自跑 `verdict_block` schema 校验（≤3 轮自补）+ 章预算自检。
+- **`scripts/node_graph.py`** — 判断链依赖图：把**任意节点子集**排成执行波次（全量 `--all` → 质地∥赔率∥路径 → 状态 → 决策；增量 `--nodes {标脏集合}`，子集外依赖记进 `external_deps` 供调度校验"上版复用块是否就位"）。全量与增量复查共用这一套，不维护两条流水线。
+- **`phases/phase3-node-writing.md`** — Phase 3 执行细则（**主 agent 读**）：波次计算 / 三波 prompt 模板 / 逐波 `verdict_block` 复核 / 装配命令与验收 / 失败处理 / 增量复查差异预留。
+- **`scripts/tests/test_node_graph.py`** — 17 项：全量三波、②状态永不与③赔率同波、research/03 场景 A/B 的标脏子集波次、`external_deps` 与复用集合、旧 part 名必须报错。
+- 采集侧补齐（装配的前提）：`financial_audit --json` → **`red_flags.json`**（稳定 id，写手面板 `red_flag_ref` 与决策层封顶检查的唯一来源）+ 拆出 **`sentiment.md` / `data_sources.md`**（附录C / 附录E 的挂载源）。
+
+**Changed**
+- `SKILL.md` 改写为 v8 判断链调度器：五节点报告结构、run 目录产物清单、逐波质量门控表、"不写任何判断 / 不手改 YAML 块 / 不手写首页"三条硬边界；`--monitor` 改为退役提示（增量复查 `--review` 待后续版本）。
+- `references/phase-orchestration.md` 重写：v8 目录结构约定（`{artifacts_dir}` 公司级 / `{run_dir}` 判断链产物）+ Phase 1/2/3 checklist + Phase 3 三波不变量；Phase 6 标注 v8 质量环施工中（v7 lint 与 3 reviewer 校验 9 章节结构，对 v8 报告会误判，不拿它卡 v8 run）。
+- `references/agent-protocol.md`：v8 sub-agent 名册、节点写手完成报告 schema（含 `**verdict**:` 行）、波次门控与 reviewer 修正循环分列、修正循环落点改为节点 md（判断类 FIX 走写手 fresh-restart，主 agent 只改表述）。
+- `agents/data-collector.md` + `phases/phase1-data-collection.md`：路径参数化为 `{output_dir}`、新增 audit `--json` / `red_flags` / 附录底稿两步与对应质量门控；phase1 残留的创业公司口径（非上市纯 WebSearch 模式）随 v8 删除。
+- `README.md` 流水线/报告结构/产物树/仓库结构改判断链版；`install.sh` phases 5→4、agents 换五写手、scripts 换 `node_graph`、assets 6→4，安装校验计数同步。
+
+**Removed**（git 历史即归档）
+- `agents/phase3-part{1,2,3,4,5}.md` — 5 个 part 写手（§一由 part1 抄写 §七、§四评分与定性综合方向等结论假面随判断链收敛退役）。
+- `phases/phase3-analysis-report.md`（9 章节写作指令）、`phases/phase7-quantitative-monitor.md`（量化监控，职责由增量复查分诊接管）。
+- `assets/templates/report-skeleton.md`（9 章节严格骨架）+ `assets/templates/exec-summary-schema.md`（§一 7 字段）—— 章节结构改由链手册定义、首页改由装配层生成，两份模板已无权威性。
+- `scripts/assemble_report.py` + `scripts/tests/test_assemble_report.py` —— v7 五 part 拼接器；票 04 原计划留到 08 删，05 删掉 part 写手后它已无输入，提前删（v8 装配走 `assemble_report_v8`）。
+
+**Notes**
+- **东山精密 dry-run 验收**（golden 五节点块 + 真实采集产物）：五块 `verdict_block` 全过 → 波次 = research/09 §A → `assemble_report_v8` 装出的**决断卡五行与 research/02 §6 逐行零漂移**（部分好·真卡位+平庸财务 / ↑变好但未确认 / 买完完美未来·锚区间 57-89 vs 现价 273 / 高尾险·扛不住 5/5 / 先观察等证据临界·期权小仓 ≤2-3%），Top3 两源同池机器带出，主页 verdict = 行动档位人话，附录 A/B/C 挂上真实采集产物。
+- **采集产物落点**：collectors 的写死路径决定采集产物仍落公司级 `output/{company}/`（跨 run 共享），`runs/{date}/` 只放判断链与装配产物；与 research/09 表里"采集落 run 目录"的写法不同，**生产者与零孤儿映射不变**。run 目录内的 `raw_data/` 预留给增量复查的证据快照。
+
+### 交付形态「B 仪表盘 · 一眼决断」（ticket 07，2026-08-17）
+
+**Added**
+- `assets/html/report-v8.html` + `assets/html/report-v8.css` — v8 报告版式（定稿基线 = 07 prototype 第二套 B，无杂交）：决断卡 = 5 张 verdict 瓦片、赚钱面板 = stat tiles + 红标角标、Top3 = 风险卡；明暗双主题（系统跟随 + 手动切换记忆）。
+- `scripts/build_html.py` **v8 通道**：结构化件（决断卡/面板/Top3/变化区块/红标反查）读 `assembly/assembly.json`，正文与附录读主报告 md —— HTML 层是纯展示，零新增阈值、零新结论。
+  - **红标三通道**：emoji + 文字级别词 + 底纹，任一通道单独可读；🔴/🟠 红色系、🟡 黄色系（级别靠 emoji 分）。
+  - **反查一套实现**：红标本身即链接 → 点击直达附录D 条目锚点（触屏/窄屏走这条）；桌面悬停/键盘聚焦弹浮层给五要素（标题/级别/一句证据/来源/归属节点）；`title` 属性兜底（浮层被横滚容器裁掉时仍可反查）。
+  - **正文自动反查**：按红旗清单逐字命中标红（写手不手涂，见 `references/node-quality.md`），短于 4 字的词（FCF/ROE）不进词表；附录D 本体不自标。
+  - CLI 新增 `--run-dir`；有装配产物即走 v8 通道，否则回落 v7 槽位填充。
+- `scripts/tests/test_delivery_html_v8.py` — 42 个用例（东山 fixture 全链路：run 目录 → 装配 → 成品 HTML）。含明暗两主题的 WCAG 对比度计算（正文/次要文字对页面、卡片、红/黄底纹全部 ≥4.5:1；链接与红标封条 ≥3:1）。
+
+**Changed**
+- **移动端升为一等场景**：瓦片/风险卡/附录卡窄屏单列重排；所有表格强制 `overflow-x` 横滚容器；窄屏顶导航由吸顶改静态（v7 吃掉约 10% 屏的痛点）；**媒体查询里一处 font-size 都没有**（改结构不缩字号，机检兜底）；`.wrap{overflow-x:clip}` 保证绝对定位浮层不把页面撑横。
+- `scripts/update_index.py` **v8 卡片版式**：verdict = 行动档位人话，新增 `quality_field` / `action_gear` / `next_disclosure_date`（站点陈旧警示的基准）；v8 无综合评分/期望收益，三块 metrics 改为 行动档位 / 质地 / 贵不贵，badges 同步；一句话结论回落到写手导读首段。
+- `install.sh` assets 4→6（新增两个 v8 模板文件；templates/ 两份骨架已随 ticket 05 删除），安装校验计数同步。
+
+### 框架文档「1+4 节点制」（ticket 03，2026-08-17）
+
+**Added**
+- `references/judgment-chain.md` — **链手册（全员必读）**：总公式与四问定义（含 verdict 取值域、质地=筛选信号不进乘法、一处权威表）/ 决策层（三元组→六档映射、★致命红旗封顶规则、★区间锚两端同向规则、三分结论、右尾纪律、仓位唯一出处、五弊端自检）/ 摘要层机器装配规则（决断卡/面板/Top3/红标纯展示层映射/写手提名通道，字段一律引用 `scripts/schemas/*.json` 不复制）/ 写作规范（人话词典、结论先行、最硬证据制、黑白分割纪律、证据质量门控、数字唯一 home、章预算、禁止项、BEFORE→AFTER 范例）/ 消化路径总表。
+- `references/node-quality.md`（①质地：五子判定标尺 + 护城河类型表 + 财务标尺与行业基准 + 赚钱面板菜单）
+- `references/node-state.md`（②状态：λ 与分部稀释 / 实锤 vs 传闻分级 / 贝叶斯三问 / 无记忆性 / 身份切换 P1-P4 与 5 元组 / 四层验证 / 催化剂→**临界点=该等什么唯一产出处** / 赛道右尾证据）
+- `references/node-odds.md`（③赔率：P=F+N / 反向 DCF / 叙事 SOTP / DCF / **区间锚 [SOTP,DCF] 两端算法** / 估值证据菜单 / Damodaran 行业基准**唯一一份**）
+- `references/node-path.md`（④路径：左尾清单与剥离剩余资产清单 / 高信仰体检 / 回报路径成本 / **证伪与退出清单** / 风险证据标尺 / 空头逻辑链）
+- **消化纪律**：文档边界=判断节点边界=写手边界；写手只读「链手册 + 本节点手册」，跨节点只引用对方 verdict，机制文本一处安家。
+
+**Removed**（git 历史即归档，不留 archive/；去向按 `.scratch/v8-refactor/research/08-doc-mapping.md` 零孤儿映射）
+- `references/scoring-rubric.md` — 评分锚点/加权公式/投资信号表/定性叠加系数**全删**（结论假面）；各维度**证据标尺**迁入：维1/3/5/6→node-quality，维2/4→node-state，维7→node-quality 财务底子 + node-path 偿债左尾，维8→node-path，维9→node-odds，维10（上市版回报潜力）→node-path；证据质量门控→链手册 §4；上市公司财务指标行业基准→node-quality 附表。
+- `references/qualitative-frameworks.md` — 「综合方向」verdict 与三段式汇总模板**删除**（结论假面）；框架1 护城河→node-quality，框架2 管理层→node-quality（路径子项在 node-path 放引用行），框架3 催化剂→node-state；黑白分割纪律与禁止项→链手册 §4。
+- `references/valuation-frameworks.md` — 主体迁入 node-odds；**v4.2「三法差异 >20% 必须重做 DCF」红线废除**，改为区间锚两端同向规则；剥离剩余资产清单→node-path；7.4 投资回报模拟→node-path；实物期权法与条款分析框架**删除**。
+- `references/investment-decision-core.md` — 拆为链手册主体（总公式/决策合成/右尾纪律/写作规范）+ 三份节点手册（状态后验→node-state，赔率→node-odds，路径与左尾→node-path）；决断卡与四维体检模板**删除**（字段外置 schema，首页机器装配）；λ 监控段改写为"接增量复查分诊"。
+- **创业公司口径全删**：C/D 轮评分标准、早期公司适配指南、实物期权、条款分析、退出瀑布；`SKILL.md` 输入确认不再问「类型(创业/上市)」，`{type}` 变量移除。
+
+**Changed**
+- `install.sh` 参考文档 8→9（手册层 1+4 取代旧四份），`REF_COUNT` 期望同步；`SKILL.md` / `README.md` 参考索引改指手册层。
+
+### 契约层（ticket 01，2026-08-16）
+- `scripts/schemas/` 八个 schema（common / node-{quality,state,odds,path} / node-decision / assembly / manifest）+ `scripts/verdict_block.py`（顶部 fenced YAML 块抽取与校验）+ `scripts/manifest.py`（runs 日期目录制、增量计数、公司级状态唯一源）+ `init_run --run-type`。契约测试 43/43 绿。
+
+---
+
+## [v7.2] — 2026-08-17 — Phase 2 文档精析独立化（doc-analyst，v8 预重构）
+
+> **主题**: v8 目标架构是 10 个 agent、主 agent 纯调度。本版先把最容易剥离的一块——Phase 2 文档精析——从主 agent 抽成独立 sub-agent，**跑在现行 v7 管线上**（先把变更做容易，再做容易的变更）。产物路径与格式不变，Phase 3 消费无感。对应 v8 实现票 02。
+
+### Added
+- **`agents/doc-analyst.md`**（sub-agent 9→10）: 输入 PDF 清单 + 公司上下文，精读 `pdf_sections_*.json`（section 缺失时回原件 `pdf_reader --search` / 直接 Read PDF），产 `phase2-documents.md`（§1-§8），**自跑 `check_phase2` 并自补 ≤3 轮**，只回报路径 + 判定 + 门控结果。工具集不含 WebSearch/WebFetch（离线纪律：补料是 Phase 1 的职责，缺料 = 降级标注）。
+
+### Changed
+- **主 agent 退回纯调度**: SKILL.md「❌ 不做的事」新增"不自跑 Phase 2 / 不读 PDF 与 pdf_sections"；Phase 2 由 `Agent(subagent_type="doc-analyst")` 调起，主 agent 只读 `**判定**:` + **复核**跑一次 `check_phase2`（不自己补写，红了 fresh-restart doc-analyst 一次）。
+- `references/phase-orchestration.md` Phase 2 段改写为 Agent 调度 checklist（6 步）；`references/agent-protocol.md` 版本演进登记 v7.2。
+- `phases/phase2-document-analysis.md` 定位为 doc-analyst 内部指令（执行者标注 + Step 6 门控改"自跑自补 + 主 agent 复核"）；Step 1 盘点去 `ls -la` 改 `Glob`（跨平台）。
+- `install.sh` agent 列表加 `doc-analyst`；安装校验期望 agents 9→10、scripts 25→27（补上 v8 契约层 `verdict_block`/`manifest` 加入下载列表后未同步的计数，此前会误报"安装不完整"）。
+
+### Fixed
+- **`scripts/check_phase2.py` 强制 UTF-8 输出**: 报告含 ✅/❌，Windows 控制台默认 GBK 时 `print` 抛 `UnicodeEncodeError` 崩出退出码 1 —— doc-analyst 会误读成"门控红了"并空转 3 轮补写。
+
+---
+
 ## [v7.0] — 2026-06-22 — 投资决策内核（贝叶斯之美五篇融入）
 
 > **主题**: 把"贝叶斯之美/BayesCrest"五篇投资理念（《投资是泊松过程》《喊线时代》《三大数学模型之美》《信仰投资最大陷阱》《十年十倍股》）落成 skill 的判断逻辑链。核心公式 **投资价值 = 状态后验 × 赔率 × 路径可承受性**，把"是不是好公司"拆成 **好公司 / 好下注 / 好价格** 三分。根治旧版"DCF 单锚 lowball + 贵=回避"的 Issue 1。

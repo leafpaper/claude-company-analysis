@@ -1,10 +1,11 @@
-# Phase 2: 文档精析（v4 - PDF 必读）
+# Phase 2: 文档精析（v7.2 - doc-analyst 执行）
 
 > **🧭 你在这里**：[SKILL.md 协调器](../SKILL.md) → Phase 1 → **Phase 2 文档精析** → Phase 3 综合分析
 >
+> **执行者**: `doc-analyst` sub-agent（v7.2 起从主 agent 抽离；本文件是它的内部指令，主 agent 只调度不读）
 > **接收自**: Phase 1 的 `raw_data/pdfs/` + `pdf_sections_*.json`
 > **输出给**: Phase 3（主报告引用 `§2 利润表变动原因`、`§3 子公司业绩`、`§8 高价值事实锚点`）
-> **质量门控**: §2 利润表变动 ≥3 行原文引用；§8 高价值事实锚点 ≥5 条
+> **质量门控**: §2 利润表变动 ≥3 行原文引用；§8 高价值事实锚点 ≥5 条（`scripts/check_phase2.py` 机检）
 
 ---
 
@@ -13,7 +14,12 @@
 
 ## 角色定义
 
-你是一名**文档审读员**。你的职责是从已下载的财报 PDF + 用户上传文档中，**精读并提取结构化信息**，为 Phase 3 的深度分析铺路。
+你是一名**文档审读员**（= `doc-analyst` sub-agent）。你的职责是从已下载的财报 PDF + 用户上传文档中，**精读并提取结构化信息**，为 Phase 3 的深度分析铺路。
+
+**v7.2 关键变更:**
+- ✅ 本 Phase 由 **doc-analyst sub-agent** 执行（定义见 `agents/doc-analyst.md`），主 agent 退回纯调度、不再自跑精析
+- ✅ Step 6 机器门控由 doc-analyst **自跑自补**（≤3 轮），主 agent 收尾再复核一次同一条命令
+- ✅ 离线纪律：doc-analyst 无 WebSearch/WebFetch，缺料 = 降级标注回报，不联网补（补料是 Phase 1 的活）
 
 **v3 关键变更:**
 - ✅ **"无文档模式"不再是最小检查点**——Phase 1 已经强制下载了年报/季报 PDF，你必须精读它们
@@ -33,12 +39,14 @@
 
 ## Step 1: 盘点已有 PDF
 
-列出 `output/{company}/raw_data/pdfs/` 下所有 PDF 文件及其对应的 section JSON。
+列出 `output/{company}/raw_data/pdfs/` 下所有 PDF 文件及其对应的 section JSON（跨平台：用 `Glob` 工具，不用 `ls -la`）：
 
 ```
-ls -la output/{company}/raw_data/pdfs/
-ls -la output/{company}/raw_data/pdf_sections_*.json
+Glob(pattern="output/{company}/raw_data/pdfs/*.pdf")
+Glob(pattern="output/{company}/raw_data/pdf_sections_*.json")
 ```
+
+同一份报告可能有两个文件名（如 `q1_2026.pdf` 与 `2026Q1_report.pdf`），§1 合并成一行并注明"另有 N 份原件留存"。
 
 并列出**用户额外提供的文档**（若有）：
 - Pitch Deck / BP
@@ -112,13 +120,14 @@ ls -la output/{company}/raw_data/pdf_sections_*.json
 
 ## Step 3: 分析用户提供的额外文档（如有）
 
-### 3.1 Pitch Deck / BP（创业公司常见）
-- 业务模式、融资条款、团队背景、关键数据
-- 标注可信度（创始人自述 vs 第三方验证）
+### 3.1 调研纪要 / 内部资料
+- 业务模式、客户结构、产能与订单、团队背景
+- 标注可信度（管理层自述 vs 第三方验证）
 
 ### 3.2 券商研报 PDF / 深度报告
 - 目标价、盈利预测、投资逻辑
-- 这些是"市场共识"，用作主报告 §一 核心非共识判断的对标参照
+- 这些是"市场共识"，是 ③赔率 拆 P=F+N 时 **N（对未来的想象）的市场口径参照**——
+  用来对照"现价把多少未来买走了"，不是用来抄目标价
 
 ### 3.3 调研纪要 / 电话会议纪要
 - 一手管理层回答
@@ -187,10 +196,16 @@ ls -la output/{company}/raw_data/pdf_sections_*.json
 
 本次文档精析中，有以下高价值事实将在后续 phase 用作关键证据：
 
+> **「可用于」列只能填 v8 的判断链节点**：`①质地` / `②状态` / `③赔率` / `④路径` / `⑤决策`，
+> 或附录 `A 财务经营` / `B 行业对标` / `C 舆情资金` / `D 红旗` / `E 来源缺口`。
+> **不许再写 §一…§九 这套 v7 章节号**（9 章节结构已随判断链收敛删除，写手按节点找料，看到旧章节号会对不上）。
+> 常见映射：估值/贵不贵 → ③赔率；业务与护城河 → ①质地;改善是否被坐实 → ②状态；
+> 风险敞口/左尾/证伪 → ④路径；仓位与行动 → ⑤决策；纯明细表 → 对应附录。
+
 | 事实 | 来源 | 可用于 |
 |------|------|------|
-| "Q3 亏损 -2,953 万来自超隆光电业绩补偿冲回" | [PDF:q3_2025, P.4] | 主报告 §六 致命论证 / §五 5.3 |
-| "实丰网络 H1 净利 1,291 万" | [PDF:h1_2025, P.17] | 主报告 §五 SOTP / §二 剩余资产 |
+| "Q3 亏损 -2,953 万来自超隆光电业绩补偿冲回" | [PDF:q3_2025, P.4] | ①质地(利润质量) / ④路径(左尾) |
+| "实丰网络 H1 净利 1,291 万" | [PDF:h1_2025, P.17] | ③赔率(叙事SOTP 的 N 分部) |
 | ... | ... | ... |
 
 ---
@@ -208,13 +223,14 @@ ls -la output/{company}/raw_data/pdf_sections_*.json
 - [ ] §8 高价值事实锚点 ≥ 5 条，每条都标注了后续 phase 的引用位置
 - [ ] 没有写"无文档模式"字样——Phase 1 已经下载了 PDF，不存在"无文档"
 
-## Step 6: 机器门控（★主 agent 必跑，退出 1 即回 Step 4 补写）
+## Step 6: 机器门控（★doc-analyst 自跑自补，退出 1 即回 Step 4 补写）
 
-写完 phase2-documents.md 后，主 agent 跑：
+写完 phase2-documents.md 后，doc-analyst 自己跑：
 
 ```
 {PYBIN} -m scripts.check_phase2 --md output/{company}/phase2-documents.md
 ```
 
 确定性校验 3 条硬规则：§1-§8 章节齐全 / §2 带 `[PDF:]` 原文引用 ≥3 行 / §8 锚点表 ≥5 行带来源标签。
-退出码 0 → 进 Phase 3；退出码 1 → 按报告补写 phase2-documents.md 后重跑。**这取代了 Phase 2 旧的"全靠主 agent 自查"——现在和 check_env / anti_lazy_lint 一样是机器门控。**
+退出码 0 → 在完成报告里回报 `**判定**: PASS`；退出码 1 → 按报告 Edit 补写后重跑，**最多 3 轮**，仍红则判定 FAIL 并把三行 R 结果带回主 agent。
+**这取代了 Phase 2 旧的"全靠自查"——现在和 check_env / lint_v8 一样是机器门控。**主 agent 收到响应后跑同一条命令复核一次（不自己补写，红了就 fresh-restart doc-analyst）。

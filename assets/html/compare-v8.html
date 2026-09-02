@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{group_name}} — 产业链同行对比 · {{generated}}</title>
+<style>
+<!-- PLACEHOLDER: styles -->
+
+/* ------------------------------------------------------------------------
+   对比页专属样式(其余全部复用 report-v8.css 的 token 与组件, 不另起一套)
+   硬纪律同交付票 07: 移动端改结构不缩字号 —— 下面的媒体查询里没有任何 font-size。
+   ---------------------------------------------------------------------- */
+
+/* 并排矩阵: 行 = 五问, 列 = 各家。首列贴左固定, 横滚时问题名不跑掉 */
+.cmp{border-collapse:collapse; width:100%; min-width:640px}
+.cmp th,.cmp td{border:1px solid var(--hair); padding:10px 12px; vertical-align:top; text-align:left}
+.cmp thead th{background:var(--surface2); position:sticky; top:0}
+.cmp tbody th{background:var(--surface2); white-space:nowrap; color:var(--muted); font-weight:600}
+.cmp tbody tr:nth-child(even) td{background:var(--surface)}
+.cmp .who{display:block; font-weight:750; color:var(--ink); text-decoration:none}
+.cmp .who:hover,.cmp .who:focus-visible{text-decoration:underline; color:var(--accent)}
+.cmp .code{display:block; color:var(--muted); font-variant-numeric:tabular-nums}
+.cmp .asof{display:block; color:var(--muted)}
+.cmp td.gear{font-weight:750}
+.cmp ol{margin:0; padding-left:18px}
+
+/* 陈旧徽章 —— emoji + 文字 + 底纹三通道, 同红标规范, 不裸靠颜色 */
+.stale{display:inline-block; margin-top:4px; padding:1px 8px; border-radius:4px;
+       background:var(--wash-y); box-shadow:inset 0 -2px 0 var(--warn); color:var(--ink)}
+.anch{display:inline-block; margin-left:6px; padding:0 6px; border-radius:4px;
+      background:var(--wash-a); box-shadow:inset 0 -2px 0 var(--accent); color:var(--ink)}
+
+/* 组内裁决 */
+.jv{background:var(--surface); border:1px solid var(--hair); border-left:4px solid var(--accent);
+    border-radius:6px; padding:14px 18px; font-weight:750}
+.ranks{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:10px; margin:12px 0}
+.rank{background:var(--surface); border:1px solid var(--hair); border-radius:6px; padding:12px 14px 12px 17px;
+      position:relative}
+.rank::before{content:""; position:absolute; left:0; top:0; bottom:0; width:4px; border-radius:6px 0 0 6px;
+      background:var(--accent)}
+.rank .no{color:var(--muted); letter-spacing:.08em}
+.rank .who{font-weight:750}
+.rank .why{color:var(--ink2); margin:4px 0 8px; line-height:1.65}
+.rank .basis{color:var(--muted)}
+.pending{background:var(--surface); border:1px dashed var(--hair); border-radius:6px; padding:12px 18px;
+      color:var(--ink2)}
+
+@media (max-width:720px){
+  /* 只重排: 顶栏不吸顶, 矩阵靠自己的横滚容器, 页面本体不横向滚动 */
+  .topbar{position:static}
+  .cmp thead th{position:static}
+  .ranks{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<nav class="topbar">
+  <a class="brand" href="../../index.html">叶纸的投资报告</a>
+  <a href="#matrix">并排决断卡</a>
+  <a href="#judge">组内裁决</a>
+  <a href="#missing">缺报告成员</a>
+  <span class="spacer"></span>
+  <button class="themetoggle" id="themetoggle" type="button" aria-label="切换明暗主题">🌓 主题</button>
+</nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <h1>{{group_name}}</h1>
+  <span class="code">{{group_slug}}</span>
+  <span class="asof">锚定 {{anchor}} · 生成 {{generated}} · company-analysis {{skill_version}}</span>
+</header>
+<!-- PLACEHOLDER: chain_note -->
+<div class="facts">
+<!-- PLACEHOLDER: hero_facts -->
+</div>
+
+<!-- PLACEHOLDER: notes -->
+
+<!-- ============================================================
+     上半 — 各家决断卡并排。每一格都搬自那家最新 run 的装配产物与
+     节点 YAML 块, 本页零新判断;判断只在下半的组内裁决里。
+     ============================================================ -->
+<div class="secl" id="matrix"><span class="t">各家决断卡并排</span> <span class="chip">机器装配 · 零新判断</span></div>
+<div class="tblwrap">
+<!-- PLACEHOLDER: matrix -->
+</div>
+
+<!-- ============================================================
+     下半 — 组内裁决(compare-judge): 排序 + 每家一句原因
+     ============================================================ -->
+<div class="secl" id="judge"><span class="t">组内裁决</span> <span class="chip man">判断节点 · compare-judge</span></div>
+<!-- PLACEHOLDER: judge -->
+
+<!-- PLACEHOLDER: missing -->
+
+<footer>
+  本页由 Claude Code company-analysis skill {{skill_version}} 的 <code>--compare</code> 机器装配 ·
+  上半搬运各家最新报告、零新判断 · 下半唯一判断节点 = compare-judge(只引用不自产证据)<br>
+  全报告制:只在有完整报告的成员间对比 · 基准日超 {{stale_days}} 天标「陈旧」并提示先复查 · 不构成投资建议<br>
+  <a href="https://github.com/leafpaper/claude-company-analysis">skill 代码</a> · <a href="../../index.html">返回报告首页</a>
+</footer>
+
+</div>
+
+<script>
+/* 明暗主题: 默认跟随系统(不写 data-theme), 手动切换后记住选择;存储键与报告页共享。 */
+(function(){
+  var KEY = 'ca-theme', root = document.documentElement, btn = document.getElementById('themetoggle');
+  try { var saved = localStorage.getItem(KEY); if (saved) root.setAttribute('data-theme', saved); } catch (e) {}
+  function current(){
+    var explicit = root.getAttribute('data-theme');
+    if (explicit) return explicit;
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  btn && btn.addEventListener('click', function(){
+    var next = current() === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem(KEY, next); } catch (e) {}
+    btn.setAttribute('aria-pressed', next === 'dark' ? 'true' : 'false');
+  });
+})();
+</script>
+</body>
+</html>

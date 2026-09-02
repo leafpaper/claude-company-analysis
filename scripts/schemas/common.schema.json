@@ -18,14 +18,37 @@
     },
     "panel_indicator": {
       "type": "object",
-      "required": ["name", "value", "trend", "peer_percentile", "red_flag_ref", "note"],
+      "required": ["name", "value", "trend", "peer_percentile", "red_flag_ref", "note", "series"],
       "properties": {
         "name": { "type": "string", "minLength": 1 },
         "value": { "type": "string", "minLength": 1 },
         "trend": { "type": "string", "minLength": 1 },
         "peer_percentile": { "type": ["string", "null"] },
         "red_flag_ref": { "type": ["string", "null"] },
-        "note": { "type": ["string", "null"] }
+        "note": { "type": ["string", "null"] },
+        "series": { "$ref": "#/$defs/metric_series" }
+      }
+    },
+    "metric_series": {
+      "type": ["object", "null"],
+      "title": "面板 sparkline 的数值序列 — 填数不填话(票 11)",
+      "description": "trend 字段说的是「怎么变的」, 这里是「变的那条线本身」。取不到历史序列就落 null(键必填, 逼写手明说没有), 面板照常渲染, 只是那格没有 sparkline。",
+      "required": ["points"],
+      "properties": {
+        "unit": { "type": "string" },
+        "points": {
+          "type": "array",
+          "minItems": 3,
+          "description": "按时间先后排;两点连不成趋势, 所以至少三点",
+          "items": {
+            "type": "object",
+            "required": ["label", "value"],
+            "properties": {
+              "label": { "type": "string", "minLength": 1, "description": "期别, 如 2024 / 2026H1" },
+              "value": { "type": "number" }
+            }
+          }
+        }
       }
     },
     "hardest_evidence": {

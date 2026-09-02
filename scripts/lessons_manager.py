@@ -11,15 +11,16 @@
     - 每类别上限 100 条,超过最老 5 条归档到 lessons-archive-{YYYY-MM}.md
     - 单条上限 200 字符,超过自动截断
 
-CLI:
+CLI(--category = sub-agent 名, v8 为 node-{quality,state,odds,path} / decision-writer /
+    data-collector / doc-analyst / reviewer-{logic,delivery}):
     python3 -m scripts.lessons_manager append \\
-        --category phase3-part4 \\
+        --category node-odds \\
         --company 盛美上海 \\
         --date 260429 \\
-        --lines "DCF 假设需基于历史外推, +30% 但历史下滑会被 reviewer FAIL"
+        --lines "反向DCF 的隐含增速要跟历史外推对齐, 直接 +30% 会被 reviewer-logic FAIL"
 
     python3 -m scripts.lessons_manager recent \\
-        --category phase3-part4 \\
+        --category node-odds \\
         --days 30
 """
 from __future__ import annotations
@@ -204,7 +205,7 @@ def main() -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     p_a = sub.add_parser("append", help="追加 lessons 到全局文件")
-    p_a.add_argument("--category", required=True, help="sub-agent 名,如 phase3-part4")
+    p_a.add_argument("--category", required=True, help="sub-agent 名,如 node-odds")
     p_a.add_argument("--company", required=True, help="公司名")
     p_a.add_argument("--date", required=True, help="yymmdd,如 260429")
     p_a.add_argument(

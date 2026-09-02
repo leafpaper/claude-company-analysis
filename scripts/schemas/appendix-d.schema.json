@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "appendix-d.schema.json",
+  "title": "附录D 红旗总清单 — 脚本 audit ⊕ 写手提名 两源合并产物(红标与 Top3 的唯一数据源)",
+  "type": "object",
+  "required": ["red_flags"],
+  "properties": {
+    "red_flags": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/red_flag_item" }
+    }
+  }
+}

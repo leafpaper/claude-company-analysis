@@ -26,6 +26,7 @@ CLI:
     python3 -m scripts.financial_audit output/实丰文化_audit/raw_data/
 """
 from __future__ import annotations
+import sys
 
 import argparse
 import json
@@ -1041,6 +1042,12 @@ def _format_markdown(bundle_dir: Path, status: dict[str, str], flags: list[RedFl
 # ============================================================================
 
 def main():
+    for stream in (sys.stdout, sys.stderr):      # Windows 控制台 GBK 下 print emoji 会炸
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, OSError):
+            pass
+
     ap = argparse.ArgumentParser(description="Run financial anomaly audit.")
     ap.add_argument("bundle_dir", help="Path to raw_data/ directory")
     ap.add_argument("--out", default=None, help="Output markdown path (default: {parent}/audit_report.md)")

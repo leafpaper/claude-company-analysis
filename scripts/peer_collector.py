@@ -47,6 +47,7 @@ COMPARE_FIELDS = [
     ("pe_ttm",              "PE TTM"),
     ("pb",                  "PB"),
     ("ps_ttm",              "PS TTM"),
+    ("fi_period",           "财务期别"),
     ("roe_latest",          "ROE(%)"),
     ("grossprofit_margin",  "毛利率(%)"),
     ("netprofit_margin",    "净利率(%)"),
@@ -151,7 +152,18 @@ def collect_peers(
             fi = pd.DataFrame()
             inc = pd.DataFrame()
 
-        latest_fi = fi.iloc[-1] if not fi.empty else pd.Series(dtype=object)
+        # ⚠️ 取「最新期」必须先按 end_date 排序:Tushare 的 fina_indicator **最新在前**,
+        # 直接 `iloc[-1]` 拿到的是**最旧**那期(start_year=今年-2 时就是两年前的一季报)。
+        # 实测中际旭创因此取到 20240331 的 ROE 6.74 / 毛利 32.76, 而真实最新期是 44.16% / 46.25%,
+        # 附录B 与正文当场打架、①质地的 peer 分位五个指标只能全部留空(v8.4 实战暴露)。
+        latest_fi = pd.Series(dtype=object)
+        fi_period = None
+        if not fi.empty and "end_date" in fi.columns:
+            fi_sorted = fi.sort_values("end_date", ascending=False)
+            latest_fi = fi_sorted.iloc[0]
+            fi_period = str(latest_fi.get("end_date") or "") or None
+        elif not fi.empty:
+            latest_fi = fi.iloc[0]                    # 没有 end_date 列时不猜, 至少别取最后一行
         # 营收 YoY: latest 年 vs 上一年
         rev_yoy = None
         if len(inc) >= 2:
@@ -177,6 +189,7 @@ def collect_peers(
             "pb": prow.get("pb"),
             "ps_ttm": prow.get("ps_ttm"),
             "dv_ratio": prow.get("dv_ratio"),
+            "fi_period": fi_period,               # 该行财务数据的期别 —— 各家不同期时读者要看得见
             "roe_latest": _sf(latest_fi.get("roe")),
             "grossprofit_margin": _sf(latest_fi.get("grossprofit_margin")),
             "netprofit_margin": _sf(latest_fi.get("netprofit_margin")),
@@ -349,7 +362,7 @@ def _format_markdown(
     # 风险警示
     lines.extend([
         "",
-        "## §3 对比洞察 (供 Phase 3 §八 消费)",
+        "## §3 对比洞察",
         "",
     ])
     # 硬判定规则
@@ -425,8 +438,8 @@ def _format_markdown(
         "",
         "---",
         "",
-        f"*由 `scripts/peer_collector.py` 自动生成 (v5.1.2: 加行业全员分布),供 Phase 3 §八 可比公司对标直接引用*",
-        "*海外 peer (如全球同业龙头) 需 LLM 手动补充到 Phase 3 §八 末尾*",
+        f"*由 `scripts/peer_collector.py` 自动生成(含行业全员分布),挂载为报告附录B 行业与对标明细*",
+        "*海外同业(如全球龙头)不在 Tushare 池内,需要时在本文件末尾另起「§3.5 海外同业补充」—— 附录B 只有一个来源*",
     ])
 
     return "\n".join(lines)
@@ -456,6 +469,12 @@ def _compare_label(p: float, direction: str) -> str:
 
 
 def main():
+    for stream in (sys.stdout, sys.stderr):      # Windows 控制台 GBK 下 print emoji 会炸
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, OSError):
+            pass
+
     ap = argparse.ArgumentParser(description="A 股可比公司自动采集 (v4.4)")
     ap.add_argument("ts_code", help="目标公司代码, 如 600745.SH 或 002862 (北交所支持 8XXXXX↔9XXXXX 自动迁移)")
     ap.add_argument("--peers", type=int, default=5, help="peer 家数 (默认 5)")

@@ -8,10 +8,20 @@ from __future__ import annotations
 import importlib
 import sys
 
-REQUIRED_PKGS = ["tushare", "yfinance", "pypdf", "pandas", "pyarrow", "requests"]
+REQUIRED_PKGS = [
+    "tushare", "yfinance", "pypdf", "pandas", "pyarrow", "requests",
+    # v8 契约层与出片: 缺了不是降级而是硬失败(verdict_block / assemble / build_html 直接退非 0)
+    "yaml", "jsonschema", "markdown",
+]
 
 
 def check() -> int:
+    for stream in (sys.stdout, sys.stderr):      # Windows 控制台 GBK 下 print emoji 会炸
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, OSError):
+            pass
+
     """Return 0 if env is OK, non-zero otherwise."""
     from . import config
 

@@ -1,23 +1,24 @@
-"""data_snapshot.py — 确定性产出 data_snapshot.md, 一劳永逸修复 Phase 3 数据漏读 / 章节省略.
+"""data_snapshot.py — 确定性产出 data_snapshot.md, 报告**附录A 财务与经营明细**的底稿.
 
 设计目标:
-    Phase 3 写主报告时反复出现"漏掉最新季度数据 / 用业绩预告替代实际年报 / 十大股东表
-    简化省略"等问题, 根因是 Phase 3 LLM 只读 phase1-data.md (LLM 摘要), 不读 raw_data
-    源头 parquet。本脚本绕开 LLM, 用纯 Python 从 parquet 读取并拼装一个完整的中间
-    artifact `data_snapshot.md`, 让 Phase 3 每次写报告前都能 Read 到确定性完整数据.
+    写手凭 LLM 摘要写报告会漏最新季度、拿业绩预告替代实际、把十大股东表简化省略。
+    本脚本绕开 LLM, 用纯 Python 从 raw_data 源头 parquet 拼装完整明细, 让判断链五个节点
+    引用的每个数字都有一个确定性的家。
 
 设计原则:
     - 完全 Python 拼装, 无 LLM 参与 → 数据完整性 100% 确定
-    - 字段 / 表格 / 行数全部固定, LLM 看到的是结构化的 markdown table
-    - 头部插入 "★ Phase 3 必读规则" 强约束, 同时在 anti_lazy_lint Rule 3 加入此 artifact 的
-      关键短语检查作为 safety net
+    - 字段 / 表格 / 行数全部固定, 产物是结构化 markdown table
+    - **产物面向读者**(挂载为附录A): 只写数据与口径说明, 不写流水线指令。
+      v7 那套"必须 inline 完整搬进正文 / 严禁省略"的强制规则已删除——它与 v8 的
+      「章预算是上限、全表下沉附录、数字唯一 home」正面冲突, 而且会把内部指令与
+      已不存在的 §一-§九 章节号原样印给读者(票 08 端到端交付评审发现)
 
 输出 8 节:
     §1 数据完整度 — 每张表行数 / end_date 区间 / 最新期
     §2 最新期完整快照 — income / balance / cashflow / fina_indicator 最新行关键字段
-    §3 多年趋势完整表 — 每个 distinct end_date 一行 (LLM 写主报告 §四 财务趋势表的源头)
-    §4 业绩预告 vs 实际兑现 — forecast_vip 每条 vs 同期 income (强制 LLM 用 actual)
-    §5 完整十大股东表 — 最近 4 期 × 10 行 (主报告 §四 十大股东章节源头)
+    §3 多年趋势完整表 — 每个 distinct end_date 一行
+    §4 业绩预告 vs 实际兑现 — forecast_vip 每条 vs 同期 income (实际数已披露时以实际为准)
+    §5 完整十大股东表 — 最近 4 期 × 10 行
     §6 完整十大流通股东表 — 最近 4 期 × 10 行
     §7 质押 / 冻结明细 — pledge_detail (active 状态)
     §8 股东户数变化时序 — stk_holdernumber 完整历史
@@ -121,7 +122,11 @@ FINA_KEY_FIELDS = [
     ("eps", "EPS(元/股)"),
     ("revenue_ps", "营收 / 股(元)"),
     ("ocfps", "经营现金流 / 股(元)"),
-    ("gross_margin", "毛利率(%)"),
+    # ⚠️ Tushare 的 `gross_margin` 是毛利**额**(元), 不是毛利率;毛利率是 `grossprofit_margin`。
+    # 取错会在附录A §2.4 印出「毛利率(%) | 2539181351.98」这种量纲炸掉的脏数(票 08 交付评审发现)。
+    # §3 趋势表一直用的是对的那个, 只有本节取错, 所以两处对不上时以本节为错。
+    ("grossprofit_margin", "毛利率(%)"),
+    ("gross_margin", "毛利额(元)"),
     ("netprofit_margin", "净利率(%)"),
     ("netprofit_yoy", "净利 YoY(%)"),
     ("tr_yoy", "营收 YoY(%)"),
@@ -211,8 +216,8 @@ def _all_periods(df: pd.DataFrame, date_col: str = "end_date") -> list[str]:
 
 def _render_section_1(bundle_dir: Path, out: StringIO):
     """§1 数据完整度 + 各表最新期"""
-    out.write("## §1 数据完整度 (Phase 3 必读: 验证最新数据已采集)\n\n")
-    out.write("| 表 | 行数 | end_date 区间 | **最新期(★ Phase 3 必含)** |\n")
+    out.write("## §1 数据完整度\n\n")
+    out.write("| 表 | 行数 | end_date 区间 | **最新期** |\n")
     out.write("|---|---:|:---:|:---:|\n")
 
     tables = [
@@ -341,7 +346,7 @@ def _render_section_2(bundle_dir: Path, latest_periods: dict, out: StringIO):
 
 def _render_section_3(bundle_dir: Path, out: StringIO):
     """§3 多年趋势完整表"""
-    out.write("## §3 多年趋势完整表 (★ 主报告 §四 财务趋势表必须 inline 全部行)\n\n")
+    out.write("## §3 多年趋势完整表\n\n")
 
     income = _read_parquet_safe(bundle_dir / "income.parquet")
     fi = _read_parquet_safe(bundle_dir / "fina_indicator.parquet")
@@ -400,7 +405,7 @@ def _render_section_3(bundle_dir: Path, out: StringIO):
             f"{ocf/1e8:.4f}" if ocf is not None and pd.notna(ocf) else "–",
         ]
         out.write("| " + " | ".join(row) + " |\n")
-    out.write(f"\n*共 {len(periods)} 期, 主报告 §四 财务趋势表必须 inline 全部行 (尤其最新期 {periods[0]}); 严禁省略最新季度。*\n\n")
+    out.write(f"\n*共 {len(periods)} 期, 最新期 {periods[0]}。*\n\n")
 
 
 def _render_section_4(bundle_dir: Path, out: StringIO):
@@ -458,7 +463,7 @@ def _render_section_4(bundle_dir: Path, out: StringIO):
             else:
                 status = "✅ 落入区间"
         out.write(f"| {ann} | {end} | {ftype} | {forecast_range} | {actual_str} | {status} |\n")
-    out.write('\n*★ 强制规则: 若某期 income.parquet 已有 actual 数据(上表实际栏非 "待披露"), 主报告 §四 财务趋势表 + §一 执行摘要 必须用 actual 而非预告区间。*\n\n')
+    out.write('\n*某期实际数已披露(实际栏非 "待披露")时以实际数为准; 预告只作兑现度对照 —— 判断链里预告属未确认证据, 不能当已实现业绩用。*\n\n')
 
 
 def _fmt_cell(value, fmt: str = "{}", scale: float = 1.0, na: str = "–") -> str:
@@ -530,7 +535,7 @@ def _render_section_5_or_6(bundle_dir: Path, out: StringIO, parquet_name: str, t
             ]
             out.write(_md_table_row(cells))
         out.write("\n")
-    out.write(f"*共 {len(periods)} 期 × ≤10 行/期。主报告 §四 主力控盘 / 十大股东子节必须 inline ≥ 1 期 ≥ 9 行 (推荐至少 2 期对比展示变动)。*\n\n")
+    out.write(f"*共 {len(periods)} 期 × ≤10 行/期, 可按期对比持股变动。*\n\n")
 
 
 def _render_section_7(bundle_dir: Path, out: StringIO):
@@ -571,7 +576,7 @@ def _render_section_7(bundle_dir: Path, out: StringIO):
             status,
         ]
         out.write(_md_table_row(cells))
-    out.write("\n*★ 主报告 §四 主力控盘子节必须引用此表 (若 active 记录非空); §三 致命看空快筛 #3 大股东累计质押 > 50% 检查源头。*\n\n")
+    out.write("\n*质押明细(active 记录)。大股东累计质押率是红旗审计与④路径左尾清单的取数处。*\n\n")
 
 
 def _render_section_8(bundle_dir: Path, out: StringIO):
@@ -649,7 +654,7 @@ def _render_section_9(bundle_dir: Path, out: StringIO):
         ratio_str = f"{float(share_ratio):.2f}%" if pd.notna(share_ratio) and isinstance(share_ratio, (int, float)) else "–"
         out.write(f"| {fdate}{risk_marker} | {amount_str} | {ratio_str} | {holder} | {share_type} |\n")
 
-    out.write(f"\n*★ Phase 3 §四 风险段必须引用: ")
+    out.write(f"\n*解禁提示: ")
     if high_risk_count > 0:
         out.write(f"**未来 30 天内有 {high_risk_count} 次解禁(🔴)**,大股东解禁前 2-4 周通常是减持窗口高危期。*\n\n")
     else:
@@ -667,11 +672,8 @@ def build_snapshot(bundle_dir: Path, ts_code: str = "", company: str = "") -> st
     out.write(f"# 数据快照: {company or 'company'} ({ts_code or 'ticker'})\n\n")
     out.write(f"**生成日期**: {today}\n")
     out.write(f"**数据源**: `{bundle_dir}` (Tushare parquet)\n\n")
-    out.write("> ★ **Phase 3 必读规则**: 本 artifact 为主报告 §二 公司基本面 / §五 估值 / "
-              "§六 风险红旗 等章节的**唯一**财务和股东数据源。Phase 3 LLM 必须把 §3 多年趋势完整表、"
-              "§5/§6 十大股东表 inline 完整搬入主报告对应章节, **严禁** \"同上\"/\"余略\"/"
-              "\"详见附件\" 等省略性写法。**若 §4 forecast vs actual 表显示 actual 已存在, "
-              "主报告必须用 actual 数据, 禁止用预告区间口径。**\n\n")
+    out.write("> 本文是报告**附录A 财务与经营明细**的底稿, 全部由脚本从 Tushare parquet 直接拼装, "
+              "无 LLM 参与。正文只写结论并引用这里的数字, 明细一律留在附录 —— 同一个数字只有一个家。\n\n")
     out.write("---\n\n")
 
     # §1
@@ -712,14 +714,20 @@ def build_snapshot(bundle_dir: Path, ts_code: str = "", company: str = "") -> st
     out.write(
         "\n---\n\n"
         "*由 `scripts/data_snapshot.py` 自动生成 (确定性 Python 拼装, LLM 不参与)。"
-        "供 Phase 3a 全量预加载 + Phase 3b 分章按需写入直接消费, "
-        "解决了反复出现的 \"漏读最新季度数据 / 用预告替代实际 / 十大股东章节简化省略\" 问题。*\n"
+        "挂载为报告附录A; "
+        "判断链五节点引用其中数字时带出处, 明细不复制进正文。*\n"
     )
 
     return out.getvalue()
 
 
 def main():
+    for stream in (sys.stdout, sys.stderr):      # Windows 控制台 GBK 下 print emoji 会炸
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, OSError):
+            pass
+
     ap = argparse.ArgumentParser(description="确定性产出 data_snapshot.md, 修复 Phase 3 数据漏读")
     ap.add_argument("--bundle", required=True, help="raw_data 目录路径")
     ap.add_argument("--out", required=True, help="输出 data_snapshot.md 路径")

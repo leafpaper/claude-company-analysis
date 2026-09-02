@@ -28,6 +28,7 @@ Usage:
         --out output/闻泰科技/capital_flow.md
 """
 from __future__ import annotations
+import sys
 
 import argparse
 import datetime as dt
@@ -266,6 +267,10 @@ def _derive_metrics(target_code: str, raw: dict) -> dict[str, Any]:
 
     # 2. 筹码集中度 2×2 矩阵 (户数变化 × 户均持股变化)
     hn = raw["holder_num"]
+    # Tushare 会返回还没填 holder_num 的期(值为 NaN) —— 这种行没有信息量, 参与运算会
+    # 让户数变化变成 NaN 并在 int() 上直接崩掉, 先丢掉再排序。
+    if not hn.empty and "holder_num" in hn.columns:
+        hn = hn[hn["holder_num"].notna()]
     if len(hn) >= 2:
         hn_sorted = hn.sort_values("end_date", ascending=False)
         now = hn_sorted.iloc[0]
@@ -733,7 +738,7 @@ def _format_markdown(target_code: str, raw: dict, m: dict) -> str:
     # §10 综合控盘警示
     lines.extend([
         "",
-        "## §10 综合控盘警示 (供 Phase 3 §四 / §七 消费)",
+        "## §10 综合控盘警示",
         "",
     ])
     warnings = []
@@ -783,13 +788,19 @@ def _format_markdown(target_code: str, raw: dict, m: dict) -> str:
         "",
         f"*由 `scripts/capital_flow.py` 自动生成 (v5.1.2: 10 段)*",
         f"*数据源: Tushare (moneyflow / hk_hold / margin_detail / top_list / top_inst / block_trade / top10_floatholders / stk_holdernumber + daily_basic)*",
-        f"*供 Phase 3 §四 公司基本面的 `### 主力控盘与筹码分析` 子节 + §七 网络舆情的 `### 资金流向信号` 子节消费*",
+        f"*挂载为报告附录C 舆情与资金底稿。判断链里④路径用它判拥挤度与波动放大、②状态用它判注意力先行——资金面属传闻一侧证据,不作基本面改善的实锤*",
     ])
 
     return "\n".join(lines)
 
 
 def main():
+    for stream in (sys.stdout, sys.stderr):      # Windows 控制台 GBK 下 print emoji 会炸
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, OSError):
+            pass
+
     ap = argparse.ArgumentParser(description="A 股主力控盘与资金流向分析 (v4.4)")
     ap.add_argument("ts_code", help="A 股代码")
     ap.add_argument("--days", type=int, default=60, help="数据窗口 (默认 60 日)")
