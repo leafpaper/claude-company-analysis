@@ -81,6 +81,26 @@ class TestDashboardFrontPage(_Built):
             self.assertIn(head, tiles, f"决断卡判定「{head}」没上瓦片")
             self.assertIn(f'href="#ch-{row["source_node"]}"', tiles)
 
+    def test_verdict_split_keeps_a_parenthetical_with_the_judgment(self):
+        """判定语自带的括注不许被切走 —— 切在左括号上会让第二行以孤儿词加反括号开头。
+
+        票 10 实测:③的取值域是「买完完美未来(无 slack)」, verdict 里没有「——」,
+        旧的兜底切分只能切左括号, 决断卡第二行于是长成「无 slack);锚区间…」。
+        断行点应是**括号之外**的分号/破折号/逗号。
+        """
+        cases = [
+            ("买完完美未来(无 slack);锚区间 482.4-564.6 元 vs 现价 851.9 元",
+             "买完完美未来(无 slack)", "锚区间 482.4-564.6 元 vs 现价 851.9 元"),
+            ("部分好——真卡位+平庸财务", "部分好", "真卡位+平庸财务"),
+            ("回避——现价既不买、也不开小仓", "回避", "现价既不买、也不开小仓"),
+            # 括号内的逗号不是断行点(否则括注被切成半句);整句只有一个括注、括号外无断行点时,
+            # 回退按括号切 —— 卡片分两行更好读, 落单的反括号由成对剥离清掉
+            ("回避(现价 851.90 元,不买不开仓)", "回避", "现价 851.90 元,不买不开仓"),
+        ]
+        for text, head, tail in cases:
+            with self.subTest(text[:20]):
+                self.assertEqual(build_html._split_verdict(text), (head, tail))
+
     def test_decision_tile_tone_follows_action_gear(self):
         """⑤怎么办的语气 = 行动档位映射(复用 update_index 六档表), 不另立阈值。"""
         self.assertEqual(
@@ -487,16 +507,40 @@ class TestContractDrivenFigures(_Built):
         self.assertLess(min(widths), 100.0)
 
     def test_ladder_never_silently_drops_unquantified_tails(self):
-        """量不到价格的两条不上阶梯, 但必须在图下点名 + 给出它自己的量级。"""
+        """量不到价格的那几条不上阶梯, 但要报出条数并指向正文 —— 不静默丢, 也不在图下重建一堵墙。
+
+        票 10 交付评审:图脚原本把每条的名字与量级都摊开(实测 380 字), 在 390px 上
+        直接把本章判定推下一屏。内容本来就在本章正文的左尾清单里, 图脚只负责说「还有几条、去哪看」。
+        """
         fig = self.figure("ladder")
-        self.assertIn("另 2 条量不到价格", fig)
-        self.assertIn("质押占其持股 34.6%", fig)
+        self.assertIn("另有 2 条左尾量不到价格", fig)
+        self.assertIn("见本章正文", fig)
+        self.assertNotIn("质押占其持股 34.6%", fig)      # 量级明细不再复制进图脚
 
     def test_ladder_label_never_cuts_a_number_in_half(self):
-        """截断只在标点/空白边界落刀 —— 砍在数字中间会印出一个假数字。"""
+        """标签不留半截数字 —— 砍在数字中间会印出一个假数字(实测出过「存货 198.26…」)。
+
+        Python 侧不再加省略号(CSS 的 text-overflow 负责视觉截断, 全文在 title 里),
+        所以这里查的是:标签结尾不得是一串没有单位的裸数字。
+        """
         for label in re.findall(r'<span class="lb">(.*?)</span>', self.figure("ladder")):
-            if label.endswith("…"):
-                self.assertNotRegex(label[:-1], r"\d[\d,.]*$", f"标签砍在数字中间: {label}")
+            self.assertNotIn("…", label, f"Python 侧不该再截断: {label}")
+            self.assertNotRegex(label, r"\d[\d,]*\.?\d*$", f"标签结尾是半截数字: {label}")
+
+    def test_ladder_label_never_stops_inside_a_parenthetical(self):
+        """标签不许停在没闭合的括注里。
+
+        窄屏下 `.lb` 是 `white-space:normal` 全宽展开的, 半个括注在手机上完整可见
+        (实测出过「需求叙事被证伪(CSP 资本开支削减或客户 A」), 读者看不出这是截断,
+        只会觉得句子写坏了 —— 比带省略号更糟(票 10 交付评审)。
+        """
+        pairs = {"(": ")", "(": ")", "[": "]", "【": "】"}
+        for label in re.findall(r'<span class="lb">(.*?)</span>', self.figure("ladder")):
+            for opening, closing in pairs.items():
+                self.assertLessEqual(
+                    label.count(opening), label.count(closing),
+                    f"标签停在未闭合的括注里: {label}",
+                )
 
     def test_ladder_full_text_is_reachable(self):
         """截断的是版面, 不是信息: title 与 aria-label 走全名。"""

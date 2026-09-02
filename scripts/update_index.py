@@ -178,6 +178,32 @@ def _load_assembly(md_path: Path) -> dict | None:
     return None
 
 
+def _v8_anchor_tag(md_path: Path) -> str:
+    """v8 估值标签 = ③赔率 `anchor_range` 的两端(**结构化字段**, 不是散文正则)。
+
+    v7 的做法是拿 `估值锚…([\\d.]+)\\s*元` 去 grep 整份报告 —— 在 v8 上会扫进**附录D 的红旗行**:
+    中际旭创实测命中「估值锚的外部交叉验证…一致预期目标价 1,245.60 元」, 而千分位逗号截断了数字串,
+    抓出来的是 `245.6`, 首页卡片于是印了一个不存在的锚(真值 482.4–535.3)。
+    v8 的锚有唯一真相源, 不该再靠正则从散文里刨。
+    """
+    node = Path(md_path).parent / "nodes" / "node-odds.md"
+    if not node.exists():
+        return ""
+    try:
+        from . import verdict_block
+
+        block = verdict_block.extract_yaml_block(node.read_text(encoding="utf-8"))
+    except Exception:                                  # noqa: BLE001 — 读不到就退回上层兜底
+        return ""
+    anchor = block.get("anchor_range") or {}
+    low, high = anchor.get("low") or {}, anchor.get("high") or {}
+    if not (isinstance(low.get("value"), (int, float)) and isinstance(high.get("value"), (int, float))):
+        return ""
+    unit = low.get("unit") or high.get("unit") or ""
+    fmt = lambda v: str(int(v)) if float(v).is_integer() else str(v)   # noqa: E731
+    return f"估值锚 {fmt(low['value'])}-{fmt(high['value'])} {unit}".strip()
+
+
 def _verdict_card_rows(text: str, product: dict | None) -> dict[str, str]:
     """决断卡「问题 → 判定」。有 assembly.json 用它, 否则解析首页决断卡表格。"""
     if product:
@@ -188,7 +214,8 @@ def _verdict_card_rows(text: str, product: dict | None) -> dict[str, str]:
     return rows
 
 
-def _v8_card_layout(meta: CardMetadata, text: str, product: dict | None) -> None:
+def _v8_card_layout(meta: CardMetadata, text: str, product: dict | None,
+                    md_path: Path | None = None) -> None:
     """v8 卡片版式(实现票 07):verdict = 行动档位人话, 质地字段并列, 三块 metrics 换成判断链口径。
 
     v8 报告没有综合评分/期望收益, 卡片改陈述判断链结论:行动档位 / 质地 / 贵不贵。
@@ -209,7 +236,10 @@ def _v8_card_layout(meta: CardMetadata, text: str, product: dict | None) -> None
         meta.metrics.append({"label": "质地", "value": meta.quality_field, "tone": "neutral"})
     if odds:
         meta.metrics.append({"label": "贵不贵", "value": odds, "tone": "neutral"})
-        meta.valuation_tag = meta.valuation_tag or odds
+    # 估值标签以③的结构化锚为准, **覆盖** v7 那条散文正则的结果(它会扫进附录D 的红旗行)
+    meta.valuation_tag = (
+        (_v8_anchor_tag(md_path) if md_path else "") or meta.valuation_tag or odds
+    )
 
     meta.badges = [{"label": meta.verdict, "variant": tone_variant}]
     if meta.quality_field:
@@ -366,7 +396,7 @@ def extract_metadata(md_path: Path, company_name: str) -> CardMetadata:
 
     # v8 卡片版式(实现票 07): 判断链口径覆盖 v7 的评分/期望收益口径
     if meta.version.startswith("v8") or meta.action_gear:
-        _v8_card_layout(meta, text, _load_assembly(md_path))
+        _v8_card_layout(meta, text, _load_assembly(md_path), md_path=md_path)
 
     return meta
 

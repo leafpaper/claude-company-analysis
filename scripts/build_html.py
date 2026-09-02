@@ -618,16 +618,20 @@ def render_pfn_bar(nodes: dict | None) -> str:
     n_txt = f"{derivation._fmt(narr, unit)} · {_pct_text(n_pct)}"
     alt = (f"股价拆两半:市值 {derivation._fmt(cap, unit)} 里, 已赚到的 F {f_txt},"
            f"为想象多付的 N {n_txt}")
+    # 图例只放「身份 + 数值」。F 是怎么算出来的(fact_basis 实测 170 字)属于算式,
+    # 它的家在③正文的注里 —— 图例复制一份, 就是每次拆完墙又在图里重建一堵
+    # (票 10 交付评审:「注下沉要连图一起下沉」)。全文进 title, 悬停与朗读都拿得到。
+    basis = pfn.get("fact_basis") or ""
     return "\n".join([
-        f'<figure class="pfn" role="img" aria-label="{_esc(alt)}">',
+        f'<figure class="pfn" role="img" aria-label="{_esc(alt)}"'
+        + (f' title="F 的口径:{_esc(basis)}"' if basis else "") + ">",
         "  <figcaption>股价拆两半:已赚到的 · 为想象多付的</figcaption>",
         '  <div class="bar">',
         f'    <span class="sg f" style="flex-basis:calc({f_pct:.2f}% - 1px)"></span>',
         f'    <span class="sg n" style="flex-basis:calc({n_pct:.2f}% - 1px)"></span>',
         "  </div>",
         '  <div class="lg">'
-        f'<span><i class="sw f"></i>已赚到的 F {_esc(f_txt)}'
-        f'<small>{_esc(pfn.get("fact_basis") or "")}</small></span>'
+        f'<span><i class="sw f"></i>已赚到的 F {_esc(f_txt)}</span>'
         f'<span><i class="sw n"></i>为想象多付的 N {_esc(n_txt)}'
         f"<small>{_esc(kind)}</small></span></div>",
         "</figure>",
@@ -638,6 +642,8 @@ def render_pfn_bar(nodes: dict | None) -> str:
 _LADDER_SPLIT = re.compile(r"\s*(?:→|->|—>)")
 _LADDER_BREAK = re.compile(r"[,,、;;::+＋=＝\s]")     # 含空白: 「114.18 亿」这种没有标点的串靠它落刀
 _LADDER_LABEL_MAX = 26
+# 收尾处的半截数字(「存货 198.26」被切掉「亿」就成了假数字)——连同它前面的空白一起去掉
+_TRAILING_NUMBER = re.compile(r"[\s]*[\d][\d,]*(?:\.\d*)?$")
 
 
 def _ladder_head(scenario: str) -> str:
@@ -648,14 +654,24 @@ def _ladder_head(scenario: str) -> str:
 def _ladder_label(scenario: str) -> str:
     """轨道左侧那一列的短名。
 
-    截断只在标点边界上落刀 —— 硬砍会切在数字中间(「应收 10…」把 105.98 亿砍成 10),
-    那正是 dataviz anti-patterns 里「标签被裁掉首尾字符」的那一条, 而且砍出来的是假数字。
+    **不在这里加省略号** —— `.ladder .lb` 已有 `text-overflow:ellipsis`, Python 再截一次
+    就是同一件事做两遍, 而且这一刀常落在数字中间(实测截出过「存货 198.26…」, 一个不存在的数)。
+    版面截断交给 CSS(视觉的归视觉), 全文留在 `title` 与 `aria-label` 里(语义的归语义)。
+    仍要做的只有一件:超长时先在标点边界收一刀, 并**把收尾处的半截数字一起去掉**,
+    免得 CSS 的省略号落在数字上又造一个假数字(票 10 交付评审在④阶梯图上抓到)。
     """
     head = _ladder_head(scenario)
     if len(head) <= _LADDER_LABEL_MAX:
         return head
     cuts = [m.start() for m in _LADDER_BREAK.finditer(head) if m.start() <= _LADDER_LABEL_MAX]
-    return (head[:cuts[-1]] if cuts else head[:_LADDER_LABEL_MAX - 1]) + "…"
+    label = head[:cuts[-1]] if cuts else head[:_LADDER_LABEL_MAX]
+    # 断在括注里 → 退到括号之前。窄屏下 `.lb` 是 `white-space:normal` 全宽展开的,
+    # 半个括注在手机上完整可见(「…或客户 A」「…占营收」), 读者看不出这是截断,
+    # 只会觉得句子写坏了 —— 比带省略号更糟(票 10 交付评审)。
+    if any(label.count(o) > label.count(c) for o, c in _PAREN_PAIRS.items()):
+        opens = [label.rfind(o) for o in _PAREN_PAIRS if label.count(o) > label.count(_PAREN_PAIRS[o])]
+        label = label[:min(p for p in opens if p >= 0)]
+    return _TRAILING_NUMBER.sub("", label).rstrip("  ,,、+＋=＝") or head[:_LADDER_LABEL_MAX]
 
 
 def render_left_tail_ladder(nodes: dict | None) -> str:
@@ -688,11 +704,10 @@ def render_left_tail_ladder(nodes: dict | None) -> str:
     ungraded = [t for t in tails if not isinstance(t.get("depth_pct"), (int, float))]
     foot = ""
     if ungraded:
-        items = "; ".join(
-            f"{_esc(_ladder_label(t['scenario']))}({_esc(t.get('magnitude') or '未量化')})"
-            for t in ungraded
-        )
-        foot = f'  <p class="foot">另 {len(ungraded)} 条量不到价格:{items}</p>'
+        # 图脚只报「还有几条、去哪看」—— 把每条的名字与量级都摊在这里, 就是在图下面
+        # 重建一堵墙(实测 380 字, 在 390px 上把本章判定推下一屏)。内容本来就在本章正文里。
+        foot = (f'  <p class="foot">另有 {len(ungraded)} 条左尾量不到价格'
+                f"(只判得出量级),逐条见本章正文的左尾清单。</p>")
     alt = "左尾深度阶梯:" + "、".join(          # 朗读用全名, 截断只是版面上的事
         f"{_ladder_head(t['scenario'])} −{_pct_text(abs(float(t['depth_pct'])))}" for t in graded
     )
@@ -757,12 +772,38 @@ _PAREN_OPEN = "(（"
 _PAREN_CLOSE = ")）"
 
 
+# 展示层断行点:分号 / 破折号 / 逗号 —— **不含左括号**。
+# 取值域里的括注(如③的「买完完美未来(无 slack)」)是判定语的一部分, 切在左括号上会把
+# 决断卡第二行切成「无 slack);锚区间…」——一个孤儿英文词加一个不成对的右括号
+# (票 10 交付评审在③赔率卡上抓到)。括号内的分隔符也不算数, 见 _split_at 的深度计数。
+_DISPLAY_SPLIT = "———,,;;"
+_PAREN_PAIRS = {"(": ")", "(": ")", "[": "]", "【": "】"}
+
+
+def _split_at(text: str) -> int:
+    """第一个**不在括号内**的展示层断行点位置;没有返回 -1。"""
+    depth = 0
+    for i, ch in enumerate(text):
+        if ch in _PAREN_PAIRS:
+            depth += 1
+        elif ch in _PAREN_PAIRS.values():
+            depth = max(depth - 1, 0)
+        elif depth == 0 and ch in _DISPLAY_SPLIT:
+            return i
+    return -1
+
+
 def _split_verdict(text: str) -> tuple[str, str]:
-    """verdict → (判定短语, 其余理由)。切法与 assembly.quality_field 同源, 只是展示层分行。
+    """verdict → (判定短语, 其余理由)。展示层分行, 判定语连同它的括注一起留在第一行。
 
     括号成对剥离:剥掉左括号却把右括号留在 tail 里, 决断卡上就会出现「高信仰体检 6/7)」
     这种孤立反括号(票 08 交付评审在④路径卡上抓到)。
     """
+    cut = _split_at(text)
+    if cut >= 0:
+        head = text[:cut].strip()
+        tail = text[cut:].lstrip(_DISPLAY_SPLIT + " ").strip()
+        return head or text, tail
     head = assembly.quality_field(text)
     tail = text[len(head):].lstrip("—-,,;;((\\ ") if text.startswith(head) else ""
     opens = sum(tail.count(c) for c in _PAREN_OPEN)

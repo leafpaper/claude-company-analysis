@@ -230,8 +230,12 @@ def top3(flags: list[dict]) -> list[dict]:
         rep = g["representative"]
         others = [f for f in g["flags"] if f["id"] != rep["id"]]
         evidence = rep["evidence"]
-        for f in others:
-            evidence += f" · {f['title']}({SOURCE_LABELS[f['source']]})"
+        if others:
+            # 同组其它红旗要让读者看见, 但**不能裸拼**在证据句尾 —— 光秃秃一个标题接在
+            # 「…= 4.6x」后面是半句碎片(交付评审实测判红)。给它一个说明它是什么的标签。
+            evidence += "(同组另有:" + "、".join(
+                f"{f['title']}({SOURCE_LABELS[f['source']]})" for f in others
+            ) + ")"
         out.append({
             "rank": rank,
             "red_flag_id": rep["id"],

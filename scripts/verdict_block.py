@@ -82,6 +82,12 @@ def load_and_validate(md_path: Path, schema_name: str) -> tuple[dict, list[str]]
 
 
 def main() -> int:
+    for stream in (sys.stdout, sys.stderr):      # Windows 控制台 GBK 下 print ✓ 会炸成「假失败」
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, OSError):
+            pass
+
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--schema", required=True, help="schema 名(不带 .schema.json), 如 node-quality")
     ap.add_argument("--file", required=True, help="节点 md 或 JSON 文件路径")

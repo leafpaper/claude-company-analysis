@@ -37,19 +37,21 @@
 输出即派活顺序:
 
 ```
-第1波(并行): ①质地(node-quality) ∥ ③赔率(node-odds) ∥ ④路径(node-path)
-第2波(单个): ②状态(node-state)
+第1波(并行): ①质地(node-quality) ∥ ③赔率(node-odds)
+第2波(并行): ④路径(node-path) ∥ ②状态(node-state)
 第3波(单个): ⑤决策(decision-writer)
 ```
 
-**为什么是这个序**:②状态的四层验证第④关要引用③赔率 verdict;⑤决策吃四个节点的 YAML 块。
+**为什么是这个序**:②状态的四层验证第④关要引用③赔率 verdict;**④路径的左尾深度 `depth_pct`
+分母 = ③的锚**(票 11 把④从第一波挪到第二波:占位方案只能「拿到」不能「据此推理」,
+挪波次代价为零、总波次仍是 3);⑤决策吃四个节点的 YAML 块。
 写作顺序 ≠ 章节顺序,排版是装配脚本的事。
 
 子集调度打印 `⚠️ … 依赖本轮不跑的 …` 时:先确认那些节点的上版 YAML 块已拷进本 run 的 `nodes/` 并盖「复用」戳(`reused_from: {上版日期}`),否则不许开跑。
 
 ---
 
-## 2. 第一波:三个写手并行
+## 2. 第一波:两个写手并行
 
 ```python
 Agent(subagent_type="node-quality", run_in_background=True, description="①质地",
@@ -63,27 +65,26 @@ company={company} ticker={ticker} market={market} date={date} PYBIN={PYBIN}
 写完自跑 verdict_block 校验,响应只回完成报告(**判定** 单独一行),不要回放文件内容。""")
 
 Agent(subagent_type="node-odds", run_in_background=True, description="③赔率", prompt=...)
-Agent(subagent_type="node-path", run_in_background=True, description="④路径", prompt=...)
 ```
 
-三个都 `run_in_background=True`,等系统的 task-notification 收齐三份响应。
+两个都 `run_in_background=True`,等系统的 task-notification 收齐两份响应。
 
 **验收(主 agent 复核,不信自证)**:
 
 ```
 {PYBIN} -m scripts.verdict_block --schema node-quality --file {run_dir}/nodes/node-quality.md
 {PYBIN} -m scripts.verdict_block --schema node-odds    --file {run_dir}/nodes/node-odds.md
-{PYBIN} -m scripts.verdict_block --schema node-path    --file {run_dir}/nodes/node-path.md
 ```
 
-三条退出码全 0 + 三份响应 `**判定**: PASS / 部分降级` → 进第二波。任一 FAIL/非 0 →
+两条退出码全 0 + 两份响应 `**判定**: PASS / 部分降级` → 进第二波。任一 FAIL/非 0 →
 fresh-restart 该写手一次(prompt 注入 verdict_block 的报错原文 + "上轮 FAIL"),仍失败 → 转人工。
 
 ---
 
-## 3. 第二波:②状态
+## 3. 第二波:④路径 ∥ ②状态
 
-第一波三个都过了才启动(state 要引用 odds 的 verdict)。前台等响应。
+第一波两个都过了才启动(两者都要引用 odds 的 verdict:②状态的四层验证第④关引用它的判定,
+④路径的左尾 `depth_pct` 拿它的锚当分母)。两个并行。
 
 ```python
 Agent(subagent_type="node-state", run_in_background=False, description="②状态",
@@ -93,7 +94,15 @@ Agent(subagent_type="node-state", run_in_background=False, description="②状�
 「该等什么」(critical_point)是全链唯一产出处,2-4 条,每条带时间窗与判据。""")
 ```
 
-验收:`verdict_block --schema node-state` 退出 0 + `critical_point.items` ≥1 条(schema 已强制)。
+```python
+Agent(subagent_type="node-path", run_in_background=True, description="④路径",
+      prompt=f"""写④路径节点(第二波)。run_dir / artifacts_dir / … 同上。
+③赔率已产出:{run_dir}/nodes/node-odds.md —— **只读它顶部 YAML 块的 verdict 与 anchor_range**,
+左尾 `depth_pct` 以它的锚为分母;量不到价格就填 null + magnitude,不要自算估值。""")
+```
+
+验收:`verdict_block --schema node-{path,state}` 两条都退出 0 +
+`critical_point.items` ≥1 条(schema 已强制,②状态是全链唯一产出「该等什么」的地方)。
 
 ---
 

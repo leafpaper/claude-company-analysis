@@ -75,6 +75,9 @@
 | `sotp.segments[]` | 每个分部的 `name / profit / multiple / value / basis / falsify` | 渲染 SOTP 表;逐分部验 `profit × multiple = value` |
 | `dcf` | 折现率加法栈 + 三情景(`p / cagr / margin / exit_multiple / pv`) | 渲染折现率表与情景表;验 Σ概率=1、Σ(p×pv)=股权值 |
 
+> ⚠️ **`cagr` 必须是收入口径**:情景表表头写死「收入 5 年 CAGR」,而该情景的终局利润 = 收入 × `margin`。
+> 填成利润 CAGR 时 schema 与 R12 十条闭合**全绿**、渲染出来的表却是错标签 —— 机检抓不到,只有读者能发现。
+
 **正文里你写三个占位,不写表格**——装配层看到占位就把表渲染进去:
 
 ```

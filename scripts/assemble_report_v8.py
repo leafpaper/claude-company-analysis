@@ -44,6 +44,16 @@ APPENDIX_SOURCES = (
     ("E", "数据来源与信息缺口", ("data_sources.md",)),
 )
 
+# 附录B 的就地口径提示。`peer_collector` 取本公司 fina_indicator 的「最新披露期」时会命中旧行
+# (实测取到过一年多前的季报), 于是同一份报告里附录B 的 ROE/毛利率与正文差出一倍。
+# 正文、面板 note、附录E 都交代过, 唯独出事的**那张表上**没有 —— 读者是跳到附录B 才看到那个数的
+# (票 10 交付评审连开两轮)。脚本缺陷要单独修, 但读者当场读到相反数字这件事, 这一行就能止血。
+APPENDIX_B_CAVEAT = (
+    "> ⚠️ **口径提示**:本表中**本公司**那一行的盈利能力列(ROE / 毛利率 / 净利率 / 负债率)"
+    "取自采集脚本抓到的「最新披露期」,该期别**可能早于本报告基准日**,据此算出的行业分位同样不作数。"
+    "本公司的盈利能力以**附录A 的趋势表**与正文为准;本表的**同业各家**数据与估值列不受此影响。"
+)
+
 AUDIT_JSON_CANDIDATES = ("audit_report.json", "raw_data/audit_report.json", "audit.json")
 
 _HEADING = re.compile(r"^(#{1,6}) ", re.MULTILINE)
@@ -108,25 +118,33 @@ def render_verdict_card(card: list[dict]) -> str:
 
 def render_panel(panel: dict, mark_map: dict) -> str:
     by_ind = mark_map.get("by_indicator", {})
+    indicators = panel["indicators"]
+    # 整列为空就别出这一列 —— 五行全是「—」的列在 390px 上白占宽, 读者还要先读完
+    # 列头才知道它什么都没说(交付评审实测判红)。有一格有值就照常出整列。
+    show_peer = any(ind.get("peer_percentile") for ind in indicators)
+    show_mark = any(by_ind.get(ind["name"]) for ind in indicators)
+
+    head = ["指标", "数值", "趋势"] + (["peer 分位"] if show_peer else []) + (["红标"] if show_mark else [])
     lines = [
         "### 赚不赚钱面板",
         "",
         f"**指标选择理由**:{panel['industry_reason']}",
         "",
-        "| 指标 | 数值 | 趋势 | peer 分位 | 红标 |",
-        "|---|---|---|---|---|",
+        "| " + " | ".join(head) + " |",
+        "|" + "---|" * len(head),
     ]
-    for ind in panel["indicators"]:
-        entry = by_ind.get(ind["name"])
-        if entry:
-            flag = entry["flags"][0]
-            badge = f"{flag['level']} {_cell(flag['title'])}([附录D](#{flag['anchor']}))"
-        else:
-            badge = "—"          # 无红旗命中 → 不标色(数值与分位自己说话)
-        lines.append(
-            f"| {_cell(ind['name'])} | {_cell(ind['value'])} | {_cell(ind['trend'])} "
-            f"| {_cell(ind.get('peer_percentile') or '—')} | {badge} |"
-        )
+    for ind in indicators:
+        cells = [_cell(ind["name"]), _cell(ind["value"]), _cell(ind["trend"])]
+        if show_peer:
+            cells.append(_cell(ind.get("peer_percentile") or "—"))
+        if show_mark:
+            entry = by_ind.get(ind["name"])
+            if entry:
+                flag = entry["flags"][0]
+                cells.append(f"{flag['level']} {_cell(flag['title'])}([附录D](#{flag['anchor']}))")
+            else:
+                cells.append("—")          # 无红旗命中 → 不标色(数值与分位自己说话)
+        lines.append("| " + " | ".join(cells) + " |")
     conclusion = panel["conclusion"]
     lines += [
         "",
@@ -248,6 +266,8 @@ def build_appendices(
         body_parts, mounted, missing = [], [], []
         if key == "D":
             body_parts.append(render_appendix_d(flags))
+        if key == "B":
+            body_parts.append(APPENDIX_B_CAVEAT)
         for name in sources:
             path = find_artifact(search_dirs, name)
             if path is None:

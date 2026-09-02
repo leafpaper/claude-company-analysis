@@ -375,7 +375,11 @@ a.cite:hover{color:var(--accent); border-bottom-color:var(--accent)}
   /* 手机上标签独占一行, 条与数值并排 —— 改结构不缩字号 */
   .ladder .rungs li{grid-template-columns:1fr auto; row-gap:4px}
   .ladder .lb{grid-column:1 / -1; white-space:normal}
-  .pfn .lg span{flex:1 1 100%}
+  /* 独占一行还不够: span 自己是 flex 容器, 不给 wrap 的话「色块 + 数值 + <small> 注文」
+     会被 flex-shrink 压成两条窄列(实测 390px 上「4,352.0 / 亿 · 43.4%」被拆成两行)。
+     内容变短不等于版式变安全 —— 拆瘦图例之后要重跑一次窄屏推算(票 10 交付评审)。 */
+  .pfn .lg span{flex:1 1 100%; flex-wrap:wrap}
+  .pfn .lg small{flex:1 1 100%}
   .spark{display:block; margin:6px 0 0}
 }
 @media print{

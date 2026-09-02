@@ -136,7 +136,7 @@
                   "name": { "type": "string", "minLength": 1 },
                   "p": { "type": "number", "minimum": 0, "maximum": 1, "description": "概率;全部情景加总 = 1(机检)" },
                   "pv": { "type": "number", "description": "该情景的折现值(股权口径)" },
-                  "cagr": { "type": "number", "description": "百分数, 如 25 表示 25%" },
+                  "cagr": { "type": "number", "description": "**收入**五年复合增速, 百分数(如 25 表示 25%)。口径必须是收入: 装配层的情景表表头写死「收入 5 年 CAGR」, 填成利润 CAGR 时 schema 与 R12 十条闭合会**全绿**、渲染出来的表却是错标签 —— 这是机检抓不到的静默错标。该情景的终局利润 = 收入 × margin, 两列相乘得出, 不要把利润增速填进这一列。" },
                   "margin": { "type": "number", "description": "成熟期净利率, 百分数" },
                   "exit_multiple": { "type": "number", "exclusiveMinimum": 0 }
                 }
