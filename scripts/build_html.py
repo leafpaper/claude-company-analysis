@@ -583,8 +583,11 @@ def render_valuation_meter(nodes: dict | None) -> str:
         f'  <div class="scale"><span>0</span><span>{round(top)} {unit}</span></div>',
         '  <div class="lg">'
         f'<span><i class="sw band"></i>合理区间 {lo}–{hi} {unit}'
-        # 图例说人话:方法名是给写手的,读者要知道的是「两端各自凭什么」(华特交付评审留档项)
-        "<small>低端只认已赚到的钱 · 高端允许按常规增速放量</small></span>"
+        # 图例说人话:方法名是给写手的,读者要知道的是「两端各自凭什么」(华特交付评审留档项)。
+        # 两端的算法由契约钉死(node-odds 手册:低端=只认已兑现的分部加总, 高端=三情景概率加权;
+        # R12 把两端分别绑到 derivation.sotp / dcf 的每股值)—— 这句说明对每份报告都成立。
+        # ⚠️ 上一版写成「高端允许按常规增速放量」, 那是基准情景一条路, 不是三情景加权(华特 R2 交付评审)。
+        "<small>低端只认已赚到的钱 · 高端按三种前景概率加权</small></span>"
         f'<span><i class="sw mark"></i>现价 {price} {unit}'
         f"<small>{_esc(note)}</small></span></div>",
         "</figure>",
