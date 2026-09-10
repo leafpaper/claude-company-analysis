@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "change-baseline.schema.json",
+  "title": "「较上版变化」区块从上版节点里消费的那几样 —— 只校验被消费的字段",
+  "description": "上版 run 产于更早的契约(如票 11 之前没有 series / derivation / depth_pct)。拿今天的完整节点契约去卡它,会把一份完好的上版判成不合格,变化区块于是整个算不出来 —— 实测东山 08-24 增量复查在契约迁移后重装配,「较上版变化」被静默丢掉。这里只 $ref 变化区块真正读的字段:各节点的判定语 / 子判定 / 红旗提名,决策层的档位与三元组,路径的证伪清单。定义仍在原 schema 里,不留第二份真相源(同票 10 compare-member-source 的原则:校验范围 = 消费范围)。⚠️ 只用于比对;要复用上版节点时仍须过当前完整契约(init_run 硬规则 1 把关)。",
+  "type": "object",
+  "required": ["node", "verdict"],
+  "properties": {
+    "node": { "enum": ["quality", "state", "odds", "path", "decision"] },
+    "verdict": { "type": "string", "minLength": 1 },
+    "sub_verdicts": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/sub_verdict" }
+    },
+    "red_flag_nominations": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/red_flag_item" }
+    },
+    "action_gear": { "$ref": "common.schema.json#/$defs/action_gear" },
+    "triad": { "$ref": "common.schema.json#/$defs/triad" },
+    "falsifications": { "$ref": "node-path.schema.json#/properties/falsifications" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "node": { "const": "decision" } }, "required": ["node"] },
+      "then": { "required": ["action_gear", "triad"] }
+    },
+    {
+      "if": { "properties": { "node": { "const": "path" } }, "required": ["node"] },
+      "then": { "required": ["falsifications"] }
+    }
+  ]
+}

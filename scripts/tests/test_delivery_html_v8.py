@@ -81,6 +81,37 @@ class TestDashboardFrontPage(_Built):
             self.assertIn(head, tiles, f"决断卡判定「{head}」没上瓦片")
             self.assertIn(f'href="#ch-{row["source_node"]}"', tiles)
 
+    def test_no_anchor_nested_inside_anchor(self):
+        """全页不许 <a> 套 <a> —— 要按**解析后的 DOM**判,不能数字符串。
+
+        HTML5 规定 <a> 内不得再有 <a>,浏览器遇到会强制重排节点。实测:决断卡 <a class="dc">
+        里套了红旗角标 <a class="chip">,五张卡被拆成九格(①-④卡各劈成两格)。上面那条测试数的是
+        `class="dc` 字符串,数到 5 就放行了 —— 它看不见解析后的样子(华特交付评审;东山/旭创已上线版本同样中招)。
+        """
+        from html.parser import HTMLParser
+
+        class _NestCheck(HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self.open_a: list[str] = []
+                self.nested: list[str] = []
+
+            def handle_starttag(self, tag, attrs):
+                if tag != "a":
+                    return
+                label = dict(attrs).get("class") or dict(attrs).get("href") or "?"
+                if self.open_a:
+                    self.nested.append(f"<a {label}> 套在 <a {self.open_a[-1]}> 里")
+                self.open_a.append(label)
+
+            def handle_endtag(self, tag):
+                if tag == "a" and self.open_a:
+                    self.open_a.pop()
+
+        checker = _NestCheck()
+        checker.feed(self.html)
+        self.assertEqual(checker.nested, [], "发现嵌套 <a>(浏览器会重排节点、拆散卡片)")
+
     def test_verdict_split_keeps_a_parenthetical_with_the_judgment(self):
         """判定语自带的括注不许被切走 —— 切在左括号上会让第二行以孤儿词加反括号开头。
 
@@ -411,6 +442,46 @@ class TestIncrementalChangeBlock(unittest.TestCase):
             )
             self.assertIn("建议全量重跑", html)
 
+    @staticmethod
+    def _older_contract(nodes: dict) -> dict:
+        """把上版节点还原成票 11 之前的契约:没有 series / derivation / depth_pct。"""
+        import copy
+
+        old = copy.deepcopy(nodes)
+        for ind in old["quality"]["panel"]["indicators"]:
+            ind.pop("series", None)
+        old["odds"].pop("derivation", None)
+        for tail in old["path"].get("left_tail") or []:
+            for key in ("depth_pct", "depth_basis", "magnitude"):
+                tail.pop(key, None)
+        return old
+
+    def test_older_contract_baseline_still_yields_change_block(self):
+        """上版产于更早的契约,变化区块照样算得出 —— 比对只校验它真正消费的字段。
+
+        实测回归:东山 08-24 增量复查做契约迁移后重装配,「较上版变化」被静默丢掉 ——
+        不带 --prev-run-dir 就没这块,带上又被 08-19 的旧契约节点(缺 series / derivation / depth_pct)
+        挡在严格校验外。变化区块根本不读这些字段(校验范围 = 消费范围)。
+        """
+        with tempfile.TemporaryDirectory() as td:
+            product, html, _, _ = build_dongshan(
+                td, nodes=fx.scenario_a_nodes(), prev_nodes=self._older_contract(fx.nodes())
+            )
+            self.assertIn("change_block", product)
+            self.assertIn('class="change"', html)
+            self.assertIn("回避", product["change_block"]["gear_after"])
+
+    def test_baseline_missing_a_consumed_field_is_still_rejected(self):
+        """放宽的只是**不消费**的字段 —— 上版缺了变化区块真要读的东西(决策三元组),照样拒绝。"""
+        from scripts import assembly
+
+        prev = self._older_contract(fx.nodes())
+        del prev["decision"]["triad"]
+        with tempfile.TemporaryDirectory() as td:
+            with self.assertRaises(assembly.AssemblyError) as ctx:
+                build_dongshan(td, nodes=fx.scenario_a_nodes(), prev_nodes=prev)
+            self.assertIn("上版节点块", str(ctx.exception))
+
 
 # ---------------------------------------------------------------- 站点 index 卡片改版
 
@@ -589,12 +660,44 @@ class TestContractDrivenFigures(_Built):
         self.assertNotIn("background:var(--seri)", block)
 
 
+class TestAppendixBManualPeerAnchor(unittest.TestCase):
+    """附录B 人工补采同业小节挂锚、口径提示直接链过去。
+    华特交付评审:真同业 §3.5 排在自动表之后且没有锚点,提示只能说「以那一节为准」让读者自己翻。"""
+
+    AUTO = "# 同业对标\n\n## §1 自动选的同业\n\n| 公司 | PE |\n|---|---|\n| 甲 | 10 |\n"
+    MANUAL = "\n## §3.5 电子特气同业补充对标(人工补采)\n\n| 公司 | PE |\n|---|---|\n| 乙 | 90 |\n"
+
+    def _appendix_b(self, peer_md: str) -> str:
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / "peer_analysis.md").write_text(peer_md, encoding="utf-8")
+            sections, _ = render.build_appendices([], [Path(d)])
+        return next(s for s in sections if s.startswith("## 附录B"))
+
+    def test_manual_section_gets_anchor_and_caveat_links_to_it(self):
+        anchor = render.APPENDIX_B_MANUAL_ANCHOR
+        b = self._appendix_b(self.AUTO + self.MANUAL)
+        self.assertIn(f'<a id="{anchor}"></a>§3.5', b)
+        self.assertIn(f"(#{anchor})", b)
+        html = build_html._md_to_html(b)
+        self.assertRegex(html, rf'<h\d[^>]*><a id="{anchor}"></a>§3\.5')
+        self.assertIn(f'href="#{anchor}"', html)
+
+    def test_no_manual_section_keeps_plain_caveat(self):
+        b = self._appendix_b(self.AUTO)
+        self.assertIn(render.APPENDIX_B_CAVEAT, b)
+        self.assertNotIn(render.APPENDIX_B_MANUAL_ANCHOR, b)
+
+    def test_caveat_still_carries_the_pointer_the_link_replaces(self):
+        # 链接靠字符串替换挂上 —— 改了提示措辞时这条先红, 而不是链接静默消失
+        self.assertIn(render._B_CAVEAT_POINTER, render.APPENDIX_B_CAVEAT)
+
+
 def main():
     loader = unittest.TestLoader()
     suite = unittest.TestSuite()
     for cls in (TestDashboardFrontPage, TestRedMarkThreeChannels, TestMobileFirstClass,
                 TestDualTheme, TestPageIntegrity, TestIncrementalChangeBlock, TestIndexCardV8,
-                TestContractDrivenFigures):
+                TestContractDrivenFigures, TestAppendixBManualPeerAnchor):
         suite.addTests(loader.loadTestsFromTestCase(cls))
     result = unittest.TextTestRunner(verbosity=2).run(suite)
     sys.exit(0 if result.wasSuccessful() else 1)

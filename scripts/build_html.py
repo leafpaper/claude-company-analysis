@@ -583,7 +583,8 @@ def render_valuation_meter(nodes: dict | None) -> str:
         f'  <div class="scale"><span>0</span><span>{round(top)} {unit}</span></div>',
         '  <div class="lg">'
         f'<span><i class="sw band"></i>合理区间 {lo}–{hi} {unit}'
-        "<small>SOTP / DCF 两端</small></span>"
+        # 图例说人话:方法名是给写手的,读者要知道的是「两端各自凭什么」(华特交付评审留档项)
+        "<small>低端只认已赚到的钱 · 高端允许按常规增速放量</small></span>"
         f'<span><i class="sw mark"></i>现价 {price} {unit}'
         f"<small>{_esc(note)}</small></span></div>",
         "</figure>",
@@ -828,7 +829,12 @@ def _load_chip(levels: list[str]) -> str:
         return '<span class="chip">无红旗</span>'
     counts = {lvl: levels.count(lvl) for lvl in rf.LEVELS if lvl in levels}
     body = " ".join(f"{lvl}×{n}" for lvl, n in counts.items())
-    return f'<a class="chip" href="#appx-D" title="本节点红旗数(明细见附录D)">{_esc(body)} 红旗</a>'
+    # 必须是 <span> 不能是 <a>:这枚角标长在决断卡里,而决断卡整张就是一个 <a class="dc">。
+    # HTML5 规定 <a> 里不许再有 <a>,浏览器遇到会强制重排节点 —— 实测把五张卡拆成九格
+    # (①-④卡各被劈成两格,桌面错位、窄屏多出只装「①质地」的小卡片)。字符串计数的测试看不见,
+    # 只有解析后的 DOM 才看得见(票 10 后华特交付评审;东山/旭创已上线版本同样中招)。
+    # 红旗明细仍可达:点卡进本章,章内红标直达附录D。
+    return f'<span class="chip" title="本节点红旗数(明细见附录D)">{_esc(body)} 红旗</span>'
 
 
 def node_tone(node: str, product: dict, load: dict[str, list[str]]) -> str:

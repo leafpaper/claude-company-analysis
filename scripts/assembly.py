@@ -55,8 +55,8 @@ class AssemblyError(ValueError):
 
 # ---------------------------------------------------------------- 输入
 
-def load_nodes(nodes_dir) -> dict[str, dict]:
-    """读 nodes/ 下五个节点 md 的顶部 YAML 块并逐个过 schema。任一不合法即抛错。"""
+def _load_blocks(nodes_dir, schema_of, what: str) -> dict[str, dict]:
+    """读 nodes/ 下五个节点 md 的顶部 YAML 块, 每块按 `schema_of(node)` 校验; 任一不合法即抛错。"""
     nodes_dir = Path(nodes_dir)
     blocks, problems = {}, []
     for node, fname in NODE_FILES.items():
@@ -65,15 +65,34 @@ def load_nodes(nodes_dir) -> dict[str, dict]:
             problems.append(f"{fname}: 文件不存在")
             continue
         try:
-            data, errs = verdict_block.load_and_validate(path, NODE_SCHEMAS[node])
+            data, errs = verdict_block.load_and_validate(path, schema_of(node))
         except verdict_block.BlockNotFound as exc:
             problems.append(f"{fname}: {exc}")
             continue
         problems.extend(f"{fname} → {e}" for e in errs)
         blocks[node] = data
     if problems:
-        raise AssemblyError("节点 YAML 块不合契约:\n  - " + "\n  - ".join(problems))
+        raise AssemblyError(f"{what}:\n  - " + "\n  - ".join(problems))
     return blocks
+
+
+def load_nodes(nodes_dir) -> dict[str, dict]:
+    """读**本版** run 的五个节点块并逐个过**当前完整契约**。任一不合法即抛错。"""
+    return _load_blocks(nodes_dir, NODE_SCHEMAS.__getitem__, "节点 YAML 块不合契约")
+
+
+def load_baseline_nodes(nodes_dir) -> dict[str, dict]:
+    """读**上版** run 的五个节点块,只校验「较上版变化」区块真正消费的字段(change-baseline schema)。
+
+    上版产于更早的契约时(如票 11 之前没有 series / derivation / depth_pct),拿今天的完整契约去卡它,
+    会把一份完好的上版判成不合格,变化区块整个算不出来。实测:东山 08-24 那份增量复查做契约迁移后重装配,
+    不带 --prev-run-dir 就静默丢了「较上版变化」,带上又被 08-19 的旧契约节点挡住 —— 两头都是错。
+    校验范围 = 消费范围(同票 10 compare-member-source 的原则)。
+
+    ⚠️ 只用于**比对**。要**复用**上版节点(triage --apply-reuse 拷进本版)时,那份节点会成为本版的一部分,
+    仍须过当前完整契约 —— 这由 init_run 的硬规则 1 用 `load_nodes` 严格把关,别在那里换成本函数。
+    """
+    return _load_blocks(nodes_dir, lambda _node: "change-baseline", "上版节点块缺「较上版变化」要用的字段")
 
 
 def load_node_bodies(nodes_dir, nodes: dict[str, dict] | None = None) -> dict[str, str]:

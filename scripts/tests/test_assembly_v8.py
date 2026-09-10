@@ -103,8 +103,11 @@ class TestTop3(unittest.TestCase):
         """脚本商誉规则 + 写手「对赌未披露」提名 = Top3 里的同一条(不是两条)。"""
         entry = next(t for t in build()["top3"] if t["red_flag_id"] == fx.GOODWILL_FLAG_ID)
         self.assertEqual(set(entry["red_flag_ids"]), {fx.GOODWILL_FLAG_ID, fx.NOMINATION_GOODWILL})
-        self.assertIn("商誉对赌条款未披露", entry["evidence"])
-        self.assertIn("写手提名", entry["evidence"])
+        # 同组那条提名仍在同一条风险里(上一行),但**不拼进证据句** —— 首页 Top3 卡的底栏按
+        # red_flag_ids 另列同组红旗、附录D 有全量;证据句只说证据。旧断言要求证据里带
+        # 「商誉对赌条款未披露」「写手提名」,等于把流水线词写成了契约(华特交付评审判为表述 FIX)。
+        self.assertNotIn("同组另有", entry["evidence"])
+        self.assertNotIn("写手提名", entry["evidence"])
 
     def test_top3_unchanged_by_goodwill_nomination(self):
         """提名「商誉对赌」后 Top3 不变(合并进已有条目, 不挤掉任何风险)——research/05 零漂移。"""

@@ -228,20 +228,16 @@ def top3(flags: list[dict]) -> list[dict]:
     out = []
     for rank, g in enumerate(ranked, 1):
         rep = g["representative"]
-        others = [f for f in g["flags"] if f["id"] != rep["id"]]
-        evidence = rep["evidence"]
-        if others:
-            # 同组其它红旗要让读者看见, 但**不能裸拼**在证据句尾 —— 光秃秃一个标题接在
-            # 「…= 4.6x」后面是半句碎片(交付评审实测判红)。给它一个说明它是什么的标签。
-            evidence += "(同组另有:" + "、".join(
-                f"{f['title']}({SOURCE_LABELS[f['source']]})" for f in others
-            ) + ")"
+        # 同组其它红旗**不拼进 evidence**:首页 Top3 卡的底栏(build_html.render_top3)本来就按
+        # red_flag_ids 逐条列出同组红旗,附录D 另有全量 —— 再拼一遍是重复,而且把
+        # 「同组另有…(脚本)」这类流水线词带进了首页那句证据(华特交付评审判为表述 FIX)。
+        # 上一版为修「标题裸拼成半句碎片」加的那个标签,方向对了但放错了地方:证据句只说证据。
         out.append({
             "rank": rank,
             "red_flag_id": rep["id"],
             "level": rep["level"],
             "title": rep["title"],
-            "evidence": evidence,
+            "evidence": rep["evidence"],
             # 扩展字段: 供 lint 做红旗闭环机检 / HTML 层跳转
             "red_flag_ids": [f["id"] for f in g["flags"]],
             "node": rep["node"],

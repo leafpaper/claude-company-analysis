@@ -44,14 +44,19 @@ APPENDIX_SOURCES = (
     ("E", "数据来源与信息缺口", ("data_sources.md",)),
 )
 
-# 附录B 的就地口径提示。`peer_collector` 取本公司 fina_indicator 的「最新披露期」时会命中旧行
-# (实测取到过一年多前的季报), 于是同一份报告里附录B 的 ROE/毛利率与正文差出一倍。
-# 正文、面板 note、附录E 都交代过, 唯独出事的**那张表上**没有 —— 读者是跳到附录B 才看到那个数的
-# (票 10 交付评审连开两轮)。脚本缺陷要单独修, 但读者当场读到相反数字这件事, 这一行就能止血。
+# 附录B 的就地口径提示 —— 读者是从正文跳进附录B 才看到那些数的,所以提示必须长在**那张表上**。
+# 附录B 有两种各自独立的失效,提示要同时覆盖:
+#  · **选错了同业**:`peer_collector` 按 Tushare「行业」字段自动选 peer,对细分行业的公司会选到零业务重合的
+#    对照物(华特被归「化工原料」262 家),给出的估值分位与真实同业**正好相反**;
+#  · **本公司那行期别过旧**:取 fina_indicator「最新披露期」时曾命中一年多前的季报行(票 10 交付评审)。
+# ⚠️ 上一版只写了第二种,还补了一句「同业各家数据与估值列不受此影响」—— 在同业本身就选错时,
+#    这句话恰好在替那几家零重合的公司背书(华特交付评审判为硬伤)。别再替自动选出来的同业担保。
 APPENDIX_B_CAVEAT = (
-    "> ⚠️ **口径提示**:本表中**本公司**那一行的盈利能力列(ROE / 毛利率 / 净利率 / 负债率)"
-    "取自采集脚本抓到的「最新披露期」,该期别**可能早于本报告基准日**,据此算出的行业分位同样不作数。"
-    "本公司的盈利能力以**附录A 的趋势表**与正文为准;本表的**同业各家**数据与估值列不受此影响。"
+    "> ⚠️ **口径提示**:本表的同业是采集脚本按行业分类**自动选**的 —— 对细分行业的公司,"
+    "可能选到与本公司**零业务重合**的对照物,那样算出的估值分位**不作数**;"
+    "本附录若另有人工补采的「真实同业」小节,**以那一节为准**。"
+    "另:本表**本公司**那一行的盈利能力列取自脚本抓到的「最新披露期」,期别**可能早于本报告基准日**,"
+    "本公司的盈利能力以**附录A 的趋势表**与正文为准。"
 )
 
 AUDIT_JSON_CANDIDATES = ("audit_report.json", "raw_data/audit_report.json", "audit.json")
@@ -257,6 +262,22 @@ def render_appendix_d(flags: list[dict]) -> str:
     return "\n".join(lines)
 
 
+# 附录B 的人工补采同业小节 —— peer_analysis.md 的约定是在文件末尾另起「§3.5 …补充」。
+# 对细分行业的公司它才是真同业,却排在自动表之后、没有锚点:口径提示只能说「以那一节为准」
+# 让读者自己往下翻(华特交付评审)。装配时给它的标题挂锚,提示直接链过去。
+APPENDIX_B_MANUAL_ANCHOR = "appx-B-manual"
+_B_CAVEAT_POINTER = "**以那一节为准**"
+_MANUAL_PEER_HEADING = re.compile(r"^(#{2,6})[ \t]+(?=[^\n]*(?:§3\.5|人工补采))", re.M)
+
+
+def _anchor_manual_peers(md: str) -> tuple[str, bool]:
+    """给第一个人工补采同业小节的标题挂锚;返回 (新文本, 是否挂上)。"""
+    md, n = _MANUAL_PEER_HEADING.subn(
+        lambda m: f'{m.group(1)} <a id="{APPENDIX_B_MANUAL_ANCHOR}"></a>', md, count=1
+    )
+    return md, bool(n)
+
+
 def build_appendices(
     flags: list[dict], search_dirs: list[Path]
 ) -> tuple[list[str], list[dict]]:
@@ -274,7 +295,14 @@ def build_appendices(
                 missing.append(name)
                 continue
             mounted.append(str(path))
-            body_parts.append(_demote(path.read_text(encoding="utf-8").strip("\n")))
+            text = _demote(path.read_text(encoding="utf-8").strip("\n"))
+            if key == "B":
+                text, anchored = _anchor_manual_peers(text)
+                if anchored:
+                    body_parts[0] = APPENDIX_B_CAVEAT.replace(
+                        _B_CAVEAT_POINTER, f"**以[那一节](#{APPENDIX_B_MANUAL_ANCHOR})为准**"
+                    )
+            body_parts.append(text)
         if missing and not body_parts:
             body_parts.append(f"> ⚠️ 未找到采集产物:{'、'.join(missing)}(本附录留空,请检查采集阶段)")
         elif missing:
@@ -350,7 +378,9 @@ def assemble_run(
     prev_nodes = prev_script_flags = None
     if prev_run_dir:
         prev_run_dir = Path(prev_run_dir)
-        prev_nodes = assembly.load_nodes(prev_run_dir / "nodes")
+        # 上版只拿来**比对**,只校验变化区块消费的字段 —— 上版产于更早的契约时,
+        # 用完整契约去卡会让变化区块算不出来(见 assembly.load_baseline_nodes)
+        prev_nodes = assembly.load_baseline_nodes(prev_run_dir / "nodes")
         # 上版脚本红旗: 采集产物落公司级且被 R1 原地刷新, 旧值在本次 run 的基线快照里
         # (init_run --run-type incremental 拷的 baseline/red_flags.json, 已是契约条目);
         # 没有快照(如手工指定 prev-run-dir 对比两个全量)再退回上版 run 目录里找 audit JSON。

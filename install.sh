@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Claude Code 投资分析 Skill — 一键安装 (v8.4)
+# Claude Code 投资分析 Skill — 一键安装 (v8.5)
 #
 # 使用方法：
 #   curl -fsSL https://raw.githubusercontent.com/leafpaper/claude-company-analysis/main/install.sh | bash
@@ -12,7 +12,7 @@ SKILL_DIR="$HOME/.claude/skills/company-analysis"
 REPO_URL="https://raw.githubusercontent.com/leafpaper/claude-company-analysis/main"
 
 echo "================================================"
-echo "  Claude Code — 投资分析 Skill 安装程序 v8.4"
+echo "  Claude Code — 投资分析 Skill 安装程序 v8.5"
 echo "  结构化数据 + PDF 精析 + 11 大师框架审计"
 echo "  v8.0: 判断链五节点(质地/状态/赔率/路径/怎么办) + 依赖图两波调度"
 echo "        首页一眼决断与附录全部机器装配"
@@ -139,7 +139,7 @@ for py in \
 done
 curl -fsSL "$REPO_URL/scripts/requirements.txt" -o "$SKILL_DIR/scripts/requirements.txt"
 curl -fsSL "$REPO_URL/scripts/README.md" -o "$SKILL_DIR/scripts/README.md"
-# v8 契约层 schema(节点×4 + decision + assembly + appendix-d + manifest + triage + 对比×4 + common)
+# v8 契约层 schema(节点×4 + decision + assembly + appendix-d + manifest + triage + 对比×4 + 变化基线 + common)
 mkdir -p "$SKILL_DIR/scripts/schemas"
 for schema in \
     common \
@@ -155,7 +155,8 @@ for schema in \
     compare \
     compare-group \
     compare-judge \
-    compare-member-source; do
+    compare-member-source \
+    change-baseline; do
   curl -fsSL "$REPO_URL/scripts/schemas/${schema}.schema.json" -o "$SKILL_DIR/scripts/schemas/${schema}.schema.json"
 done
 
@@ -168,7 +169,8 @@ REF_COUNT=$(find "$SKILL_DIR/references" -name "*.md" 2>/dev/null | wc -l | tr -
 SCRIPT_COUNT=$(find "$SKILL_DIR/scripts" -name "*.py" 2>/dev/null | wc -l | tr -d ' ')
 ASSETS_COUNT=$(find "$SKILL_DIR/assets" -type f 2>/dev/null | wc -l | tr -d ' ')
 SCHEMA_COUNT=$(find "$SKILL_DIR/scripts/schemas" -name "*.schema.json" 2>/dev/null | wc -l | tr -d ' ')
-# v8.4 期望: 6 phases + 10 agents + 9 refs + 33 scripts + 6 assets + 14 schemas + 1 SKILL.md
+# v8.5 期望: 6 phases + 10 agents + 9 refs + 33 scripts + 6 assets + 15 schemas + 1 SKILL.md
+# (schemas 14→15: +change-baseline —— 「较上版变化」只按变化区块消费的字段校验上版节点)
 # ⚠️ schema 此前**不在计数里** —— 于是票 10 漏下 compare-member-source 时没有任何检查发现,
 #    curl 装出来的版本一跑 --compare 就崩在找不到 schema 上(v8.4 人工比对清单才查出来)。现已纳入。
 # (v7.2→v8.0 变更: phases 5→4 删 phase3-analysis-report/phase7-quantitative-monitor, 新增 phase3-node-writing;
@@ -181,10 +183,10 @@ SCHEMA_COUNT=$(find "$SKILL_DIR/scripts/schemas" -name "*.schema.json" 2>/dev/nu
 #   assets +compare-v8.html → 6; scripts +triage(票09) +derivation(票11) +compare(票10) → 33
 #   —— 前两个此前只进了 install.ps1(整目录拷), install.sh 的逐文件清单漏了, 一并补上)
 
-if [ "$PHASE_COUNT" -eq "6" ] && [ "$AGENT_COUNT" -eq "10" ] && [ "$REF_COUNT" -eq "9" ] && [ "$SCRIPT_COUNT" -eq "33" ] && [ "$ASSETS_COUNT" -eq "6" ] && [ "$SCHEMA_COUNT" -eq "14" ]; then
+if [ "$PHASE_COUNT" -eq "6" ] && [ "$AGENT_COUNT" -eq "10" ] && [ "$REF_COUNT" -eq "9" ] && [ "$SCRIPT_COUNT" -eq "33" ] && [ "$ASSETS_COUNT" -eq "6" ] && [ "$SCHEMA_COUNT" -eq "15" ]; then
     echo ""
     echo "============================================"
-    echo "  ✅ 安装成功！(v8.4)"
+    echo "  ✅ 安装成功！(v8.5)"
     echo "============================================"
     echo ""
     echo "  协调器:  SKILL.md"
@@ -222,7 +224,7 @@ if [ "$PHASE_COUNT" -eq "6" ] && [ "$AGENT_COUNT" -eq "10" ] && [ "$REF_COUNT" -
 else
     echo ""
     echo "❌ 错误：安装不完整"
-    echo "  预期(v8.4): phases=6 agents=10 refs=9 scripts=33 assets=6 schemas=14"
+    echo "  预期(v8.5): phases=6 agents=10 refs=9 scripts=33 assets=6 schemas=15"
     echo "  实际:       phases=$PHASE_COUNT agents=$AGENT_COUNT refs=$REF_COUNT scripts=$SCRIPT_COUNT assets=$ASSETS_COUNT schemas=$SCHEMA_COUNT"
     exit 1
 fi

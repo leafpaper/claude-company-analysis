@@ -813,6 +813,11 @@ def _valuation(bundle: dict) -> list[RedFlag]:
         roe_latest = _safe_float(fi.iloc[-1].get("roe"))  # 百分数
         if roe_latest is not None:
             fair_pb = roe_latest / 8.0 if roe_latest > 0 else 0.5  # 8% 为 WACC 近似
+            # evidence 会原样上首页 Top3 → 写成人话, 算法只留括注
+            # (华特 R1 交付 FIX: 「当前 PB=6.21 / 合理 PB (ROE/8%) ≈ 0.85 = 7.3x」这种公式串上了首页)
+            basis = (f"按净资产回报率 {roe_latest:.1f}% 应配约 {fair_pb:.2f} 倍(回报率÷8%)"
+                     if roe_latest > 0 else
+                     f"净资产回报率 {roe_latest:.1f}% 为负,按保守口径最多配 {fair_pb:.2f} 倍")
             if fair_pb > 0 and pb > fair_pb * 2:
                 flags.append(RedFlag(
                     framework="Valuation",
@@ -820,7 +825,7 @@ def _valuation(bundle: dict) -> list[RedFlag]:
                     severity="🟠 高",
                     value=round(pb / fair_pb, 2),
                     threshold="PB / 合理PB > 2 警示",
-                    evidence=f"当前 PB={pb:.2f} / 合理 PB (ROE/8%) ≈ {fair_pb:.2f} = {pb/fair_pb:.1f}x",
+                    evidence=f"市净率 {pb:.2f} 倍;{basis},现价是它的 {pb/fair_pb:.1f} 倍",
                     implication=f"ROE={roe_latest:.1f}% 理论配 PB {fair_pb:.1f}x，当前 PB {pb:.2f}x 暗示市场透支预期",
                 ))
             elif fair_pb > 0 and pb < fair_pb * 0.5:
@@ -830,7 +835,7 @@ def _valuation(bundle: dict) -> list[RedFlag]:
                     severity="🟢 低",
                     value=round(pb / fair_pb, 2),
                     threshold="PB / 合理PB < 0.5",
-                    evidence=f"当前 PB={pb:.2f} / 合理 PB ≈ {fair_pb:.2f}",
+                    evidence=f"市净率 {pb:.2f} 倍;{basis},现价不到它的一半",
                     implication=f"ROE={roe_latest:.1f}% 配 PB {fair_pb:.1f}x，当前 {pb:.2f}x 被低估",
                 ))
 

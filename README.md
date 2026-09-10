@@ -1,11 +1,11 @@
-# YEZHI Company Analysis (v8.4)
+# YEZHI Company Analysis (v8.5)
 
 > **像一个谨慎的投资人那样，把一家公司从头到尾看一遍** —— 结构化财报数据 + 年报/季报 PDF 原文 + 11 大师框架自动审计 + 一张看得懂的「投资决断卡」，**全程说人话**。
 >
 > 支持 A 股 / 美股 / 港股 · 跑在 Anthropic Claude Code 里的 `/company-analysis` 命令 · 帮你**一眼筛好公司**，并把"是不是好公司"和"现在该不该买"分开回答
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v8.4-blue" alt="version">
+  <img src="https://img.shields.io/badge/version-v8.5-blue" alt="version">
   <img src="https://img.shields.io/badge/markets-A%E8%82%A1%20%7C%20%E7%BE%8E%E8%82%A1%20%7C%20%E6%B8%AF%E8%82%A1-green" alt="markets">
   <img src="https://img.shields.io/badge/audit-11%20frameworks-orange" alt="frameworks">
   <img src="https://img.shields.io/badge/report-%E9%A6%96%E9%A1%B5%2B%E4%BA%94%E7%AB%A0%2B%E9%99%84%E5%BD%95A--E-purple" alt="chapters">
@@ -328,6 +328,7 @@ Phase 6 自动把 HTML 推到 Inves-Report 仓库。
 
 | 版本 | 发布 | 关键变化 |
 |------|------|---------|
+| **v8.5** | 2026-09-11 | 第三份报告(华特气体,首个结构不同的样本)修 6 处展示层缺陷 + 1 处回归: **首页判断卡 a 套 a,被浏览器拆成九张**(线上东山/旭创各中 4 张,改 DOM 级回归) / Top3 证据尾「同组另有」与卡脚重复 → 撤 / Top3 公式串证据换人话(改在 `financial_audit` 源头) / 估值尺图例术语进人话 / 附录B 提示改为「同业可能被脚本选错」,人工补采真同业挂锚、提示直链 / **「较上版变化」契约迁移后丢失** → 新增 `change-baseline` schema,上版只按变化区块消费的字段校验 |
 | **v8.4** | 2026-09-02 | 首次双报告实战修 11 处缺陷: 决断卡切在左括号上 / 左尾阶梯图脚 380 字墙与半截数字标签 / ③占比尺图例塞算式与窄屏挤压 / Top3 裸拼碎片 / 面板空列占宽 / 附录B 无就地口径提示 / **首页卡片印了不存在的估值锚**(v7 散文正则扫进附录D,千分位逗号截出 245.6)→ 改读③结构化锚 / `derivation.cagr` 口径未约束(填利润口径全绿但表头错标) / GBK 假失败 ×3(`verdict_block` 那个每个写手都中) / phase3 波次漂移 + 链手册范例误导 |
 | **v8.3** | 2026-09-01 | 产业链同行对比 `--compare`: 上半各家决断卡并排（机器搬运，零新判断，基准日超 90 天标陈旧）+ 下半 `compare-judge` 组内裁决（第 10 个 sub-agent，只引用不自产，四条机检: 具名成员/排名连号/全组覆盖/数字回得了源）; 全报告制（缺报告成员列出+分批补跑）; 站点独立对比页 `compare/{slug}/` + `data/compare.json` 语义合并; `--review` 收尾问过用户才重装配 |
 | **v8.2** | 2026-08-25 | ③估值推导进契约: `derivation.py` 十条算术闭合（lint R12）+ 三张表机器渲染 + 三张契约图（P=F+N 占比尺 / 左尾深度阶梯 / 面板 sparkline） |
