@@ -30,17 +30,45 @@ _TOP_BLOCK_RE = re.compile(r"\A\s*```yaml[ \t]*\n(.*?)\n[ \t]*```", re.DOTALL)
 
 
 class BlockNotFound(ValueError):
-    """md 文件顶部没有 fenced YAML 块, 或块不是 YAML 映射。"""
+    """md 文件顶部没有 fenced YAML 块, 块不是 YAML 映射, 或块里有被切断的流式映射。"""
+
+
+# YAML 流式映射 {k: v, …} 里, 值中的半角逗号会被当成分隔符:
+#   {method: 两段加总(无分部报告,用历史倍数), value: 35.3}
+#   → method 截成「两段加总(无分部报告」, 另生一个键「用历史倍数)」值为 null。
+# 节点 schema 默认允许额外键, 这种切断**全绿通过**, 只在成品上印出半截括号(华特③实测)。
+# 契约里的键全是 ASCII 标识符, 所以「键不是标识符」本身就是切断的铁证 —— 抽块时一律拦下。
+_KEY_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def _non_identifier_keys(obj, path: str = "") -> list[str]:
+    out = []
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            here = f"{path}/{k}"
+            if not (isinstance(k, str) and _KEY_RE.match(k)):
+                out.append(here)
+            out.extend(_non_identifier_keys(v, here))
+    elif isinstance(obj, list):
+        for i, v in enumerate(obj):
+            out.extend(_non_identifier_keys(v, f"{path}[{i}]"))
+    return out
 
 
 def extract_yaml_block(md_text: str) -> dict:
-    """抽取 md 顶部的 fenced YAML 块, 返回 dict; 找不到抛 BlockNotFound。"""
+    """抽取 md 顶部的 fenced YAML 块, 返回 dict; 找不到或块坏了抛 BlockNotFound。"""
     m = _TOP_BLOCK_RE.match(md_text)
     if not m:
         raise BlockNotFound("md 顶部无 ```yaml 块(装配只读顶部块, 正文中部的块不算)")
     data = yaml.safe_load(m.group(1))
     if not isinstance(data, dict):
         raise BlockNotFound("顶部 YAML 块不是映射(期望 key: value 结构)")
+    bad = _non_identifier_keys(data)
+    if bad:
+        raise BlockNotFound(
+            "YAML 块里有不是标识符的键 —— 多半是 {…} 流式映射被值里的半角逗号切断了,"
+            f"给那段值整段加双引号: {'; '.join(bad[:5])}"
+        )
     return data
 
 

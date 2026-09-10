@@ -549,6 +549,17 @@ class TestExtractYamlBlock(unittest.TestCase):
         with self.assertRaises(verdict_block.BlockNotFound):
             verdict_block.extract_yaml_block(MD_BLOCK_NOT_FIRST)
 
+    def test_flow_mapping_cut_by_halfwidth_comma_raises(self):
+        """{…} 流式映射里值带半角逗号会被切成两个键, 节点 schema 默认放行 —— 抽块时拦下(华特③实测)。"""
+        cut = "```yaml\nnode: odds\nlow: {method: 两段加总(无分部报告,用历史倍数), value: 35.3}\n```\n"
+        with self.assertRaises(verdict_block.BlockNotFound) as ctx:
+            verdict_block.extract_yaml_block(cut)
+        self.assertIn("半角逗号", str(ctx.exception))
+        quoted = cut.replace("{method: 两段加总(无分部报告,用历史倍数)", '{method: "两段加总(无分部报告,用历史倍数)"')
+        self.assertEqual(
+            verdict_block.extract_yaml_block(quoted)["low"]["method"], "两段加总(无分部报告,用历史倍数)"
+        )
+
     def test_load_node_file_roundtrip(self):
         with tempfile.TemporaryDirectory() as td:
             p = Path(td) / "node-state.md"
