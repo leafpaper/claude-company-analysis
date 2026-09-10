@@ -279,7 +279,10 @@ def decision_block() -> dict:
     return {
         "node": "decision",
         "verdict": "先观察等证据临界,期权小仓 ≤2-3%",
-        "triad": {"state": "↑未确认", "odds": "买完完美未来", "path": "高尾险"},
+        # 三元组 = ②③④ verdict 原样搬运(链手册 §2.1;lint R15 逐字查)—— 早先这里写的是缩写档名
+        # 「↑未确认 / 高尾险」, 与节点判定句对不上, 恰好就是 R15 要抓的漂移
+        "triad": {"state": state_block()["verdict"], "odds": odds_block()["verdict"],
+                  "path": path_block()["verdict"]},
         "action_gear": "等证据临界",
         "action_detail": "主基调先别动、现价 0 仓位持币(等待=选择权);想赌右尾最多总资金 2-3% 期权小仓、设硬止损",
         "position": "现价 0 仓位;期权小仓 ≤2-3% 总资金",
@@ -341,6 +344,11 @@ NODE_BODIES = {
 
 # ---------------------------------------------------------------- 增量复查双向场景(research/03)
 
+def triad_of(n: dict[str, dict]) -> dict[str, str]:
+    """场景改了节点判定后, 三元组跟着重抄(链手册 §2.1 原样搬运;lint R15)。"""
+    return {k: n[k]["verdict"] for k in ("state", "odds", "path")}
+
+
 def scenario_a_nodes() -> dict[str, dict]:
     """场景 A 中报兑现不足(利空):质地复用、状态翻转、档位 观察→回避。"""
     n = copy.deepcopy(nodes())
@@ -355,7 +363,7 @@ def scenario_a_nodes() -> dict[str, dict]:
     n["decision"].update({
         "verdict": "回避:证伪已触发,期权仓退出",
         "action_gear": "回避",
-        "triad": {"state": "λ走弱", "odds": "买完完美未来", "path": "高尾险"},
+        "triad": triad_of(n),
     })
     return n
 
@@ -372,6 +380,6 @@ def scenario_b_nodes() -> dict[str, dict]:
     n["decision"].update({
         "verdict": "小仓试错:右尾坐实但仍贵",
         "action_gear": "期权仓",
-        "triad": {"state": "↑确认", "odds": "仍贵", "path": "高尾险"},
+        "triad": triad_of(n),
     })
     return n

@@ -25,6 +25,10 @@
 | R10 | 报告与节点同步 | fail | 主报告五章正文 = 节点 md 正文(改完正文没重跑装配, 在这里现形) |
 | R11 | 散文密度 | warn | 列表形状的内容被焊成段落;**含会变成图上文字的契约字段**(定位器, 判官是 reviewer) |
 | R12 | 推导闭合 | fail + warn | ③估值推导十条算术闭合 + 三张表真渲染; 可视化数值字段齐备 = warn |
+| R13 | 证伪清单同源 | fail | ⑤ 的每条退出线在 ④ 的证伪清单里找得到源(没有 = 孤儿条) |
+| R14 | 机器块无过程注释 | warn | 节点 YAML 里不留「正在/待定稿/暂按」这类会过期的时态词 |
+| R15 | 三元组同源 | fail | ⑤ triad 三格与②③④ 的 verdict 逐字相等(上游改了判定句要重抄) |
+| R16 | ③锚引用过期 | fail | 别的节点抄的「X~Y 元」只有一端对得上③锚, 或「锚低端/高端 N 元」与③不符 |
 
 CLI:
     python -m scripts.lint_v8 --run-dir output/{company}/runs/{date}
@@ -869,6 +873,94 @@ def rule_no_process_notes(nodes: dict) -> RuleResult:
 
 
 # ============================================================================
+# R15 三元组同源 / R16 ③锚引用过期 —— 跨节点抄本过期(v8.5 华特实战)
+# ============================================================================
+# 两条是同一类病:上游节点在修正循环里改了, 下游的抄本没跟上, 而 R1-R14 全绿。
+# 改判定句、改锚是修正循环里的**常态**(旭创③的锚三轮里走了 535.4→564.6→535.3),
+# 此前全靠主 agent 与 reviewer 人工追 —— 三份报告里每一份都漏过至少一处。
+
+_TRIAD_SOURCES = (("state", "②状态"), ("odds", "③赔率"), ("path", "④路径"))
+
+
+def rule_triad_source(nodes: dict) -> RuleResult:
+    """⑤ 的三元组每一格必须与对应节点 YAML 的 verdict **逐字相等**。
+
+    决策层的乘法做在三元组上;三元组与节点判定一脱节, 首页决断卡(取节点 verdict)
+    和⑤的档位理由(取 triad)就在说两件事。此前它只是 Phase 3 波3 的「人工确认」——
+    东山 08-19 的 path 格连判定档都与④不同、无人发现;华特 R1 ④改了判定句,
+    ⑤ 仍抄着旧句, lint 十四条全过。
+    逐字而非「判定档相同」:三份现役报告实测全部逐字相等, 放宽只会给漂移留门。
+    """
+    triad = (nodes.get("decision") or {}).get("triad") or {}
+    if not triad:
+        return RuleResult(name="R15 三元组同源", skipped=True, detail="⑤ 无 triad")
+    findings = []
+    for node, label in _TRIAD_SOURCES:
+        have = str(triad.get(node) or "").strip()
+        want = str((nodes.get(node) or {}).get("verdict") or "").strip()
+        if have != want:
+            findings.append(
+                f"triad.{node} ≠ {label} verdict —— ⑤ 抄的是「{have[:36]}…」,"
+                f"{label} 现为「{want[:36]}…」(照节点文件第 3 行重抄)"
+            )
+    return RuleResult(
+        name="R15 三元组同源", passed=not findings,
+        detail="⑤ 三元组三格与②③④ verdict 逐字相等",
+        findings=findings,
+    )
+
+
+# 判据取「只有一端对得上」:两端都对 = 最新;两端都不对 = 多半是别的区间(情景价、历史价), 不归这条管;
+# 恰好一端对上、另一端不对 = 那一端被③改过而抄本没跟上 —— 漂移最常见的形态就是只改一端
+# (华特:低端 42.2→35.3、高端 49.6 不动, ⑤ 正文与 YAML 里 8 处「42.2~49.6 元」)。
+_RANGE_YUAN = re.compile(r"(\d[\d,]*(?:\.\d+)?)\s*[~～\-–至]\s*(\d[\d,]*(?:\.\d+)?)\s*元")
+_ANCHOR_END = re.compile(r"锚\s*(低端|高端)[^\d\n]{0,12}?(\d[\d,]*(?:\.\d+)?)\s*元")
+
+
+def _yuan(raw: str) -> float:
+    return float(raw.replace(",", ""))
+
+
+def rule_anchor_citation(nodes: dict, bodies: dict[str, str]) -> RuleResult:
+    """③之外的节点(正文 + YAML)抄的锚, 必须与③ `anchor_range` 的当前两端一致。"""
+    anchor = (nodes.get("odds") or {}).get("anchor_range") or {}
+    try:
+        low, high = float(anchor["low"]["value"]), float(anchor["high"]["value"])
+    except (KeyError, TypeError, ValueError):
+        return RuleResult(name="R16 ③锚引用过期", skipped=True, detail="③ 无可读的锚")
+
+    def same(a: float, b: float) -> bool:
+        return abs(a - b) < 1e-6
+
+    findings: list[str] = []
+    for node in CHAPTER_ORDER:
+        if node == "odds":
+            continue
+        texts = [("正文", bodies.get(node, ""))]
+        texts += [(f"YAML {p}", t) for p, t in _walk_strings(nodes.get(node) or {})]
+        for where, text in texts:
+            for m in _RANGE_YUAN.finditer(text):
+                a, b = _yuan(m.group(1)), _yuan(m.group(2))
+                if (same(a, low) or same(b, high)) and not (same(a, low) and same(b, high)):
+                    findings.append(
+                        f"{LABELS.get(node, node)} {where}:「{m.group(0)}」只有一端对得上③锚 "
+                        f"{low:g}~{high:g} 元 —— 另一端是③改锚前的旧值"
+                    )
+            for m in _ANCHOR_END.finditer(text):
+                want = low if m.group(1) == "低端" else high
+                if not same(_yuan(m.group(2)), want):
+                    findings.append(
+                        f"{LABELS.get(node, node)} {where}:「{m.group(0)}」与③锚{m.group(1)} {want:g} 元不符"
+                    )
+    findings = list(dict.fromkeys(findings))
+    return RuleResult(
+        name="R16 ③锚引用过期", passed=not findings,
+        detail=f"②④⑤ 抄的锚与③当前两端 {low:g}~{high:g} 元一致",
+        findings=findings,
+    )
+
+
+# ============================================================================
 # 公共 API
 # ============================================================================
 def find_report_md(run_dir: Path) -> Path | None:
@@ -930,6 +1022,8 @@ def lint_run(run_dir, md_path=None, artifacts_dir=None, audit_json=None) -> Lint
         rule_memoryless(bodies),
         rule_report_sync(Path(md_path) if md_path else find_report_md(run_dir), bodies),
         rule_falsification_source(nodes),
+        rule_triad_source(nodes),
+        rule_anchor_citation(nodes, bodies),
         rule_budget(bodies),
         rule_prose_density(bodies, nodes),
         closure_warn,

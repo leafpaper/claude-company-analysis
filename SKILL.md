@@ -184,7 +184,7 @@ Phase 1 (data-collector) → Phase 2 (doc-analyst)
 | 2 | 读 doc-analyst 响应 `**判定**:` + 复核 `{PYBIN} -m scripts.check_phase2 --md {artifacts_dir}/phase2-documents.md` | PASS / 部分降级 + 退出码 0 |
 | 3 波1 | 三条 `{PYBIN} -m scripts.verdict_block --schema node-{quality,odds,path} --file {run_dir}/nodes/node-X.md` | 全部退出码 0 |
 | 3 波2 | `verdict_block --schema node-state` | 退出码 0 |
-| 3 波3 | `verdict_block --schema node-decision` + triad 与②③④同源 + 有 🔴 必封顶 | 退出码 0 且三项人工确认 |
+| 3 波3 | `verdict_block --schema node-decision` + triad 与②③④ verdict 逐字同源 + 有 🔴 必封顶 | 退出码 0;后两项由 lint R15 / R7 机检(Phase 6 Step 0),上游改判定句后重抄 |
 | 3 装配 | `{PYBIN} -m scripts.assemble_report_v8 --run-dir {run_dir} …` 退出码 | 0 + Top3 非空 + 无缺附录告警 |
 | 6 门控 | `{PYBIN} -m scripts.lint_v8 --run-dir {run_dir} --artifacts-dir {artifacts_dir}` | 退出码 0(warn 不阻断) |
 | 6 评审 | `{PYBIN} -m scripts.review_loop --run-dir {run_dir} --round N` 的 JSON | `overall_pass: true`(3 轮上限 / `diff_repeat` → 转人工) |
@@ -254,7 +254,7 @@ Phase 1 (data-collector) → Phase 2 (doc-analyst)
 | `scripts/triage.py` ★ | 增量复查 R2 纯脚本分诊:标脏机检 / 重评波次 / 指标 diff / 复用盖戳(产 `triage.json`) |
 | `scripts/verdict_block.py` ★ | 节点 YAML 块抽取 + schema 校验(每波门控) |
 | `scripts/assembly.py` + `scripts/assemble_report_v8.py` ★ | 摘要层装配 + 报告总装 |
-| `scripts/lint_v8.py` ★ | 质量环机器门控(10 条:schema / 红旗闭环 / 数字唯一 home / 封顶 / 越权 / 报告同步…) |
+| `scripts/lint_v8.py` ★ | 质量环机器门控(R1-R16:schema / 红旗闭环 / 数字唯一 home / 区间锚 / 封顶 / 越权 / 报告同步 / 推导闭合 / 证伪同源 / 三元组同源 / ③锚引用过期…) |
 | `scripts/review_loop.py` | 两 reviewer 判定合并 + FIX 分诊(判断类→写手 / 表述类→主 agent) |
 | `scripts/lessons_manager.py` | 全局经验库 (append / recent) |
 | `scripts/compare.py` ★ | 产业链对比 `--compare`:成组 / 并排装配(零新判断)/ 组内裁决四条机检(产 `compare.json`) |
