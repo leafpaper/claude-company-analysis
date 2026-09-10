@@ -278,8 +278,15 @@ def render_sotp(derivation: dict) -> str:
     seg_vals = _seg_values(sotp)
     ev = sotp.get("enterprise_value")
     ev = ev if isinstance(ev, (int, float)) else sum(seg_vals)
+    nd = sotp.get("net_debt")
+    # 有净现金时 net_debt 为负:「− 净负债 -2.96 亿」是减一个负数, 读者得自己翻正负;
+    # EV 是裸缩写(华特 R3 交付评审)。只改说法, 算术闭合仍由 R12 在数据上查
+    if isinstance(nd, (int, float)) and nd < 0:
+        bridge = f"+ 净现金 {_fmt(-nd, unit)}"
+    else:
+        bridge = f"− 净负债 {_fmt(nd, unit)}"
     head = (
-        f"EV {_fmt(ev, unit)} − 净负债 {_fmt(sotp.get('net_debt'), unit)} = "
+        f"企业价值 {_fmt(ev, unit)} {bridge} = "
         f"股权 {_fmt(sotp.get('equity_value'), unit)} ÷ {_fmt(share.get('value'), share.get('unit'))}"
     )
     lines.append(_total_row(5, head, f"= {_fmt(sotp.get('per_share'), ps_unit)}/股", sotp.get("note") or ""))

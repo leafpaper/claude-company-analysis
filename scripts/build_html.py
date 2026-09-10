@@ -561,6 +561,9 @@ def render_valuation_meter(nodes: dict | None) -> str:
     lo = (rng.get("low") or {}).get("value")
     hi = (rng.get("high") or {}).get("value")
     price, unit = cur.get("value"), cur.get("unit") or "元"
+    # 高端是几种前景加权, 按 derivation 实际情景数说 —— schema 只要求 ≥2 个, 手册的「三情景」不是契约
+    n_scen = len((((odds.get("derivation") or {}).get("dcf") or {}).get("scenarios")) or [])
+    scen_txt = {2: "两", 3: "三", 4: "四", 5: "五"}.get(n_scen, "几")
     if not all(isinstance(v, (int, float)) for v in (lo, hi, price)):
         return ""
     top = max(price, hi) * 1.12
@@ -587,7 +590,7 @@ def render_valuation_meter(nodes: dict | None) -> str:
         # 两端的算法由契约钉死(node-odds 手册:低端=只认已兑现的分部加总, 高端=三情景概率加权;
         # R12 把两端分别绑到 derivation.sotp / dcf 的每股值)—— 这句说明对每份报告都成立。
         # ⚠️ 上一版写成「高端允许按常规增速放量」, 那是基准情景一条路, 不是三情景加权(华特 R2 交付评审)。
-        "<small>低端只认已赚到的钱 · 高端按三种前景概率加权</small></span>"
+        f"<small>低端只认已赚到的钱 · 高端按{scen_txt}种前景概率加权</small></span>"
         f'<span><i class="sw mark"></i>现价 {price} {unit}'
         f"<small>{_esc(note)}</small></span></div>",
         "</figure>",

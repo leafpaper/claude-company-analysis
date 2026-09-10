@@ -184,10 +184,18 @@ class TestTableSlots(unittest.TestCase):
 
 class TestTableRendering(unittest.TestCase):
     def test_sotp_total_row_walks_the_whole_chain(self):
-        """合计行必须把 EV → 净负债 → 股权 → ÷股本 → 每股 五步全走完 —— 就是票 08 丢掉的那步。"""
+        """合计行必须把 企业价值 → 净负债 → 股权 → ÷股本 → 每股 五步全走完 —— 就是票 08 丢掉的那步。"""
         row = d.render_sotp(golden()["derivation"]).splitlines()[-1]
-        for piece in ("EV 1,170 亿", "净负债 120 亿", "股权 1,050 亿", "18.3161 亿股", "57 元/股"):
+        for piece in ("企业价值 1,170 亿", "净负债 120 亿", "股权 1,050 亿", "18.3161 亿股", "57 元/股"):
             self.assertIn(piece, row)
+
+    def test_net_cash_is_added_not_subtracting_a_negative(self):
+        """有净现金时 net_debt 为负 —— 合计行写「+ 净现金」, 不写「− 净负债 -X」(华特 R3 交付评审)。"""
+        deriv = golden()["derivation"]
+        deriv["sotp"]["net_debt"] = -2.96
+        row = d.render_sotp(deriv).splitlines()[-1]
+        self.assertIn("+ 净现金 2.96 亿", row)
+        self.assertNotIn("净负债 -", row)
 
     def test_segment_row_carries_basis_and_falsifier(self):
         table = d.render_sotp(golden()["derivation"])

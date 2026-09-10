@@ -692,12 +692,32 @@ class TestAppendixBManualPeerAnchor(unittest.TestCase):
         self.assertIn(render._B_CAVEAT_POINTER, render.APPENDIX_B_CAVEAT)
 
 
+class TestValuationMeterLegend(unittest.TestCase):
+    """估值尺图例的「几种前景」按 derivation 实际情景数说。
+    schema 只要求 scenarios ≥2 个, 手册写的「三情景」不是契约 —— 图例写死「三种」,
+    两档或四档的报告照样过 lint 出片, 图上却说错(华特 R3 交付评审)。"""
+
+    def _meter(self, n_scenarios: int) -> str:
+        nodes = fx.nodes()
+        dcf = nodes["odds"]["derivation"]["dcf"]
+        dcf["scenarios"] = (dcf["scenarios"] * 2)[:n_scenarios]
+        return build_html.render_valuation_meter(nodes)
+
+    def test_three_scenarios_say_three(self):
+        self.assertIn("高端按三种前景概率加权", self._meter(3))
+
+    def test_two_scenarios_are_not_called_three(self):
+        html = self._meter(2)
+        self.assertIn("高端按两种前景概率加权", html)
+        self.assertNotIn("三种前景", html)
+
+
 def main():
     loader = unittest.TestLoader()
     suite = unittest.TestSuite()
     for cls in (TestDashboardFrontPage, TestRedMarkThreeChannels, TestMobileFirstClass,
                 TestDualTheme, TestPageIntegrity, TestIncrementalChangeBlock, TestIndexCardV8,
-                TestContractDrivenFigures, TestAppendixBManualPeerAnchor):
+                TestContractDrivenFigures, TestAppendixBManualPeerAnchor, TestValuationMeterLegend):
         suite.addTests(loader.loadTestsFromTestCase(cls))
     result = unittest.TextTestRunner(verbosity=2).run(suite)
     sys.exit(0 if result.wasSuccessful() else 1)
