@@ -23,7 +23,7 @@
 | R8 | 越权发声 | fail | 仓位 / 行动档位 / 买卖建议只能出现在⑤决策(链手册 §2.8) |
 | R9 | 无记忆性反例 | fail | 禁「跌久了该涨 / 估值压久了该修复」当买入理由 |
 | R10 | 报告与节点同步 | fail | 主报告五章正文 = 节点 md 正文(改完正文没重跑装配, 在这里现形) |
-| R11 | 散文密度 | warn | 列表形状的内容被焊成段落(定位器, 判官是 reviewer) |
+| R11 | 散文密度 | warn | 列表形状的内容被焊成段落;**含会变成图上文字的契约字段**(定位器, 判官是 reviewer) |
 | R12 | 推导闭合 | fail + warn | ③估值推导十条算术闭合 + 三张表真渲染; 可视化数值字段齐备 = warn |
 
 CLI:
@@ -355,7 +355,73 @@ def _list_shape(line: str, after_table: bool = False) -> str | None:
     return None
 
 
-def rule_prose_density(bodies: dict[str, str]) -> RuleResult:
+# 会变成「图上文字」的契约字段。R11 原本只扫五章正文, 而三张图(③占比尺 / ④左尾阶梯 /
+# 首页 sparkline)是 build_html 从 YAML 渲染的 —— **lint 跑在出片之前, 那时 HTML 还不存在**,
+# 所以扫成品是扫不到的, 只能扫喂给它的字段。这也更合理: 在契约层报出来, 写手才改得动
+# (票 10 交付评审实测: 全报告最厚的两堵墙就在图脚 380 字与图例 170 字里, R11 一处都没报)。
+FIGURE_TEXT_FIELDS = (
+    # (节点, 取值路径, 这段文字会出现在哪)
+    ("odds", ("derivation", "p_f_n", "fact_basis"), "③占比尺图例"),
+    ("odds", ("derivation", "sotp", "note"), "③SOTP 表末注"),
+    ("odds", ("derivation", "dcf", "note"), "③DCF 表末注"),
+    ("odds", ("derivation", "dcf", "discount_rate", "note"), "③折现率表注"),
+)
+# 阶梯标签只取「→」之前的部分(与 build_html._ladder_head 同源: 「→」之后是后果, 数值列已经说了)
+_LADDER_HEAD_SPLIT = re.compile(r"\s*(?:→|->|—>)")
+# 图上文字比正文更该短 —— 它没有上下文、字号更小、在窄屏上和图抢位置
+FIGURE_TEXT_MAX = 80
+
+
+def _dig(block: dict, path: tuple[str, ...]):
+    cur = block
+    for key in path:
+        if not isinstance(cur, dict):
+            return None
+        cur = cur.get(key)
+    return cur
+
+
+def _figure_text_findings(nodes: dict[str, dict]) -> list[str]:
+    """扫会变成图上文字的字段:形状(列表被焊成句)与长度。"""
+    findings = []
+    for node, path, where in FIGURE_TEXT_FIELDS:
+        text = _dig(nodes.get(node) or {}, path)
+        if not isinstance(text, str) or not text.strip():
+            continue
+        shape = _list_shape(text)
+        if shape:
+            findings.append(
+                f"{where}命中「{shape}」(≥{SHAPE_MIN_HITS} 处)—— 图上文字不该是一张没写成表的表,"
+                f"算式与逐条内容下沉到注:{text[:42]}…"
+            )
+        elif len(text) > FIGURE_TEXT_MAX:
+            findings.append(
+                f"{where} {len(text)} 字(>{FIGURE_TEXT_MAX})—— 图例/图注只放身份与数值,"
+                f"理由和算式回正文的注:{text[:42]}…"
+            )
+    # ④左尾的 scenario 会被截成阶梯标签, magnitude 会进正文清单 —— 两者都怕焊成串。
+    # 这里**不套用正文那条并列项判据**:正文要求「顿号 ≥3 且数字 ≥4」是为了压中文散文的误报,
+    # 而图标签本来就该只说一件事 —— 四个顿号本身就是「该拆成四条左尾」的信号, 与有没有数字无关。
+    for i, tail in enumerate((nodes.get("path") or {}).get("left_tail") or [], 1):
+        for key, where in (("scenario", "④阶梯标签"), ("magnitude", "④左尾量级")):
+            text = tail.get(key)
+            if not isinstance(text, str) or not text.strip():
+                continue
+            head = _LADDER_HEAD_SPLIT.split(text, 1)[0]     # 标签只取「→」之前, 与出片同源
+            if len(_PARALLEL.findall(head)) >= SHAPE_MIN_HITS:
+                findings.append(
+                    f"{where}第 {i} 条并列了 {len(_PARALLEL.findall(head)) + 1} 项 —— "
+                    f"一条左尾只说一件事, 并列项拆成多条:{head[:42]}…"
+                )
+            elif (shape := _list_shape(text)):
+                findings.append(
+                    f"{where}第 {i} 条命中「{shape}」(≥{SHAPE_MIN_HITS} 处)—— "
+                    f"一条左尾说一件事, 逐条内容拆成多条或下沉正文:{text[:42]}…"
+                )
+    return findings
+
+
+def rule_prose_density(bodies: dict[str, str], nodes: dict[str, dict] | None = None) -> RuleResult:
     """列表形状的内容被焊成散文 → 该改成表。warn, 不阻断出片。
 
     另加一条**正向**断言防矫枉过正: 每章至少要有一段像样的纯判断散文,
@@ -399,9 +465,10 @@ def rule_prose_density(bodies: dict[str, str]) -> RuleResult:
                 f"{LABELS[node]} 没有一段「≥80 字且数字 ≤2」的纯判断散文 —— "
                 "数字归表之后, 观点也要有地方说, 别把章写成一摞表"
             )
+    findings += _figure_text_findings(nodes or {})
     return RuleResult(
         name="R11 散文密度", severity=WARN, passed=not findings,
-        detail=f"{len(findings)} 处可疑段落(定位器, 不是判官 —— 该不该改成表由 reviewer 判)",
+        detail=f"{len(findings)} 处可疑段落(含图上文字;定位器, 不是判官 —— 该不该改成表由 reviewer 判)",
         findings=findings,
     )
 
@@ -864,7 +931,7 @@ def lint_run(run_dir, md_path=None, artifacts_dir=None, audit_json=None) -> Lint
         rule_report_sync(Path(md_path) if md_path else find_report_md(run_dir), bodies),
         rule_falsification_source(nodes),
         rule_budget(bodies),
-        rule_prose_density(bodies),
+        rule_prose_density(bodies, nodes),
         closure_warn,
         anchor_warn,
         deriv_warn,

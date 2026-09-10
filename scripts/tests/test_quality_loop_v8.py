@@ -565,6 +565,47 @@ class TestProseDensity(_Run):
         self.assertFalse(r.passed)
         self.assertTrue(any("期间对比" in f for f in r.findings), r.findings)
 
+    def test_figure_legend_wall_warns(self):
+        """图上文字也归 R11 —— 图是出片时从 YAML 渲的, lint 跑在出片之前只能扫源字段。
+
+        票 10 交付评审实测:全报告最厚的两堵墙在③占比尺图例(170 字)与④阶梯图脚里,
+        而 R11 当时只扫五章正文, **一处都没报**。
+        """
+        from scripts import lint_v8
+        wall = {"odds": {"derivation": {"p_f_n": {"fact_basis": "F 口径 = " + "算式细节" * 30}}}}
+        found = lint_v8._figure_text_findings(wall)
+        self.assertTrue(any("③占比尺图例" in f and "字(>" in f for f in found), found)
+
+    def test_figure_legend_short_is_not_flagged(self):
+        """修好之后的短图例不该再报 —— 这条守着「别把定位器变成噪音」。"""
+        from scripts import lint_v8
+        ok = {"odds": {"derivation": {"p_f_n": {"fact_basis": "F = 已兑现利润按可比倍数"}}}}
+        self.assertEqual(lint_v8._figure_text_findings(ok), [])
+
+    def test_ladder_label_with_parallel_items_warns(self):
+        """一条左尾并列四件事 = 该拆成四条。
+
+        **不套用正文那条并列项判据**:正文要求「顿号 ≥3 且数字 ≥4」是为压中文散文的误报,
+        而图标签本来就只该说一件事 —— 四个顿号本身就是信号, 与有没有数字无关
+        (这条 scenario 一个数字都没有, 用正文判据会漏掉)。
+        """
+        from scripts import lint_v8
+        tails = {"path": {"left_tail": [{
+            "scenario": "存货减值、应收坏账、在建工程减值、商誉减值四项同时兑现 → 净资产缩水",
+            "depth_pct": None, "magnitude": "合计约 H1 归母的 35%",
+        }]}}
+        found = lint_v8._figure_text_findings(tails)
+        self.assertTrue(any("④阶梯标签" in f and "并列了 4 项" in f for f in found), found)
+
+    def test_real_left_tail_is_not_flagged(self):
+        """真实左尾(一件事 + 一个括注)不该报 —— 用中际旭创出片过的那条做反例。"""
+        from scripts import lint_v8
+        tails = {"path": {"left_tail": [{
+            "scenario": "单一客户 A 流失或转单(FY2025 占营收 24.06%) → 光模块分部利润按同比例缩减",
+            "depth_pct": -55.8,
+        }]}}
+        self.assertEqual(lint_v8._figure_text_findings(tails), [])
+
     def test_parallel_items_warns(self):
         """顿号串起来的并列项(逐分部 / 逐科目)。"""
         # 四个分部各带一个倍数 = 4 个数字, 越过「并列项还要 ≥4 个数字」的门槛
