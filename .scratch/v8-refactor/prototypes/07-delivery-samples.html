@@ -1,0 +1,651 @@
+<!-- PROTOTYPE / throwaway 样张 — ticket 07 交付形态。数据 = 东山精密 2026-06-22 真实报告,
+     结构 = ticket 06 定稿(首页一眼结论 → ①质地②状态③赔率④路径⑤怎么办 → 附录A-E),
+     内容 = research/02(判断链推演)+ research/05(面板/红标)。
+     三个变体经 ?variant=A|B|C 切换,底部浮动条 / ←→ 键循环。不进正式代码。 -->
+<title>东山精密 · v8.0 交付形态样张</title>
+<style>
+  :root{
+    color-scheme: light;
+    --page:#f7f7f4; --surface:#fcfcfb; --surface2:#f1f0eb;
+    --ink:#131311; --ink2:#52514e; --muted:#898781;
+    --hair:#e3e2da; --ring:rgba(11,11,11,.10);
+    --crit:#d03b3b; --seri:#ec835a; --warn:#fab219; --good:#006300;
+    --wash-r:rgba(208,59,59,.10); --wash-o:rgba(236,131,90,.16); --wash-y:rgba(250,178,25,.18); --wash-g:rgba(12,163,12,.12);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:where(:not([data-theme="light"])){
+      color-scheme: dark;
+      --page:#111110; --surface:#1a1a19; --surface2:#222220;
+      --ink:#f2f1ec; --ink2:#c3c2b7; --muted:#898781;
+      --hair:#2c2c2a; --ring:rgba(255,255,255,.10);
+      --crit:#e66767; --seri:#ec835a; --warn:#fab219; --good:#0ca30c;
+      --wash-r:rgba(230,103,103,.16); --wash-o:rgba(236,131,90,.20); --wash-y:rgba(250,178,25,.20); --wash-g:rgba(12,163,12,.16);
+    }
+  }
+  :root[data-theme="dark"]{
+    color-scheme: dark;
+    --page:#111110; --surface:#1a1a19; --surface2:#222220;
+    --ink:#f2f1ec; --ink2:#c3c2b7; --muted:#898781;
+    --hair:#2c2c2a; --ring:rgba(255,255,255,.10);
+    --crit:#e66767; --seri:#ec835a; --warn:#fab219; --good:#0ca30c;
+    --wash-r:rgba(230,103,103,.16); --wash-o:rgba(236,131,90,.20); --wash-y:rgba(250,178,25,.20); --wash-g:rgba(12,163,12,.16);
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--page); color:var(--ink);
+    font:15px/1.75 "Segoe UI","Microsoft YaHei","PingFang SC","Noto Sans CJK SC",sans-serif;
+  }
+  a{color:inherit}
+  #banner{
+    background:var(--surface2); border-bottom:1px solid var(--hair);
+    padding:6px 20px; font-size:12px; color:var(--ink2); text-align:center; letter-spacing:.02em;
+  }
+  #banner b{color:var(--ink)}
+  main{min-height:60vh; padding-bottom:110px}
+  table{border-collapse:collapse; width:100%; font-variant-numeric:tabular-nums}
+  th,td{text-align:left; vertical-align:top; padding:8px 10px; border-bottom:1px solid var(--hair)}
+  th{font-size:12px; color:var(--muted); font-weight:600; letter-spacing:.06em}
+  .num{font-variant-numeric:tabular-nums}
+  .tblwrap{overflow-x:auto}
+  /* —— 机器/人工 语义标签(全变体共用) —— */
+  .chip{
+    display:inline-block; font:600 10.5px/1 Consolas,"Cascadia Mono",monospace;
+    letter-spacing:.08em; color:var(--muted); border:1px solid var(--hair);
+    border-radius:3px; padding:3px 6px; vertical-align:2px; white-space:nowrap;
+  }
+  .chip.man{border-style:dashed}
+  /* —— 红标(纯展示层:映射自附录D 红旗清单;icon+文字+底纹,不裸靠色) —— */
+  .fw{border-radius:3px; padding:1px 5px; white-space:nowrap}
+  .fw.o{background:var(--wash-o); box-shadow:inset 3px 0 0 var(--seri)}
+  .fw.y{background:var(--wash-y); box-shadow:inset 3px 0 0 var(--warn)}
+  .fw.r{background:var(--wash-r); box-shadow:inset 3px 0 0 var(--crit)}
+  .flaglab{font-size:11px; color:var(--ink2); white-space:nowrap}
+  /* —— verdict 语气 —— */
+  .pill{display:inline-block; border-radius:4px; padding:2px 9px; font-weight:700; white-space:nowrap}
+  .pill.bad{background:var(--wash-r); box-shadow:inset 0 -2px 0 var(--crit)}
+  .pill.mixed{background:var(--wash-y); box-shadow:inset 0 -2px 0 var(--warn)}
+  .pill.action{background:var(--wash-a); box-shadow:inset 0 -2px 0 var(--accent)}
+  .pill.good{background:var(--wash-g); box-shadow:inset 0 -2px 0 var(--good)}
+  /* —— 锚区间条(③赔率) —— */
+  .anchor{margin:14px 0 6px}
+  .anchor .track{position:relative; height:34px; border-bottom:1px solid var(--hair)}
+  .anchor .band{position:absolute; bottom:0; top:12px; background:var(--wash-a); border-left:2px solid var(--accent); border-right:2px solid var(--accent)}
+  .anchor .now{position:absolute; bottom:-5px; width:10px; height:10px; margin-left:-5px; border-radius:50%; background:var(--crit); box-shadow:0 0 0 2px var(--surface)}
+  .anchor .lab{position:absolute; top:-6px; font-size:11.5px; color:var(--ink2); white-space:nowrap}
+  .anchor .lab b{color:var(--ink)}
+  .anchor .lab.rt{transform:translateX(-100%); padding-right:8px}
+  .anchor .scale{display:flex; justify-content:space-between; font-size:10.5px; color:var(--muted); margin-top:4px}
+
+  /* ================= Variant A 档案 ================= */
+  .vA{--accent:#274b8f; --wash-a:rgba(39,75,143,.10); max-width:780px; margin:0 auto; padding:36px 24px}
+  :root[data-theme="dark"] .vA{--accent:#8fb0e8; --wash-a:rgba(143,176,232,.14)}
+  @media (prefers-color-scheme: dark){ :root:where(:not([data-theme="light"])) .vA{--accent:#8fb0e8; --wash-a:rgba(143,176,232,.14)} }
+  .vA .serif, .vA h1, .vA h2{font-family:Georgia,"Times New Roman","Source Han Serif SC","Noto Serif CJK SC","Songti SC",SimSun,serif}
+  .vA h1{font-size:30px; line-height:1.3; margin:0; text-wrap:balance}
+  .vA .mast{border-bottom:3px double var(--ink); padding-bottom:14px; margin-bottom:6px}
+  .vA .mast .meta{display:flex; flex-wrap:wrap; gap:4px 18px; font-size:12.5px; color:var(--ink2); margin-top:8px}
+  .vA h2{font-size:20px; margin:44px 0 4px; padding-top:14px; border-top:1px solid var(--ink)}
+  .vA h2 .q{font-size:13px; color:var(--muted); font-family:inherit; font-weight:400; margin-left:10px}
+  .vA .lead{font-size:16px; margin:10px 0}
+  .vA .lead b{border-bottom:2px solid var(--accent)}
+  .vA .panelverdict{margin:8px 0 0; font-size:15px}
+  .vA ol.top3{margin:8px 0; padding-left:0; list-style:none; counter-reset:t3}
+  .vA ol.top3 li{counter-increment:t3; padding:7px 0 7px 34px; position:relative; border-bottom:1px solid var(--hair)}
+  .vA ol.top3 li::before{content:counter(t3); position:absolute; left:4px; top:9px; font:700 13px/22px Georgia,serif; width:22px; height:22px; text-align:center; border:1px solid var(--ink); border-radius:50%}
+  .vA .intro{background:var(--surface); border:1px solid var(--hair); border-left:3px solid var(--accent); padding:14px 18px; margin:12px 0}
+  .vA .intro p{margin:6px 0}
+  .vA .kv{color:var(--ink2); font-size:13.5px}
+  .vA ul{padding-left:20px; margin:8px 0}
+  .vA ul li{margin:5px 0}
+  .vA .appx dt{font-weight:700; margin-top:10px}
+  .vA .appx dd{margin:0 0 4px; color:var(--ink2); font-size:13.5px}
+
+  /* ================= Variant B 仪表盘 ================= */
+  .vB{--accent:#2a78d6; --wash-a:rgba(42,120,214,.10); max-width:1120px; margin:0 auto; padding:28px 24px}
+  :root[data-theme="dark"] .vB{--accent:#3987e5; --wash-a:rgba(57,135,229,.16)}
+  @media (prefers-color-scheme: dark){ :root:where(:not([data-theme="light"])) .vB{--accent:#3987e5; --wash-a:rgba(57,135,229,.16)} }
+  .vB .head{display:flex; flex-wrap:wrap; align-items:baseline; gap:10px 16px; margin-bottom:6px}
+  .vB .head h1{font-size:24px; margin:0}
+  .vB .head .code{color:var(--muted)}
+  .vB .quote{display:flex; flex-wrap:wrap; gap:10px; margin:10px 0 22px}
+  .vB .qt{background:var(--surface); border:1px solid var(--hair); border-radius:6px; padding:8px 14px; min-width:120px}
+  .vB .qt .l{font-size:11px; color:var(--muted); letter-spacing:.05em}
+  .vB .qt .v{font-size:19px; font-weight:650}
+  .vB .qt .v small{font-size:12px; font-weight:400; color:var(--ink2)}
+  .vB .secl{font-size:12px; color:var(--muted); letter-spacing:.1em; margin:26px 0 8px; display:flex; align-items:center; gap:8px}
+  .vB .secl::after{content:""; flex:1; border-top:1px solid var(--hair)}
+  .vB .cards5{display:grid; grid-template-columns:repeat(5,1fr); gap:10px}
+  .vB .dc{background:var(--surface); border:1px solid var(--hair); border-radius:6px; padding:12px 14px; position:relative; overflow:hidden}
+  .vB .dc::before{content:""; position:absolute; inset:0 auto 0 0; width:4px; background:var(--tone)}
+  .vB .dc .q{font-size:11.5px; color:var(--muted); letter-spacing:.04em}
+  .vB .dc .a{font-size:17px; font-weight:750; line-height:1.35; margin:4px 0 6px}
+  .vB .dc .w{font-size:12.5px; color:var(--ink2); line-height:1.6}
+  .vB .dc .s{margin-top:8px}
+  .vB .tiles{display:grid; grid-template-columns:repeat(3,1fr); gap:10px}
+  .vB .st{background:var(--surface); border:1px solid var(--hair); border-radius:6px; padding:12px 14px; position:relative}
+  .vB .st .l{font-size:12px; color:var(--muted)}
+  .vB .st .v{font-size:22px; font-weight:650; margin:2px 0}
+  .vB .st .n{font-size:12px; color:var(--ink2); line-height:1.55}
+  .vB .st .fb{position:absolute; top:10px; right:12px; font-size:11px}
+  .vB .st.f-o{box-shadow:inset 0 3px 0 var(--seri)}
+  .vB .st.f-y{box-shadow:inset 0 3px 0 var(--warn)}
+  .vB .pv{grid-column:1/-1; background:var(--surface); border:1px solid var(--hair); border-radius:6px; padding:10px 16px; display:flex; flex-wrap:wrap; gap:6px 14px; align-items:center}
+  .vB .risks{display:grid; grid-template-columns:repeat(3,1fr); gap:10px}
+  .vB .rk{background:var(--surface); border:1px solid var(--hair); border-radius:6px; padding:12px 14px}
+  .vB .rk.o{box-shadow:inset 4px 0 0 var(--seri)}
+  .vB .rk.y{box-shadow:inset 4px 0 0 var(--warn)}
+  .vB .rk .t{font-weight:750}
+  .vB .rk .d{font-size:12.5px; color:var(--ink2); margin-top:4px}
+  .vB .rk .h{font-size:11px; color:var(--muted); margin-top:6px}
+  .vB .introB{background:var(--surface); border:1px solid var(--hair); border-radius:6px; padding:12px 18px; margin-top:10px}
+  .vB .introB p{margin:5px 0; font-size:14px}
+  .vB .chB{background:var(--surface); border:1px solid var(--hair); border-radius:6px; margin:12px 0; overflow:hidden}
+  .vB .chB > .hd{display:flex; flex-wrap:wrap; align-items:center; gap:12px; padding:12px 16px; border-bottom:1px solid var(--hair); background:var(--surface2)}
+  .vB .chB > .hd .no{font-weight:800; font-size:16px}
+  .vB .chB > .hd .qq{color:var(--muted); font-size:13px}
+  .vB .chB > .bd{padding:12px 16px}
+  .vB .appxrow{display:grid; grid-template-columns:repeat(5,1fr); gap:10px}
+  .vB .ap{background:var(--surface); border:1px dashed var(--hair); border-radius:6px; padding:10px 12px; font-size:12.5px; color:var(--ink2)}
+  .vB .ap b{display:block; color:var(--ink); font-size:13px}
+  @media (max-width:980px){ .vB .cards5{grid-template-columns:repeat(2,1fr)} .vB .tiles,.vB .risks{grid-template-columns:1fr 1fr} .vB .appxrow{grid-template-columns:repeat(2,1fr)} }
+  @media (max-width:560px){ .vB .cards5,.vB .tiles,.vB .risks,.vB .appxrow{grid-template-columns:1fr} }
+
+  /* ---- Variant B2 仪表盘 · 减压(继承 vB,叠加覆盖) ---- */
+  .vB2{max-width:980px}
+  .vB2 .secl{margin:38px 0 12px}
+  .vB2 .cards5,.vB2 .tiles{gap:14px}
+  .vB2 .dc{overflow:visible; padding:14px 16px}
+  .vB2 .dc::before{border-radius:6px 0 0 6px}
+  .vB2 .dc .a{font-size:18px; margin:6px 0 0}
+  .vB2 .dc .w,.vB2 .st .n{display:none}
+  .vB2 .dc .s{display:none}
+  .vB2 .pop{position:absolute; left:0; right:0; top:calc(100% + 6px); background:var(--surface); border:1px solid var(--hair); border-radius:6px; padding:9px 12px; font-size:12.5px; font-weight:400; color:var(--ink2); line-height:1.6; opacity:0; pointer-events:none; transition:opacity .15s; box-shadow:0 8px 22px rgba(0,0,0,.14); z-index:3; white-space:normal}
+  .vB2 .dc:hover .pop,.vB2 .dc:focus-visible .pop,.vB2 .st:hover .pop,.vB2 .st:focus-within .pop,.vB2 .r3:hover .pop,.vB2 .r3:focus-visible .pop{opacity:1}
+  .vB2 .st{overflow:visible}
+  .vB2 .st .v{font-size:24px}
+  .vB2 .hintline{font-size:11.5px; color:var(--muted); margin-top:8px}
+  .vB2 .risklist{display:flex; flex-direction:column; gap:8px}
+  .vB2 .r3{background:var(--surface); border:1px solid var(--hair); border-radius:6px; padding:9px 14px; display:flex; gap:10px; align-items:baseline; position:relative; text-decoration:none; color:inherit}
+  .vB2 .r3.o{box-shadow:inset 4px 0 0 var(--seri)}
+  .vB2 .r3.y{box-shadow:inset 4px 0 0 var(--warn)}
+  .vB2 .r3 .t{font-weight:750}
+  .vB2 .r3 .h{margin-left:auto; font-size:12px; color:var(--muted); white-space:nowrap}
+  .vB2 details.chB summary{cursor:pointer; list-style:none}
+  .vB2 details.chB summary::-webkit-details-marker{display:none}
+  .vB2 details.chB summary .car{margin-left:auto; color:var(--muted); transition:transform .15s}
+  .vB2 details.chB[open] summary .car{transform:rotate(90deg)}
+  @media (prefers-reduced-motion: reduce){ *{transition:none !important} }
+
+  /* ================= Variant C 判断链 ================= */
+  .vC{--accent:#0e7a6d; --wash-a:rgba(14,122,109,.10); max-width:1080px; margin:0 auto; padding:28px 24px; display:grid; grid-template-columns:216px 1fr; gap:28px; align-items:start}
+  :root[data-theme="dark"] .vC{--accent:#35b3a2; --wash-a:rgba(53,179,162,.14)}
+  @media (prefers-color-scheme: dark){ :root:where(:not([data-theme="light"])) .vC{--accent:#35b3a2; --wash-a:rgba(53,179,162,.14)} }
+  .vC nav{position:sticky; top:16px; font-size:13px}
+  .vC nav .nt{font:600 11px/1 Consolas,monospace; letter-spacing:.1em; color:var(--muted); margin-bottom:8px}
+  .vC nav a{display:block; text-decoration:none; padding:6px 10px; border-left:2px solid var(--hair); color:var(--ink2)}
+  .vC nav a b{color:var(--ink); display:block}
+  .vC nav a small{font-size:11.5px; color:var(--muted)}
+  .vC nav a:hover{border-left-color:var(--accent); background:var(--wash-a)}
+  .vC .spine{border-left:2px solid var(--accent); padding-left:26px; display:flex; flex-direction:column; gap:22px}
+  .vC .node{background:var(--surface); border:1px solid var(--hair); border-radius:6px; padding:16px 20px; position:relative}
+  .vC .node::before{content:attr(data-dot); position:absolute; left:-41px; top:16px; width:28px; height:28px; border-radius:50%; background:var(--page); border:2px solid var(--accent); color:var(--accent); font:700 13px/24px "Segoe UI",sans-serif; text-align:center}
+  .vC .node h2{font-size:17px; margin:0 0 2px; display:flex; flex-wrap:wrap; align-items:center; gap:10px}
+  .vC .node .qq{font-size:12.5px; color:var(--muted)}
+  .vC .node .vd{font-size:18px; font-weight:800; margin:8px 0}
+  .vC .summ .cardrows{display:flex; flex-direction:column; gap:6px; margin:10px 0}
+  .vC .summ .cr{display:grid; grid-template-columns:132px 172px 1fr; gap:12px; align-items:baseline; padding:7px 10px; background:var(--surface2); border-radius:4px; text-decoration:none}
+  .vC .summ .cr:hover{outline:1px solid var(--accent)}
+  .vC .summ .cr .q{font-size:12.5px; color:var(--muted)}
+  .vC .summ .cr .a{font-weight:750; font-size:14px}
+  .vC .summ .cr .w{font-size:12.5px; color:var(--ink2)}
+  .vC .flagchips{display:flex; flex-wrap:wrap; gap:8px; margin:8px 0}
+  .vC ul{padding-left:18px; margin:8px 0}
+  .vC ul li{margin:5px 0; font-size:14px}
+  .vC .appxC{display:flex; flex-direction:column; gap:6px}
+  .vC .appxC .ap{border:1px dashed var(--hair); border-radius:4px; padding:8px 12px; font-size:13px; color:var(--ink2)}
+  @media (max-width:900px){ .vC{grid-template-columns:1fr} .vC nav{position:static; display:flex; flex-wrap:wrap; gap:4px} .vC nav .nt{width:100%} .vC nav a{border-left:none; border-bottom:2px solid var(--hair); padding:4px 8px} .vC nav a small{display:none} .vC .summ .cr{grid-template-columns:1fr; gap:2px} }
+
+  /* ================= 浮动切换条 ================= */
+  #switcher{
+    position:fixed; left:50%; bottom:18px; transform:translateX(-50%);
+    display:flex; align-items:center; gap:2px; z-index:99;
+    background:#131311; color:#fcfcfb; border-radius:999px; padding:6px 8px;
+    box-shadow:0 6px 24px rgba(0,0,0,.35); font-size:13px; user-select:none;
+  }
+  :root[data-theme="dark"] #switcher{background:#fcfcfb; color:#131311}
+  @media (prefers-color-scheme: dark){ :root:where(:not([data-theme="light"])) #switcher{background:#fcfcfb; color:#131311} }
+  #switcher button{
+    all:unset; cursor:pointer; width:30px; height:30px; border-radius:50%;
+    text-align:center; font-size:15px; line-height:30px;
+  }
+  #switcher button:hover{background:rgba(128,128,128,.25)}
+  #switcher button:focus-visible{outline:2px solid var(--accent,#2a78d6)}
+  #switcher .lab{padding:0 10px; white-space:nowrap; font-weight:600}
+  #switcher .lab small{opacity:.6; font-weight:400; margin-left:6px}
+  @media print{ #switcher,#banner{display:none} }
+</style>
+
+<div id="banner"><b>v8.0 交付形态样张(throwaway)</b> · 数据 = 东山精密 2026-06-22 真实报告 · 结构 = ticket 06 定稿 · 底部按钮或 ← → 键切换版式</div>
+<main id="root"></main>
+<div id="switcher">
+  <button id="prev" aria-label="上一版式">←</button>
+  <span class="lab" id="swlab"></span>
+  <button id="next" aria-label="下一版式">→</button>
+</div>
+
+<script>
+/* ---------- 数据(全变体共享;来源 research/02 + 05 + 06) ---------- */
+const D = {
+  meta:{name:'东山精密', code:'002384.SZ', date:'2026-06-22', price:'273.00', priceDate:'06-18 收盘', mcap:'4,955 亿', pe:'242.9', pb:'21.89', sector:'PCB · 触控显示 · AI 光模块(索尔思)'},
+  card:[
+    {q:'① 是不是好公司', a:'部分好', tone:'mixed', why:'真卡位+平庸财务——光芯片是真壁垒,但盈利质量同行垫底、扩张靠借钱', src:'质地', href:'#ch1'},
+    {q:'② 在变好吗', a:'↑ 变好但未确认', tone:'mixed', why:'引擎光模块毛利 36.74% 全集团最高,但只占营收 3.58%,大客户放量仍是传闻', src:'状态', href:'#ch2'},
+    {q:'③ 贵不贵', a:'买完完美未来', tone:'bad', why:'锚区间 57–89 元 vs 现价 273 元,区间两端同向:极贵', src:'赔率', href:'#ch3'},
+    {q:'④ 扛得住吗', a:'高尾险 · 扛不住', tone:'bad', why:'高信仰体检 5/5;商誉 47.69 亿悬顶 + 散户拥挤杠杆,下跌是波动放大器', src:'路径', href:'#ch4'},
+    {q:'⑤ 怎么办', a:'先观察 · 等证据临界', tone:'action', why:'现价 0 仓位;想赌右尾最多 2–3% 期权小仓。等 2026 中报 + 谷歌验证', src:'决策', href:'#ch5'}
+  ],
+  panel:{
+    reason:'制造业并购扩张期,矛盾焦点在现金与回报质量 → 选默认五件套',
+    verdict:'赚得薄(✗)· 赚得不真(✗)',
+    verdictSrc:'← 引用质地子判定①②,面板不自产结论',
+    rows:[
+      {k:'毛利率 / 净利率', v:'14.09% / 3.47%', n:'PCB 红海常年 13–18%,定价权弱', f:null},
+      {k:'扣非占比', v:'扣非 +166.99%', n:'非经常仅 5,061 万,利润是经营性实锤', f:null},
+      {k:'现金含量 OCF÷净利', v:'为负', n:'营收 +52.7% 而 OCF −17.5%,利润与现金背离', f:'o', fl:'现金含量红旗'},
+      {k:'自由现金流 FCF', v:'−24.01 亿', n:'扩张全靠融资', f:'o', fl:'随现金流红旗'},
+      {k:'ROE · peer 分位', v:'1.58% · 0%', n:'杜邦:改善靠杠杆 2.44→2.81,非经营效率', f:null, nm:'难看但无红旗命中 → 不标色'},
+      {k:'存货 vs 营收', v:'+45.1% vs +9.1%', n:'增速差 36pp,积压', f:'y', fl:'存货红旗'}
+    ]
+  },
+  top3:[
+    {lv:'o', ic:'🟠', t:'估值透支', d:'PB 22.09 近 1 年 100% 分位;PB/ROE 错配 25.7 倍(🟠×2)', home:'③赔率', href:'#ch3'},
+    {lv:'o', ic:'🟠', t:'商誉 47.69 亿减值', d:'单季 +26.5 亿并购形成,对赌未披露(脚本规则+写手提名合并);减值后清算净值约 −2~8 亿', home:'④路径', href:'#ch4'},
+    {lv:'y', ic:'🟡', t:'散户暴增 + 杠杆拥挤', d:'8.17 万→30.60 万户(2 个月 2.8 倍),两融高于 60 日中位 33.4%,回调易踩踏', home:'④路径', href:'#ch4'}
+  ],
+  intro:[
+    '这是一家「优质卡位 + 平庸财务」的混合体:光芯片是真壁垒,但赚钱质量在同行里垫底,扩张靠借钱。',
+    '让它变好的引擎(索尔思光模块)目前只占营收 3.58%,大客户放量还是传闻——注意力先行,业绩没跟上。',
+    '现价 273 元是合理区间 57–89 元的 3–4.8 倍,等于把「完美未来」提前买光,没有任何安全垫。',
+    '一旦故事证伪,商誉 47.69 亿悬顶 + 散户高位拥挤会把回撤放大到扛不住的程度。',
+    '所以:现价不买、把等待当选择权;真想博右尾最多 2–3% 期权小仓,盯 2026 中报(约 8 月)和谷歌验证结果。'
+  ]
+};
+const CH1 = {rows:[
+  {q:'生意模式赚钱吗', v:'✗', e:'集团毛利率 14.09%、净利率 3.47%;PCB 红海长期把毛利压在 13–18%,定价权弱', s:'维度2证据'},
+  {q:'赚钱质量真吗', v:'✗', e:'ROE 1.58%/净利率 peer 分位双 0% 垫底;营收 +52.7% 而 OCF −17.5%、FCF −24.01 亿;杜邦:ROE 改善靠杠杆 2.44→2.81', s:'维度3 + audit'},
+  {q:'护城河存在吗', v:'⚠️', e:'200G EML 光芯片 IDM「窄而深」是唯一硬壁垒,但光模块仅占营收 3.58%、未被订单坐实;PCB 主业无壁垒', s:'护城河框架'},
+  {q:'管理层可信吗', v:'⚠️', e:'4 期业绩预告全部落入区间(可信);战略主动(并购索尔思+GMD、拟发H股);但袁永刚质押占其持股 34.6%、袁永峰 23.0%', s:'管理层框架'},
+  {q:'财务底子稳吗', v:'⚠️', e:'负债率 63.69% 为 18 期最高、财务费用单季 +3479%;Altman Z=8.767(安全)、Beneish M=−2.519(无造假);<span class="fw y">🟡 存货 +45.1% vs 营收 +9.1%(差 36pp)</span> 红旗归家于此', s:'维度7 + audit'}
+], one:'老本行是赚辛苦钱的红海龙头,新并的光芯片是真卡位;但赚钱质量同行垫底、扩张靠借钱——「优质卡位 + 平庸财务」,部分好、不是好。'};
+const CH2 = [
+  '<b>λ 引擎</b>:索尔思光模块——毛利率 36.74% 全集团最高;2026Q1 归母 +143.47%、扣非 +166.99%(非经常仅 5,061 万,经营性实锤)。',
+  '<b>分部稀释</b>:高 λ 分部只占 FY2025 营收 3.58%(且仅 Q4 并表一季),96% 仍是老本行——典型「小分部带大故事」。',
+  '<b>实锤/传闻分级</b>:利润翻倍=实锤;光模块毛利=实锤;NVIDIA/Meta/Google 订单排至 2028=<b>传闻</b>(券商转述,无官方背书);持续性=存疑(FY2025Q4 扣非转亏)。',
+  '<b>身份切换</b>:PCB 制造商 →「东方 Lumentum」,市场已按新身份定价(一年约 5 倍),业务本体未跟上。',
+  '<b>临界点(=该等什么,全链唯一产出处)</b>:2026 中报(约 8 月,光模块首个完整 H1)+ 谷歌 200G EML 验证(2026Q2 末)。',
+  '<b>无记忆性检查</b>:「涨 5 倍动量强」不是理由——已拦截。'
+];
+const CH3 = {
+  pfn:'<b>P=F+N</b>:F≈1,000 亿(成熟主业年化归母约 50 亿 × 20x),N≈4,000 亿 = 市值的 <b>80%</b>——为一块占营收 3.58% 的业务多付 4,000 亿;242.9x PE 下放量是必须交付的任务(obligation 非 option);N′/N ≫ F′/F。',
+  rdcf:'<b>反向 DCF</b>:现价隐含 净利 +50%/年 × 5 年(历史:−17%/−45%/+28%)+ 光模块占比 3.58%→30%+ + 净利率 3.73%→8–10% + 退出仍 30x——过度乐观,逐条配证伪(任一年净利增速 <30%、H1 光模块 <40 亿、净利率回落 <5%)。',
+  anchor:{lo:57, hi:89, now:273, max:300, loLab:'57 · SOTP 1,050 亿', hiLab:'89 · DCF 1,632 亿', nowLab:'现价 273'},
+  anchorNote:'区间两端同向(现价 = 高端 3.06× / 低端 4.79×)→ 判定成立:极贵。分歧是信息:SOTP 只认已并表利润,DCF 容 15% CAGR 温和放量——两把尺子量的东西不同。',
+  dp:'<b>ΔP 一句话</b>:撑起 5 倍上涨的是散户拥挤 + 两融杠杆 + 题材压缩,不是权威背书 + 真放量——结构不健康,赔率更脆(底稿见附录C)。',
+  flags:[
+    {c:'o', t:'🟠 PB 22.09 · 近 1 年 100% 分位'},
+    {c:'o', t:'🟠 PB/ROE 错配 25.7 倍'},
+    {c:'y', t:'🟡 PS 100% 分位'},
+    {c:'y', t:'🟡 股息率 0.02%'}
+  ],
+  flagNote:'估值红旗只在本节点出现一次(一处权威);Top3 由机器从附录D 带出,不再人工写 3 处闭环。'
+};
+const CH4 = {
+  tail:[
+    '① 商誉 47.69 亿减值(单季 +26.5 亿,<span class="fw o">🟠 对赌未披露 · 写手提名</span>);刨掉商誉清算净值约 −2~8 亿 → 最差 5 元(−98%)',
+    '② 叙事证伪 → 80% 想象溢价回吐(−86%~−98%)',
+    '③ 关键人物:袁氏父子控盘 30.05% 高质押 + 索尔思技术团队绑定',
+    '④ <span class="fw y">🟡 散户 8.17 万→30.60 万户(2 个月 2.8 倍)+ 两融高于 60 日中位 33.4%</span> + 大宗折价 −7.5% → 踩踏放大回撤至 −75%~−98%',
+    '⑤ 质押补仓压力与 ④ 共振'
+  ],
+  faith:'高信仰股体检 <b>5/5 满分</b>(估值全行业最贵 ✅ / 一年 +758% ✅ / 散户多 ✅ / 媒体+杠杆活跃 ✅ / 关键人物依赖 ✅)——下跌时是波动放大器。',
+  ret:'回报路径证据:概率加权 12–24 月收益约 −69%(年化约 −45%);乐观情景兑现仍 −44% 且中途 −50% 回撤。仓位不在此节点发声。',
+  screen:'旧 6.1 快筛已并入 audit 静默机算:0 触发 → 决策层封顶不启动。报告零篇幅,不再养「全 PASS + 免责」一节。'
+};
+const CH5 = {
+  trio:'三元组 [状态 ↑未确认 | 赔率 买完完美未来 | 路径 高尾险] → 行动档位:<b>等证据临界(观察)</b>;赛道右尾真实但本票四条右尾特征只中一条半 → 想赌最多 <b>2–3% 期权小仓</b> + 硬止损。',
+  three:[{k:'好公司?', v:'部分是', n:'← 直接引用质地节点,决策层不自判'},{k:'好下注?', v:'否', n:'三乘子两差一弱'},{k:'好价格?', v:'否', n:'现价为锚区间高端的 3 倍以上'}],
+  wait:['2026 中报(约 8 月)光模块分部数据','谷歌 200G EML 验证(2026Q2 末)','价格回调至约 160 元以内'],
+  stop:['H1 光模块营收 <40 亿或毛利率 <30%','谷歌验证未过 / 订单证伪','商誉任一减值','现金流持续恶化或营收增速连续 <25%'],
+  cap:'封顶检查:无致命红旗触发 → 不封顶(若负债率越 70% 或 🔴≥2,档位机械封死「回避」)。'
+};
+const APPX = [
+  {k:'附录A', t:'财务与经营明细', d:'18 期财务趋势全表 · 分部明细 · SOTP/DCF 计算过程'},
+  {k:'附录B', t:'行业与对标明细', d:'Porter 五力全表 · A股同行对标 · peer 分位'},
+  {k:'附录C', t:'舆情与资金底稿', d:'筹码分析 · 看多/看空声音 · 「谁在买」唯一权威'},
+  {k:'附录D', t:'红旗总清单(机器)', d:'0🔴 · 4🟠 · 4🟡 | 来源:脚本 7 + 写手提名 1 | 红标与 Top3 的装配数据源'},
+  {k:'附录E', t:'数据来源与信息缺口', d:'商誉对赌 / 核心团队薪酬 / 北向持仓 三项缺口'}
+];
+const CHAPTERS = [
+  {id:'ch1', no:'①', t:'质地', q:'是不是好公司?', vd:'部分好——真卡位 + 平庸财务', tone:'mixed'},
+  {id:'ch2', no:'②', t:'状态', q:'在变好吗?', vd:'↑ 变好但未确认——注意力先行、业绩待验证', tone:'mixed'},
+  {id:'ch3', no:'③', t:'赔率', q:'贵不贵?', vd:'买完完美未来——无 slack,区间两端同向', tone:'bad'},
+  {id:'ch4', no:'④', t:'路径', q:'扛得住吗?', vd:'高尾险 · 扛不住', tone:'bad'},
+  {id:'ch5', no:'⑤', t:'怎么办', q:'行动档位与证伪', vd:'等证据临界(观察)+ 期权小仓 ≤2–3%', tone:'action'}
+];
+
+/* ---------- 小部件 ---------- */
+const chip = (t, man) => `<span class="chip${man ? ' man' : ''}">${t}</span>`;
+const pill = (t, tone) => `<span class="pill ${tone}">${t}</span>`;
+const fwchip = (c, t) => `<span class="fw ${c}">${t}</span>`;
+const anchorStrip = a => {
+  const pct = v => (v / a.max * 100).toFixed(1) + '%';
+  return `<div class="anchor">
+    <div class="track">
+      <span class="lab" style="left:${pct(a.lo)}"><b>锚区间</b> ${a.loLab} — ${a.hiLab}</span>
+      <div class="band" style="left:${pct(a.lo)}; width:${pct(a.hi - a.lo)}"></div>
+      <span class="lab rt" style="left:${pct(a.now)}; top:auto; bottom:12px"><b style="color:var(--crit)">▼</b> ${a.nowLab}</span>
+      <div class="now" style="left:${pct(a.now)}"></div>
+    </div>
+    <div class="scale"><span>0 元</span><span>100</span><span>200</span><span>300 元</span></div>
+  </div>`;
+};
+const panelTable = () => `<div class="tblwrap"><table>
+  <tr><th>指标</th><th>数值</th><th>怎么读</th><th>红标 ${chip('映射自附录D')}</th></tr>
+  ${D.panel.rows.map(r => `<tr>
+    <td>${r.k}</td><td class="num"><b>${r.v}</b></td>
+    <td>${r.n}${r.nm ? ` <span class="flaglab">(${r.nm})</span>` : ''}</td>
+    <td>${r.f ? fwchip(r.f, (r.f === 'o' ? '🟠 ' : '🟡 ') + r.fl) : '<span class="flaglab">—</span>'}</td>
+  </tr>`).join('')}
+</table></div>`;
+const ch1Table = () => `<div class="tblwrap"><table>
+  <tr><th>子问题</th><th>判定</th><th>最硬证据(机制具名)</th></tr>
+  ${CH1.rows.map(r => `<tr><td style="white-space:nowrap">${r.q}</td><td><b>${r.v}</b></td><td>${r.e} ${chip(r.s)}</td></tr>`).join('')}
+</table></div>`;
+const ch5Block = () => `
+  <p>${CH5.trio}</p>
+  <div class="tblwrap"><table>
+    <tr>${CH5.three.map(x => `<th>${x.k}</th>`).join('')}</tr>
+    <tr>${CH5.three.map(x => `<td><b>${x.v}</b> <span class="flaglab">${x.n}</span></td>`).join('')}</tr>
+  </table></div>
+  <p><b>该等什么</b>:${CH5.wait.join(' · ')}</p>
+  <p><b>证伪 / 退出</b>:${CH5.stop.join(';')}。</p>
+  <p class="flaglab">${CH5.cap}</p>`;
+const ch4Block = () => `
+  <p><b>左尾清单</b>:</p>
+  <ul>${CH4.tail.map(x => `<li>${x}</li>`).join('')}</ul>
+  <p>${CH4.faith}</p>
+  <p>${CH4.ret}</p>
+  <p class="flaglab">${CH4.screen}</p>`;
+const ch3Block = () => `
+  <p>${CH3.pfn}</p>
+  <p>${CH3.rdcf}</p>
+  ${anchorStrip(CH3.anchor)}
+  <p class="flaglab" style="margin-top:2px">${CH3.anchorNote}</p>
+  <p>${CH3.dp}</p>
+  <p style="display:flex;flex-wrap:wrap;gap:8px;align-items:center"><b>红旗归家</b> ${CH3.flags.map(f => fwchip(f.c, f.t)).join('')}</p>
+  <p class="flaglab">${CH3.flagNote}</p>`;
+const ch2Block = () => `<ul>${CH2.map(x => `<li>${x}</li>`).join('')}</ul>`;
+const chapterBody = id => ({ch1:() => ch1Table() + `<p style="margin-top:10px"><b>一句话</b>:${CH1.one}</p>`, ch2:ch2Block, ch3:ch3Block, ch4:ch4Block, ch5:ch5Block}[id]());
+
+/* ---------- Variant A 档案 ---------- */
+function renderA(){
+  const m = D.meta;
+  return `<div class="vA">
+    <div class="mast">
+      <h1>${m.name} <span style="font-size:18px;color:var(--muted)">${m.code}</span></h1>
+      <div class="meta">
+        <span>报告日期 ${m.date}</span><span>现价 <b class="num">${m.price} 元</b>(${m.priceDate})</span>
+        <span>市值 ${m.mcap}</span><span>PE(TTM) ${m.pe}</span><span>PB ${m.pb}</span><span>${m.sector}</span>
+      </div>
+    </div>
+
+    <h2 class="serif">首页 · 一眼结论 <span class="q">${chip('机器装配')}</span></h2>
+    <div class="tblwrap"><table>
+      <tr><th style="width:120px">问题</th><th style="width:150px">判定</th><th>一句话理由</th></tr>
+      ${D.card.map(c => `<tr>
+        <td><a href="${c.href}" style="text-decoration:none"><b>${c.q}</b></a></td>
+        <td>${pill(c.a, c.tone)}</td>
+        <td>${c.why} ${chip(c.src)}</td>
+      </tr>`).join('')}
+    </table></div>
+
+    <p class="kv" style="margin:18px 0 4px"><b style="color:var(--ink)">赚不赚钱面板</b> · ${chip('写手选 3–5', true)} ${D.panel.reason}</p>
+    ${panelTable()}
+    <p class="panelverdict"><b>面板结论:${D.panel.verdict}</b> <span class="flaglab">${D.panel.verdictSrc}</span></p>
+
+    <p class="kv" style="margin:18px 0 4px"><b style="color:var(--ink)">Top 3 红旗</b> ${chip('机器带出 · 附录D')}</p>
+    <ol class="top3">
+      ${D.top3.map(r => `<li>${fwchip(r.lv, r.ic + ' ' + r.t)} ${r.d} <span class="flaglab">→ 详见 <a href="${r.href}">${r.home}</a></span></li>`).join('')}
+    </ol>
+
+    <div class="intro">
+      <p class="kv">${chip('写手导读 · 人工 3–5 句', true)}</p>
+      ${D.intro.map(s => `<p>${s}</p>`).join('')}
+    </div>
+
+    ${CHAPTERS.map(c => `
+      <h2 id="${c.id}" class="serif">${c.no} ${c.t}<span class="q">${c.q}</span></h2>
+      <p class="lead">判定:<b>${c.vd}</b></p>
+      ${chapterBody(c.id)}
+    `).join('')}
+
+    <h2 class="serif">附录 <span class="q">证据底稿 · 全表下沉,不限长</span></h2>
+    <dl class="appx">
+      ${APPX.map(a => `<dt>${a.k} · ${a.t}</dt><dd>${a.d}</dd>`).join('')}
+    </dl>
+  </div>`;
+}
+
+/* ---------- Variant B 仪表盘 ---------- */
+function renderB(){
+  const m = D.meta;
+  return `<div class="vB">
+    <div class="head">
+      <h1>${m.name}</h1><span class="code">${m.code} · ${m.sector}</span>
+      <span class="code" style="margin-left:auto">报告日期 ${m.date}</span>
+    </div>
+    <div class="quote">
+      <div class="qt"><div class="l">现价(${m.priceDate})</div><div class="v num">${m.price} <small>元</small></div></div>
+      <div class="qt"><div class="l">总市值</div><div class="v num">${m.mcap}</div></div>
+      <div class="qt"><div class="l">PE(TTM)</div><div class="v num">${m.pe}<small>×</small></div></div>
+      <div class="qt"><div class="l">PB</div><div class="v num">${m.pb}<small>×</small></div></div>
+      <div class="qt"><div class="l">锚区间(③)</div><div class="v num">57–89 <small>元</small></div></div>
+    </div>
+
+    <div class="secl">投资决断卡 ${chip('机器装配')}</div>
+    <div class="cards5">
+      ${D.card.map(c => `<a class="dc" href="${c.href}" style="--tone:${c.tone === 'bad' ? 'var(--crit)' : c.tone === 'mixed' ? 'var(--warn)' : 'var(--accent)'}; text-decoration:none">
+        <div class="q">${c.q}</div>
+        <div class="a">${c.a}</div>
+        <div class="w">${c.why}</div>
+        <div class="s">${chip(c.src)}</div>
+      </a>`).join('')}
+    </div>
+
+    <div class="secl">赚不赚钱面板 ${chip('写手选 3–5', true)} <span style="letter-spacing:0;color:var(--ink2)">${D.panel.reason}</span></div>
+    <div class="tiles">
+      ${D.panel.rows.map(r => `<div class="st${r.f ? ' f-' + r.f : ''}">
+        <div class="l">${r.k}</div>
+        <div class="v num">${r.v}</div>
+        <div class="n">${r.n}${r.nm ? `<br><span class="flaglab">${r.nm}</span>` : ''}</div>
+        ${r.f ? `<div class="fb">${fwchip(r.f, (r.f === 'o' ? '🟠 ' : '🟡 ') + r.fl)}</div>` : ''}
+      </div>`).join('')}
+      <div class="pv"><b>面板结论:${D.panel.verdict}</b><span class="flaglab">${D.panel.verdictSrc}</span></div>
+    </div>
+
+    <div class="secl">Top 3 红旗 ${chip('机器带出 · 附录D')}</div>
+    <div class="risks">
+      ${D.top3.map(r => `<div class="rk ${r.lv}">
+        <div class="t">${r.ic} ${r.t}</div>
+        <div class="d">${r.d}</div>
+        <div class="h">所属节点 → <a href="${r.href}">${r.home}</a></div>
+      </div>`).join('')}
+    </div>
+
+    <div class="introB">
+      <div class="secl" style="margin:2px 0 6px">写手导读 ${chip('人工 3–5 句', true)}</div>
+      ${D.intro.map(s => `<p>${s}</p>`).join('')}
+    </div>
+
+    <div class="secl" style="margin-top:34px">判断链正文</div>
+    ${CHAPTERS.map(c => `<div class="chB" id="${c.id}">
+      <div class="hd">
+        <span class="no">${c.no} ${c.t}</span>
+        <span class="qq">${c.q}</span>
+        ${pill(c.vd, c.tone)}
+      </div>
+      <div class="bd">${chapterBody(c.id)}</div>
+    </div>`).join('')}
+
+    <div class="secl">附录 · 证据底稿</div>
+    <div class="appxrow">
+      ${APPX.map(a => `<div class="ap"><b>${a.k} ${a.t}</b>${a.d}</div>`).join('')}
+    </div>
+  </div>`;
+}
+
+/* ---------- Variant B2 仪表盘·减压 ---------- */
+function renderB2(){
+  const m = D.meta;
+  return `<div class="vB vB2">
+    <div class="head">
+      <h1>${m.name}</h1><span class="code">${m.code} · ${m.sector}</span>
+      <span class="code" style="margin-left:auto">报告日期 ${m.date}</span>
+    </div>
+    <div class="code" style="font-size:13px; margin-top:2px">现价 <b class="num" style="color:var(--ink)">${m.price} 元</b>(${m.priceDate})· 市值 ${m.mcap} · PE(TTM) ${m.pe}× · PB ${m.pb} · 锚区间 <b class="num" style="color:var(--ink)">57–89 元</b></div>
+
+    <div class="secl">投资决断卡 ${chip('机器装配')}</div>
+    <div class="cards5">
+      ${D.card.map(c => `<a class="dc" href="${c.href}" style="--tone:${c.tone === 'bad' ? 'var(--crit)' : c.tone === 'mixed' ? 'var(--warn)' : 'var(--accent)'}; text-decoration:none">
+        <div class="q">${c.q}</div>
+        <div class="a">${c.a}</div>
+        <div class="pop">${c.why} → 详见 ${c.src} 章</div>
+      </a>`).join('')}
+    </div>
+    <div class="hintline">悬停瓦片看一句话理由 · 点击进对应章节</div>
+
+    <div class="secl">赚不赚钱面板 ${chip('写手选 3–5', true)}</div>
+    <div class="tiles">
+      ${D.panel.rows.map(r => `<div class="st${r.f ? ' f-' + r.f : ''}" tabindex="0">
+        <div class="l">${r.k}</div>
+        <div class="v num">${r.v}</div>
+        ${r.f ? `<div class="fb">${fwchip(r.f, (r.f === 'o' ? '🟠 ' : '🟡 ') + r.fl)}</div>` : ''}
+        <div class="pop">${r.n}${r.nm ? `<br><span class="flaglab">${r.nm}</span>` : ''}</div>
+      </div>`).join('')}
+      <div class="pv"><b>面板结论:${D.panel.verdict}</b><span class="flaglab">${D.panel.verdictSrc}</span></div>
+    </div>
+    <div class="hintline">${D.panel.reason} · 悬停看「怎么读」</div>
+
+    <div class="secl">Top 3 红旗 ${chip('机器带出 · 附录D')}</div>
+    <div class="risklist">
+      ${D.top3.map(r => `<a class="r3 ${r.lv}" href="${r.href}">
+        <span>${r.ic}</span><span class="t">${r.t}</span><span class="h">→ ${r.home}</span>
+        <div class="pop">${r.d}</div>
+      </a>`).join('')}
+    </div>
+
+    <div class="introB">
+      <div class="secl" style="margin:2px 0 6px">写手导读 ${chip('人工 3–5 句', true)}</div>
+      ${D.intro.map(s => `<p>${s}</p>`).join('')}
+    </div>
+
+    <div class="secl" style="margin-top:44px">判断链正文 <span style="letter-spacing:0;color:var(--muted)">默认折叠 · 点开看证据</span></div>
+    ${CHAPTERS.map(c => `<details class="chB" id="${c.id}">
+      <summary class="hd">
+        <span class="no">${c.no} ${c.t}</span>
+        <span class="qq">${c.q}</span>
+        ${pill(c.vd, c.tone)}
+        <span class="car">▸</span>
+      </summary>
+      <div class="bd">${chapterBody(c.id)}</div>
+    </details>`).join('')}
+
+    <div class="secl">附录 · 证据底稿</div>
+    <div class="appxrow">
+      ${APPX.map(a => `<div class="ap"><b>${a.k} ${a.t}</b>${a.d}</div>`).join('')}
+    </div>
+  </div>`;
+}
+
+/* ---------- Variant C 判断链 ---------- */
+function renderC(){
+  const m = D.meta;
+  return `<div class="vC">
+    <nav>
+      <div class="nt">JUDGMENT CHAIN</div>
+      <a href="#top"><b>摘要层</b><small>机器装配 · 一眼结论</small></a>
+      ${CHAPTERS.map(c => `<a href="#${c.id}"><b>${c.no} ${c.t}</b><small>${c.vd}</small></a>`).join('')}
+      <a href="#appx"><b>附录 A–E</b><small>证据底稿</small></a>
+    </nav>
+    <div class="spine" id="top">
+      <div class="node summ" data-dot="◎">
+        <h2>摘要层 <span class="qq">${m.name} ${m.code} · ${m.date} · 现价 <b class="num">${m.price} 元</b> · 市值 ${m.mcap} · PE ${m.pe}× ${chip('机器装配')}</span></h2>
+        <div class="cardrows">
+          ${D.card.map(c => `<a class="cr" href="${c.href}">
+            <span class="q">${c.q}</span><span class="a">${pill(c.a, c.tone)}</span><span class="w">${c.why}</span>
+          </a>`).join('')}
+        </div>
+        <p style="margin:12px 0 4px"><b>赚不赚钱面板</b> ${chip('写手选 3–5', true)} <span class="flaglab">${D.panel.reason}</span></p>
+        ${panelTable()}
+        <p><b>面板结论:${D.panel.verdict}</b> <span class="flaglab">${D.panel.verdictSrc}</span></p>
+        <p style="margin:12px 0 4px"><b>Top 3 红旗</b> ${chip('机器带出 · 附录D')}</p>
+        <div class="flagchips">${D.top3.map(r => fwchip(r.lv, `${r.ic} ${r.t}`)).join('')}</div>
+        <div style="border-top:1px solid var(--hair); margin-top:10px; padding-top:8px">
+          <p class="flaglab" style="margin:0 0 4px">${chip('写手导读 · 人工', true)}</p>
+          ${D.intro.map(s => `<p style="margin:4px 0; font-size:13.5px">${s}</p>`).join('')}
+        </div>
+      </div>
+      ${CHAPTERS.map(c => `<div class="node" id="${c.id}" data-dot="${c.no}">
+        <h2>${c.t} <span class="qq">${c.q}</span></h2>
+        <div class="vd">${pill(c.vd, c.tone)}</div>
+        ${chapterBody(c.id)}
+      </div>`).join('')}
+      <div class="node" id="appx" data-dot="附">
+        <h2>附录 A–E <span class="qq">证据底稿 · 全表下沉,不限长</span></h2>
+        <div class="appxC">${APPX.map(a => `<div class="ap"><b>${a.k} ${a.t}</b> — ${a.d}</div>`).join('')}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ---------- 切换器 ---------- */
+const VARIANTS = [
+  {k:'A', name:'档案 · 研报文档', render:renderA},
+  {k:'B', name:'仪表盘 · 一眼决断', render:renderB},
+  {k:'B2', name:'仪表盘 · 减压改版', render:renderB2},
+  {k:'C', name:'判断链 · 结构即导航', render:renderC}
+];
+function curKey(){
+  try{ const p = new URLSearchParams(location.search).get('variant'); if(VARIANTS.some(v => v.k === p)) return p; }catch(e){}
+  return 'A';
+}
+function setKey(k){
+  try{ const u = new URL(location.href); u.searchParams.set('variant', k); history.replaceState(null, '', u); }catch(e){}
+  render(k);
+}
+function render(k){
+  k = k || curKey();
+  const v = VARIANTS.find(x => x.k === k);
+  document.getElementById('root').innerHTML = v.render();
+  document.getElementById('swlab').innerHTML = `${v.k} — ${v.name}<small>${VARIANTS.findIndex(x => x.k === k) + 1}/${VARIANTS.length}</small>`;
+}
+function step(d){
+  const i = VARIANTS.findIndex(x => x.k === curKey());
+  setKey(VARIANTS[(i + d + VARIANTS.length) % VARIANTS.length].k);
+}
+document.getElementById('prev').addEventListener('click', () => step(-1));
+document.getElementById('next').addEventListener('click', () => step(1));
+document.addEventListener('click', e => {
+  const a = e.target.closest && e.target.closest('a[href^="#"]');
+  if(!a) return;
+  const el = document.getElementById(a.getAttribute('href').slice(1));
+  if(el && el.tagName === 'DETAILS') el.open = true;
+});
+document.addEventListener('keydown', e => {
+  const t = e.target;
+  if(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+  if(e.key === 'ArrowLeft') step(-1);
+  if(e.key === 'ArrowRight') step(1);
+});
+render();
+</script>
