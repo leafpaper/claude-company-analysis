@@ -155,13 +155,13 @@ class CompareEnv(unittest.TestCase):
             "group": SLUG,
             "verdict": f"钱先放 {PEER}: 同一条链上它的判定更硬、锚离现价更近",
             "ranking": [
-                {"rank": 1, "company": PEER, "one_liner": "质地判定「好」且档位到核心仓,现价 150 落在锚区间内",
+                {"rank": 1, "company": PEER, "one_liner": "质地判定「好」且档位到核心仓,现价 150 落在合理价区间内",
                  "basis": ["quality", "odds", "decision"]},
                 {"rank": 2, "company": ANCHOR, "one_liner": "卡位是真的,但现价 273 已把完美未来付清",
                  "basis": ["odds", "path"]},
             ],
             "common_risk": "同一条产业链,光模块需求证伪时两家一起挨打",
-            "not_comparable": ["两家锚区间用的方法不同,区间宽度不可直接相减"],
+            "not_comparable": ["两家合理价区间用的方法不同,区间宽度不可直接相减"],
         }
 
 
@@ -404,7 +404,7 @@ class TestJudge(CompareEnv):
     def test_numbers_quoted_from_any_member_card_are_fine(self):
         judge = self.good_judge()
         # 273 来自锚的现价、150 来自同行的现价 —— 跨成员引用也算回得了源
-        judge["verdict"] = f"{PEER} 现价 150 在锚区间内,{ANCHOR} 现价 273 在区间外"
+        judge["verdict"] = f"{PEER} 现价 150 在合理价区间内,{ANCHOR} 现价 273 在区间外"
         self.assertEqual(compare.check_judge(judge, self.members()), [])
 
     def test_single_digit_prose_is_not_treated_as_evidence(self):
@@ -631,7 +631,7 @@ class TestOlderContractMembers(CompareEnv):
     """成员报告是不同时间产出的 —— 用今天的完整契约去判昨天的完整报告, 会把它误判成缺报告。
 
     真事: 东山 2026-08-24 那份真实报告产于票 11 之前, 面板指标没有 `series`、③赔率没有
-    `derivation`。对比页两样都不消费, 却因为整块校验而(a)整家被判「缺报告」(b)区间锚读不出来。
+    `derivation`。对比页两样都不消费, 却因为整块校验而(a)整家被判「缺报告」(b)合理价区间读不出来。
     """
 
     def _strip_new_contract_fields(self, company, date):

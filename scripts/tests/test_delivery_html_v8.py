@@ -115,13 +115,13 @@ class TestDashboardFrontPage(_Built):
     def test_verdict_split_keeps_a_parenthetical_with_the_judgment(self):
         """判定语自带的括注不许被切走 —— 切在左括号上会让第二行以孤儿词加反括号开头。
 
-        票 10 实测:③的取值域是「买完完美未来(无 slack)」, verdict 里没有「——」,
-        旧的兜底切分只能切左括号, 决断卡第二行于是长成「无 slack);锚区间…」。
+        票 10 实测:③当时的取值域带括注「买完完美未来(…)」, verdict 里没有「——」,
+        旧的兜底切分只能切左括号, 决断卡第二行于是长成「…);合理价区间…」。
         断行点应是**括号之外**的分号/破折号/逗号。
         """
         cases = [
-            ("买完完美未来(无 slack);锚区间 482.4-564.6 元 vs 现价 851.9 元",
-             "买完完美未来(无 slack)", "锚区间 482.4-564.6 元 vs 现价 851.9 元"),
+            ("买完完美未来(极贵无垫);合理价区间 482.4-564.6 元 vs 现价 851.9 元",
+             "买完完美未来(极贵无垫)", "合理价区间 482.4-564.6 元 vs 现价 851.9 元"),
             ("部分好——真卡位+平庸财务", "部分好", "真卡位+平庸财务"),
             ("回避——现价既不买、也不开小仓", "回避", "现价既不买、也不开小仓"),
             # 括号内的逗号不是断行点(否则括注被切成半句);整句只有一个括注、括号外无断行点时,
@@ -162,11 +162,11 @@ class TestDashboardFrontPage(_Built):
     def test_hero_facts_from_contract_fields_only(self):
         facts = self.html.split('class="facts"')[1].split("</div>\n\n<!--")[0]
         for expected in ("行动档位", "等证据临界", "质地", "部分好", "现价", "273",
-                         "锚区间", "57–89", "下次预约披露", "2026-08-30"):
+                         "合理价区间", "57–89", "下次预约披露", "2026-08-30"):
             self.assertIn(expected, facts)
 
     def test_writer_intro_is_the_only_human_slot(self):
-        self.assertIn("写手导读", self.html)
+        self.assertIn("导读", self.html)
         self.assertIn("等 2026 中报", self.html)
 
 
@@ -201,7 +201,7 @@ class TestRedMarkThreeChannels(_Built):
         self.assertIn("利润质量偏弱", pop)
         self.assertIn("高级红旗", pop)
         self.assertIn("OCF", pop)                      # 证据
-        self.assertIn("脚本", pop)                      # 来源
+        self.assertIn("自动审计", pop)                  # 来源
         self.assertIn("①质地", pop)                     # 归属节点
         self.assertIn("附录D", pop)
 
@@ -224,11 +224,11 @@ class TestRedMarkThreeChannels(_Built):
         self.assertIn("@media (hover:none), (max-width:720px){ .fw-pop{display:none} }", CSS)
 
     def test_nomination_and_script_flags_are_marked_alike(self):
-        """两源同池:写手提名与脚本红旗走同一套红标与排序, 不分二等公民。"""
+        """两源同池:人工复核与脚本红旗走同一套红标与排序, 不分二等公民。"""
         marks = " ".join(self._marks())
         # 提名的「散户暴增」是本组最严重的一条 → 由它领衔 Top3 卡红标(与脚本红旗同池排序)
         self.assertIn(rf.anchor(fx.NOMINATION_CROWDING), marks)
-        self.assertIn("写手提名", marks)
+        self.assertIn("人工复核", marks)
         # 与脚本红旗并成一组的提名(商誉对赌)在同一张卡上给出自己的附录D 链接
         self.assertIn(f'href="#{rf.anchor(fx.NOMINATION_GOODWILL)}"', self.html)
         for nomination in (fx.NOMINATION_GOODWILL, fx.NOMINATION_CROWDING):
@@ -402,12 +402,16 @@ class TestPageIntegrity(_Built):
 
     def test_front_page_markdown_replaced_not_duplicated(self):
         """首页由 assembly.json 重渲染, md 里那份不再二次输出。"""
-        self.assertNotIn("决断卡(机器装配自五个节点 verdict)", self.html)
+        self.assertNotIn("### 投资决断卡", self.html)
         self.assertEqual(self.html.count('id="front"'), 1)
 
-    def test_machine_vs_human_labels(self):
-        self.assertIn('<span class="chip">机器装配</span>', self.html)
-        self.assertIn('<span class="chip man">人工 3-5 句</span>', self.html)
+    def test_no_pipeline_labels_on_front_page(self):
+        """读者看得见的地方不挂流水线标签 —— 哪块是机器拼的、哪块是写手写的, 读者不必知道
+        (用户 2026-09-14 裁决)。只查渲染出来的文字:模板里给维护者看的 HTML 注释不算。
+        附录D「来源」列保留可追溯性, 但值已改成人话(自动审计 / 人工复核)。"""
+        visible = re.sub(r"<!--.*?-->", "", self.html, flags=re.DOTALL)
+        for label in ("机器装配", "写手导读", "写手选 3-5", "人工 3-5 句", "所属节点", "写手提名", "来源 脚本"):
+            self.assertNotIn(label, visible, f"读者可见处仍挂着流水线标签「{label}」")
 
     def test_no_unfilled_placeholders(self):
         self.assertNotIn("{{", self.html)

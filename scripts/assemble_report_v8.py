@@ -113,7 +113,7 @@ def load_audit_flags(path: Path | None, search_dirs: list[Path]) -> list[dict]:
 # ---------------------------------------------------------------- 首页
 
 def render_verdict_card(card: list[dict]) -> str:
-    lines = ["### 决断卡(机器装配自五个节点 verdict)", "", "| 问 | 判定 | 出处 |", "|---|---|---|"]
+    lines = ["### 投资决断卡", "", "| 问 | 判定 | 出处 |", "|---|---|---|"]
     marks = ("①", "②", "③", "④", "⑤")
     for mark, row in zip(marks, card):
         label = assembly.NODE_LABELS[row["source_node"]]
@@ -153,20 +153,19 @@ def render_panel(panel: dict, mark_map: dict) -> str:
     conclusion = panel["conclusion"]
     lines += [
         "",
-        f"**面板结论**(引用①质地子判定,面板不自产结论):{conclusion['biz_model']} · "
+        f"**面板结论**(来自①质地):{conclusion['biz_model']} · "
         f"{conclusion['quality_true']}",
     ]
     return "\n".join(lines)
 
 
 def render_top3(top3: list[dict]) -> str:
-    lines = ["### Top3 风险(机器从附录D 红旗清单带出)", ""]
+    lines = ["### Top3 风险", ""]
     for item in top3:
         node = rf.NODE_LABELS.get(item.get("node"), item.get("node", ""))
-        source = rf.SOURCE_LABELS.get(item.get("source"), item.get("source", ""))
         lines.append(
             f"{item['rank']}. **{item['level']} {item['title']}** — {item['evidence']} "
-            f"〔{node} · 来源 {source} · [附录D](#{rf.anchor(item['red_flag_id'])})〕"
+            f"〔{node} · [附录D](#{rf.anchor(item['red_flag_id'])})〕"
         )
     return "\n".join(lines)
 
@@ -245,7 +244,7 @@ def render_appendix_d(flags: list[dict]) -> str:
         f"{rf.SOURCE_LABELS[src]} {n}" for src, n in c["by_source"].items() if n
     ) or "无"
     lines = [
-        "机器产物:脚本 audit 红旗 ⊕ 节点写手提名两源合并,是首页 Top3 与全报告红标的唯一数据源。",
+        "本清单合并两个来源:自动审计跑出来的信号,与分析各章时人工补提的疑点。首页 Top3 与全文红标都从这里来。",
         "",
         f"**合计 {c['total']} 条** — 级别:{level_line};来源:{source_line}",
         "",

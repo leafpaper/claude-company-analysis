@@ -56,7 +56,7 @@
 | R2 | 红旗闭环 | fail | Top3 与红旗清单**重算一致**(装配没重跑也在这里现形);🔴 致命红旗必须在归属节点叙述过 |
 | R3 | 数字唯一 home | fail | 同一数字跨章出现时,异地那处必须带出处引用(①-⑤ / 附录A-E) |
 | R4 | 章预算 | warn | 70/60/70/60/50 行上限 + 主体合计 400 行(**没有下限**——下沉附录是规定动作) |
-| R5 | 区间锚 | fail | 同向标记必填、不同向必写分歧原因、两端不倒置、verdict 与现价方向不自相矛盾 |
+| R5 | 合理价区间 | fail | 同向标记必填、不同向必写分歧原因、两端不倒置、verdict 与现价方向不自相矛盾 |
 | R6 | 外链引用 | fail | 正文禁「详见 xxx.md」「[x](x.md)」(指向本报告附录的 `#锚点` 合法) |
 | R7 | 决策字段 + 封顶 | fail | 决策块九个必填字段;**有 🔴 → 行动档位强制「回避」且 `gear_cap.triggered=true`** |
 | R8 | 越权发声 | fail | 仓位 / 行动档位 / 买卖建议只能出现在⑤(写明「归⑤/见⑤」的引用行豁免) |
@@ -68,7 +68,7 @@
 | R13 | 证伪清单同源 | fail | ⑤ 每条退出线在 ④ 的证伪清单里找得到源(没有 = 孤儿条) |
 | R14 | 机器块无过程注释 | warn | 节点 YAML 里不留「正在/待定稿/暂按」这类会过期的时态词 |
 | R15 | 三元组同源 | fail | ⑤ triad 三格与②③④ verdict 逐字相等 |
-| R16 | ③锚引用过期 | fail | 别的节点抄的「X~Y 元」只有一端对得上③锚,或「锚低端/高端 N 元」与③不符 |
+| R16 | ③锚引用过期 | fail | 别的节点抄的「X~Y 元」只有一端对得上③锚,或「合理价低端/高端 N 元」与③不符 |
 
 **修复指引**:
 
@@ -88,7 +88,7 @@ Agent(subagent_type="reviewer-logic", run_in_background=True, description="维�
 run_dir     = {run_dir}
 artifacts_dir = {artifacts_dir}
 report_path = {run_dir}/{company}-analysis-{date}.md
-lint_v8 已全绿(schema/红旗闭环/数字home/区间锚/封顶/越权/外链/同步都查过了),别重复机器规则。
+lint_v8 已全绿(schema/红旗闭环/数字home/合理价区间/封顶/越权/外链/同步都查过了),别重复机器规则。
 按 agents/reviewer-logic.md 的 5 项检查出判定与 FIX,响应只回评审结论,不要回放文件内容。""")
 
 Agent(subagent_type="reviewer-delivery", run_in_background=True, description="维度2 可读性与交付",

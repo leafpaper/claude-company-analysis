@@ -914,7 +914,7 @@ def rule_triad_source(nodes: dict) -> RuleResult:
 # 恰好一端对上、另一端不对 = 那一端被③改过而抄本没跟上 —— 漂移最常见的形态就是只改一端
 # (华特:低端 42.2→35.3、高端 49.6 不动, ⑤ 正文与 YAML 里 8 处「42.2~49.6 元」)。
 _RANGE_YUAN = re.compile(r"(\d[\d,]*(?:\.\d+)?)\s*[~～\-–至]\s*(\d[\d,]*(?:\.\d+)?)\s*元")
-_ANCHOR_END = re.compile(r"锚\s*(低端|高端)[^\d\n]{0,12}?(\d[\d,]*(?:\.\d+)?)\s*元")
+_ANCHOR_END = re.compile(r"(?:锚|合理价)\s*(低端|高端)[^\d\n]{0,12}?(\d[\d,]*(?:\.\d+)?)\s*元")
 
 
 def _yuan(raw: str) -> float:

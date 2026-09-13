@@ -15,7 +15,7 @@ from scripts import lint_v8
 
 ODDS = {
     "node": "odds",
-    "verdict": "买完完美未来(无 slack)——现价是高端 49.6 元的 2.61 倍、低端 35.3 元的 3.66 倍",
+    "verdict": "买完完美未来——现价是高端 49.6 元的 2.61 倍、低端 35.3 元的 3.66 倍",
     "anchor_range": {
         "low": {"method": "只认已兑现利润的两段加总", "value": 35.3, "unit": "元"},
         "high": {"method": "三情景概率加权折现", "value": 49.6, "unit": "元"},
@@ -69,7 +69,7 @@ class TestR16AnchorCitation(unittest.TestCase):
 
     def rule(self, decision_body: str = "", **dec_extra):
         bodies = {
-            "quality": "", "state": "区间锚 35.3~49.6 元对现价 129.30 元(③赔率)",
+            "quality": "", "state": "合理价区间 35.3~49.6 元对现价 129.30 元(③赔率)",
             "odds": "", "path": "", "decision": decision_body,
         }
         return lint_v8.rule_anchor_citation(nodes(decision(**dec_extra)), bodies)
@@ -84,7 +84,7 @@ class TestR16AnchorCitation(unittest.TestCase):
         self.assertIn("42.2", r.findings[0])
 
     def test_stale_copy_inside_yaml_is_caught(self):
-        r = self.rule(position="三季报过线且价格回落进 42.2~49.6 元锚区间再重估")
+        r = self.rule(position="三季报过线且价格回落进 42.2~49.6 元合理价区间再重估")
         self.assertFalse(r.passed)
         self.assertIn("YAML position", r.findings[0])
 
@@ -98,7 +98,7 @@ class TestR16AnchorCitation(unittest.TestCase):
         self.assertTrue(self.rule("③锚低端 SOTP 35.3 元只认已兑现").passed)
 
     def test_hyphen_range_counts_but_dates_do_not(self):
-        self.assertFalse(self.rule("锚区间 42.2-49.6 元").passed)
+        self.assertFalse(self.rule("合理价区间 42.2-49.6 元").passed)
         self.assertTrue(self.rule("2026-04-17 收盘价 90.86 元").passed)
 
     def test_odds_own_text_is_not_judged_here(self):

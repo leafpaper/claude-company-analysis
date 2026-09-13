@@ -647,7 +647,7 @@ def render_md(product: dict) -> str:
     for i, question in enumerate(CARD_QUESTIONS):
         lines.append(_row(question, [m["verdict_card"][i]["verdict"] for m in members]))
     lines += [
-        _row("区间锚", [anchor_text(m) for m in members]),
+        _row("合理价区间", [anchor_text(m) for m in members]),
         _row("红旗", [flags_text(m) for m in members]),
         _row("Top3 风险", [top3_text(m) for m in members]),
         _row("下次披露", [m.get("next_disclosure_date") or "–" for m in members]),

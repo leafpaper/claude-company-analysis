@@ -146,7 +146,7 @@ def legal_state() -> dict:
 def legal_odds() -> dict:
     return {
         "node": "odds",
-        "verdict": "买完完美未来(无 slack)",
+        "verdict": "买完完美未来",
         "sub_verdicts": [
             {
                 "question": "价格分解 P=F+N",
@@ -200,7 +200,7 @@ def legal_decision() -> dict:
         "action_gear": "等证据临界",
         "action_detail": "先观察等证据临界;想赌右尾最多总资金 2-3% 期权小仓、设硬止损",
         "position": "现价 0 仓位持币;期权小仓 ≤2-3%",
-        "three_part": {"good_company": "部分是(引用质地)", "good_bet": "否(三乘子两差一弱)", "good_price": "否(现价为锚区间高端 3 倍以上)"},
+        "three_part": {"good_company": "部分是(引用质地)", "good_bet": "否(三乘子两差一弱)", "good_price": "否(现价为合理价区间高端 3 倍以上)"},
         "good_company_ref": "部分好——真卡位+平庸财务",
         "what_to_wait": ["2026 中报", "谷歌 200G EML 验证", "价格回调至约 160 元以内"],
         "falsification_exit": ["H1 光模块营收 <40 亿或毛利率 <30%", "商誉任一减值"],
@@ -213,7 +213,7 @@ def legal_assembly() -> dict:
         "verdict_card": [
             {"question": "是不是好公司", "verdict": "部分好——真卡位+平庸财务", "source_node": "quality"},
             {"question": "在变好吗", "verdict": "↑变好但未确认,注意力先行", "source_node": "state"},
-            {"question": "贵不贵", "verdict": "买完完美未来;锚区间 57-89 元 vs 现价 273 元", "source_node": "odds"},
+            {"question": "贵不贵", "verdict": "买完完美未来;合理价区间 57-89 元 vs 现价 273 元", "source_node": "odds"},
             {"question": "扛得住吗", "verdict": "高尾险·扛不住,高信仰 5/5", "source_node": "path"},
             {"question": "怎么办", "verdict": "先观察等证据临界,期权小仓 ≤2-3%", "source_node": "decision"},
         ],

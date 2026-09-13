@@ -48,7 +48,7 @@
 ```
 
 - 产 `{group_dir}/compare.json`(过 `compare.schema.json`)+ `{slug}-compare-{date}.md` 本地底稿。
-- 每家一列:基准日(全量/增量)、行动档位、决断卡五问、区间锚 vs 现价、红旗计数、Top3、下次披露日;
+- 每家一列:基准日(全量/增量)、行动档位、决断卡五问、合理价区间 vs 现价、红旗计数、Top3、下次披露日;
   全部搬自 `runs/{最新}/assembly/assembly.json` 与 `nodes/node-odds.md` 的 YAML 块。
 - **基准日超 90 天标「陈旧」**并在页面提示先 `--review`;把这句转告用户,由用户决定先复查还是照比。
 - **缺报告成员**进 `missing_members`(带原因 + 补跑命令),不进上半。把清单给用户:

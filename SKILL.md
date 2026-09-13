@@ -227,7 +227,7 @@ Phase 1 (data-collector) → Phase 2 (doc-analyst)
 |---|---|
 | `references/node-quality.md` | node-quality(五子判定 + 赚钱面板菜单) |
 | `references/node-state.md` | node-state(λ/实锤分级/身份切换/四层验证/催化剂→临界点) |
-| `references/node-odds.md` | node-odds(P=F+N/反向DCF/叙事SOTP/区间锚/Damodaran 基准) |
+| `references/node-odds.md` | node-odds(P=F+N/反向DCF/叙事SOTP/合理价区间/Damodaran 基准) |
 | `references/node-path.md` | node-path(左尾清单/高信仰体检/回报路径成本/证伪清单) |
 
 > **消化纪律**:节点写手只读「链手册 + 本节点手册」两份,跨节点只引用对方 verdict,不重新推导。
@@ -254,7 +254,7 @@ Phase 1 (data-collector) → Phase 2 (doc-analyst)
 | `scripts/triage.py` ★ | 增量复查 R2 纯脚本分诊:标脏机检 / 重评波次 / 指标 diff / 复用盖戳(产 `triage.json`) |
 | `scripts/verdict_block.py` ★ | 节点 YAML 块抽取 + schema 校验(每波门控) |
 | `scripts/assembly.py` + `scripts/assemble_report_v8.py` ★ | 摘要层装配 + 报告总装 |
-| `scripts/lint_v8.py` ★ | 质量环机器门控(R1-R16:schema / 红旗闭环 / 数字唯一 home / 区间锚 / 封顶 / 越权 / 报告同步 / 推导闭合 / 证伪同源 / 三元组同源 / ③锚引用过期…) |
+| `scripts/lint_v8.py` ★ | 质量环机器门控(R1-R16:schema / 红旗闭环 / 数字唯一 home / 合理价区间 / 封顶 / 越权 / 报告同步 / 推导闭合 / 证伪同源 / 三元组同源 / ③锚引用过期…) |
 | `scripts/review_loop.py` | 两 reviewer 判定合并 + FIX 分诊(判断类→写手 / 表述类→主 agent) |
 | `scripts/lessons_manager.py` | 全局经验库 (append / recent) |
 | `scripts/compare.py` ★ | 产业链对比 `--compare`:成组 / 并排装配(零新判断)/ 组内裁决四条机检(产 `compare.json`) |

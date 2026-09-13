@@ -171,7 +171,7 @@ class TestRedFlagClosure(_Run):
         self.assertTrue(any("Top3 漂移" in f for f in r2.findings), r2.findings)
 
     def test_colliding_nomination_id_is_a_fail_not_a_crash(self):
-        """写手提名的 id 与脚本红旗撞车 → R2 fail(装配同样会拒绝, 但 lint 要先说人话)。"""
+        """人工复核的 id 与脚本红旗撞车 → R2 fail(装配同样会拒绝, 但 lint 要先说人话)。"""
         script_id = fx.GOODWILL_FLAG_ID
         self.nodes["path"]["red_flag_nominations"].append({
             "id": script_id, "level": "🟠", "title": "商誉对赌(重复 id)",
@@ -220,11 +220,11 @@ class TestNumberHome(_Run):
     def test_citation_does_not_claim_home_from_the_real_owner(self):
         """章序在前的「借用方」不许抢 home。
 
-        东山实测:现价与区间锚归③赔率,但②状态按规矩带出处引用了它们;②在章序里排在③前,
+        东山实测:现价与合理价区间归③赔率,但②状态按规矩带出处引用了它们;②在章序里排在③前,
         老写法把 home 判给②,反过来去告③赔率「异地裸引自己的数字」—— 主人被告了状。
         """
-        self.append_body("state", "估值贵不贵看③赔率:现价 273 元、锚区间高端 89 元。")
-        self.append_body("odds", "现价 273 元 vs 锚区间高端 89 元,买完完美未来。")
+        self.append_body("state", "估值贵不贵看③赔率:现价 273 元、合理价区间高端 89 元。")
+        self.append_body("odds", "现价 273 元 vs 合理价区间高端 89 元,买完完美未来。")
         r3 = self.rule(self.lint(assemble=False), "R3 ")
         self.assertTrue(r3.passed, r3.findings)
         self.assertFalse(any("③赔率" in f for f in r3.findings), r3.findings)
@@ -267,7 +267,7 @@ class TestChapterBudget(_Run):
         self.assertTrue(self.rule(result, "R4 ").passed)
 
 
-# ---------------------------------------------------------------- R5 区间锚
+# ---------------------------------------------------------------- R5 合理价区间
 
 class TestAnchorRange(_Run):
     def test_inverted_anchor_fails(self):

@@ -551,7 +551,7 @@ def link_citations(html_text: str) -> str:
 
 
 def render_valuation_meter(nodes: dict | None) -> str:
-    """估值尺:轨道=锚区间, 标记=现价。一眼看出现价在合理区间「之外多远」。
+    """估值尺:轨道=合理价区间, 标记=现价。一眼看出现价在合理区间「之外多远」。
 
     形态取自 dataviz 的 meter —— 不画三根柱, 柱子让人比高矮, 而这里的信息是「出界」。
     数据全部来自 node-odds 的 YAML 契约字段(anchor_range / current_price), 零写手工作。
@@ -574,7 +574,7 @@ def render_valuation_meter(nodes: dict | None) -> str:
             else ("现价在区间内" if price >= lo else f"现价低于区间低端 {lo}{unit}"))
     band_w = round(max(x(hi) - x(lo), 0.6), 2)
     over_cls = " over" if over else ""
-    alt = f"估值尺:合理区间 {lo}-{hi}{unit},现价 {price}{unit},{note}"
+    alt = f"估值尺:合理价区间 {lo}-{hi}{unit},现价 {price}{unit},{note}"
     return "\n".join([
         f'<figure class="meter" role="img" aria-label="{_esc(alt)}">',
         "  <figcaption>贵不贵:一把尺</figcaption>",
@@ -585,7 +585,7 @@ def render_valuation_meter(nodes: dict | None) -> str:
         # 两端刻度:没有刻度的尺不是尺 —— 读者得知道整条轨道代表什么范围
         f'  <div class="scale"><span>0</span><span>{round(top)} {unit}</span></div>',
         '  <div class="lg">'
-        f'<span><i class="sw band"></i>合理区间 {lo}–{hi} {unit}'
+        f'<span><i class="sw band"></i>合理价区间 {lo}–{hi} {unit}'
         # 图例说人话:方法名是给写手的,读者要知道的是「两端各自凭什么」(华特交付评审留档项)。
         # 两端的算法由契约钉死(node-odds 手册:低端=只认已兑现的分部加总, 高端=三情景概率加权;
         # R12 把两端分别绑到 derivation.sotp / dcf 的每股值)—— 这句说明对每份报告都成立。
@@ -857,7 +857,7 @@ def node_tone(node: str, product: dict, load: dict[str, list[str]]) -> str:
 
 
 def render_hero_facts(product: dict, nodes: dict[str, dict] | None = None) -> str:
-    """事实条 = 行动档位 / 质地 / 现价 / 锚区间 / 下次预约披露日(全部契约字段, 不自行推导)。"""
+    """事实条 = 行动档位 / 质地 / 现价 / 合理价区间 / 下次预约披露日(全部契约字段, 不自行推导)。"""
     meta = product["metadata"]
     facts = [
         ("行动档位", _esc(meta["action_gear"]), ""),
@@ -874,7 +874,7 @@ def render_hero_facts(product: dict, nodes: dict[str, dict] | None = None) -> st
         unit = low.get("unit") or high.get("unit") or ""
         note = "" if anchor.get("same_direction", True) else "两端不同向"
         facts.append((
-            f"锚区间{('(' + note + ')') if note else ''}",
+            f"合理价区间{('(' + note + ')') if note else ''}",
             _esc(f'{assembly._fmt_number(low["value"])}–{assembly._fmt_number(high["value"])}'),
             _esc(unit),
         ))
@@ -940,8 +940,7 @@ def render_panel(product: dict) -> str:
         f'<span class="src">← 结论来自①质地</span></div>'
     )
     return (
-        '<div class="secl"><span class="t">赚不赚钱面板</span> '
-        '<span class="chip man">写手选 3-5</span></div>\n'
+        '<div class="secl"><span class="t">赚不赚钱面板</span></div>\n'
         f'<p class="reason">{_esc(panel["industry_reason"])}</p>\n'
         '<div class="tiles">\n' + "\n".join(tiles) + "\n</div>"
     )
@@ -971,16 +970,15 @@ def render_top3(product: dict) -> str:
         node = item.get("node", "")
         others = "".join(
             f' · <a href="#{rf.anchor(f["id"])}">{_esc(f["level"])} {_esc(f["title"])}'
-            f'({_esc(rf.SOURCE_LABELS.get(f["source"], f["source"]))})</a>'
+            '</a>'
             for f in group if f["id"] != lead["id"]
         )
         cards.append(
             f'  <div class="rk mk-{entry["mark"]}">\n'
             f'    <div class="t">{render_mark(entry, item["title"])}</div>\n'
             f'    <div class="d">{_esc(item["evidence"])}</div>\n'
-            f'    <div class="h">所属节点 → <a href="#ch-{_esc(node)}">'
-            f'{_esc(rf.NODE_LABELS.get(node, node))}</a>'
-            f' · 来源 {_esc(rf.SOURCE_LABELS.get(item.get("source"), "—"))}{others}</div>\n'
+            f'    <div class="h"><a href="#ch-{_esc(node)}">'
+            f'{_esc(rf.NODE_LABELS.get(node, node))}</a>{others}</div>\n'
             f"  </div>"
         )
     return "\n".join(cards)
@@ -989,15 +987,14 @@ def render_top3(product: dict) -> str:
 def render_intro(product: dict) -> str:
     intro = product.get("front_page_intro")
     if not intro:
-        return "<!-- 无写手导读 -->"
+        return "<!-- 无导读 -->"
     # 按**单**换行切句成段:导读是首页唯一不走 markdown 渲染的人工字段, 写手在 YAML 里
     # 一句一行写得清清楚楚, 但 HTML 会把单换行吃成空格 —— 只认空行的话 5 句会合成一个 <p>,
     # 桌面 1120px 下看着是 5 行、看不出问题, 390px 下就是一堵十几行没有断点的墙,
     # 而最该一眼看到的末句(「那天盯三件事」)正好埋在墙底(票 08 第 5 轮交付评审实测)。
     paragraphs = "\n".join(f"<p>{_esc(p)}</p>" for p in re.split(r"\n+", intro.strip()) if p.strip())
     return (
-        '<div class="secl"><span class="t">写手导读</span> '
-        '<span class="chip man">人工 3-5 句</span></div>\n'
+        '<div class="secl"><span class="t">导读</span></div>\n'
         f'<div class="intro">{paragraphs}</div>'
     )
 
@@ -1056,7 +1053,7 @@ def render_change_block(product: dict) -> str:
     if cb["full_rerun_advice"]["advised"]:
         advice = f'<div class="advice">⚠️ <b>建议全量重跑</b>:{_esc(cb["full_rerun_advice"]["reason"])}</div>'
     return (
-        '<div class="secl"><span class="t">较上版变化</span> <span class="chip">机器装配</span></div>\n'
+        '<div class="secl"><span class="t">较上版变化</span></div>\n'
         f'<div class="change"><div class="alpha">{_esc(cb["alpha_summary"])}</div>'
         f'{table}<ul>{"".join(bullets)}</ul>{advice}</div>'
     )
@@ -1282,7 +1279,7 @@ def render_compare_matrix(product: dict) -> str:
     for i, question in enumerate(cmp_mod.CARD_QUESTIONS):
         rows.append((question, [_esc(m["verdict_card"][i]["verdict"]) for m in members], ""))
     rows += [
-        ("区间锚", [_esc(cmp_mod.anchor_text(m)) for m in members], ""),
+        ("合理价区间", [_esc(cmp_mod.anchor_text(m)) for m in members], ""),
         ("红旗", [_esc(cmp_mod.flags_text(m)) for m in members], ""),
         ("Top3 风险", [_top3_cell(m) for m in members], ""),
         ("下次披露", [_esc(m.get("next_disclosure_date") or "–") for m in members], ""),

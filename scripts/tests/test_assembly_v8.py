@@ -70,11 +70,11 @@ class TestVerdictCard(unittest.TestCase):
         )
 
     def test_odds_row_is_machine_composed(self):
-        """赔率行 = verdict + 区间锚两端 + 现价, 机器拼(不靠写手抄)。"""
+        """赔率行 = verdict + 合理价区间两端 + 现价, 机器拼(不靠写手抄)。"""
         nodes = fx.nodes()
         nodes["odds"]["current_price"] = {"value": 210, "unit": "元"}
         row = assembly.build_verdict_card(nodes)[2]["verdict"]
-        self.assertEqual(row, "买完完美未来;锚区间 57-89 元 vs 现价 210 元")
+        self.assertEqual(row, "买完完美未来;合理价区间 57-89 元 vs 现价 210 元")
 
     def test_divergent_anchor_marked(self):
         """区间两端不同向 → 决断卡显式标「取决于口径」。"""
@@ -105,9 +105,9 @@ class TestTop3(unittest.TestCase):
         self.assertEqual(set(entry["red_flag_ids"]), {fx.GOODWILL_FLAG_ID, fx.NOMINATION_GOODWILL})
         # 同组那条提名仍在同一条风险里(上一行),但**不拼进证据句** —— 首页 Top3 卡的底栏按
         # red_flag_ids 另列同组红旗、附录D 有全量;证据句只说证据。旧断言要求证据里带
-        # 「商誉对赌条款未披露」「写手提名」,等于把流水线词写成了契约(华特交付评审判为表述 FIX)。
+        # 「商誉对赌条款未披露」「人工复核」,等于把流水线词写成了契约(华特交付评审判为表述 FIX)。
         self.assertNotIn("同组另有", entry["evidence"])
-        self.assertNotIn("写手提名", entry["evidence"])
+        self.assertNotIn("人工复核", entry["evidence"])
 
     def test_top3_unchanged_by_goodwill_nomination(self):
         """提名「商誉对赌」后 Top3 不变(合并进已有条目, 不挤掉任何风险)——research/05 零漂移。"""
@@ -345,7 +345,7 @@ class TestRenderReport(unittest.TestCase):
     def test_report_structure(self):
         with tempfile.TemporaryDirectory() as td:
             _, text, _ = self._assemble(td)
-            for heading in ("## 首页 一眼结论", "### 决断卡", "### 赚不赚钱面板",
+            for heading in ("## 首页 一眼结论", "### 投资决断卡", "### 赚不赚钱面板",
                             "### Top3 风险", "### 导读",
                             "## ① 质地——是不是好公司", "## ② 状态——在变好吗",
                             "## ③ 赔率——贵不贵", "## ④ 路径——扛得住吗",
@@ -380,7 +380,7 @@ class TestRenderReport(unittest.TestCase):
             appendix_d = text.split("## 附录D")[1].split("## 附录E")[0]
             for flag in product["red_flags"]:
                 self.assertIn(f'<a id="{rf.anchor(flag["id"])}"></a>', appendix_d)
-            self.assertIn("写手提名", appendix_d)
+            self.assertIn("人工复核", appendix_d)
             self.assertIn("脚本", appendix_d)
 
     def test_appendix_mounts_collector_artifacts_demoted(self):

@@ -2,7 +2,7 @@
 
 **零人工抄写**: 唯一输入是五个节点 md 顶部的 fenced YAML verdict 块(契约见 verdict_block)
 与 audit 红旗产物; 装配只搬运与合并, 不产任何新结论——
-  · 决断卡五行 = 五个节点的 verdict 原文(赔率行机器拼上区间锚与现价);
+  · 决断卡五行 = 五个节点的 verdict 原文(赔率行机器拼上合理价区间与现价);
   · 面板 = 质地节点自选指标 + 红标反查(red_flags), 结论行引用质地子判定①②;
   · Top3 = 红旗清单两源同池机器带出(red_flags.top3);
   · 主页 metadata = 行动档位人话(决策 verdict)+ 质地字段;
@@ -143,11 +143,11 @@ def _fmt_number(value) -> str:
 
 
 def odds_card_text(odds: dict) -> str:
-    """赔率行 = verdict + 区间锚两端 (+ 现价对比 / 不同向标记), 机器拼装。"""
+    """赔率行 = verdict + 合理价区间两端 (+ 现价对比 / 不同向标记), 机器拼装。"""
     anchor = odds["anchor_range"]
     low, high = anchor["low"], anchor["high"]
     unit = low.get("unit") or high.get("unit") or ""
-    text = f"{odds['verdict']};锚区间 {_fmt_number(low['value'])}-{_fmt_number(high['value'])}"
+    text = f"{odds['verdict']};合理价区间 {_fmt_number(low['value'])}-{_fmt_number(high['value'])}"
     if unit:
         text += f" {unit}"
     if not anchor.get("same_direction", True):
@@ -162,7 +162,7 @@ def odds_card_text(odds: dict) -> str:
 
 
 def build_verdict_card(nodes: dict[str, dict]) -> list[dict]:
-    """决断卡五行 = 五个节点 verdict 原文(赔率行拼锚区间), 一行一处权威。"""
+    """决断卡五行 = 五个节点 verdict 原文(赔率行拼合理价区间), 一行一处权威。"""
     card = []
     for question, node in CARD_ROWS:
         block = nodes.get(node)

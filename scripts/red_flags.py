@@ -39,7 +39,7 @@ NODES = ("quality", "state", "odds", "path")
 NODE_LABELS = {"quality": "①质地", "state": "②状态", "odds": "③赔率", "path": "④路径"}
 # Top3 同级同条数时的杀伤力序:能让本金永久损失的(路径左尾)> 定价透支(赔率)> 经营质量 > 状态
 NODE_ORDER = {"path": 0, "odds": 1, "quality": 2, "state": 3}
-SOURCE_LABELS = {"script": "脚本", "nomination": "写手提名"}
+SOURCE_LABELS = {"script": "自动审计", "nomination": "人工复核"}
 
 # 脚本红旗归家(framework → 节点 + 默认关联指标), 覆盖 financial_audit 的 11 个框架
 FRAMEWORK_MAP = {
