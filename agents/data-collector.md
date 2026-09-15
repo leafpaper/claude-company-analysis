@@ -56,6 +56,11 @@ cd 到 skill 根目录(Mac/Linux: ~/.claude/skills/company-analysis;Windows: %US
 ```
 # 仅 A 股
 {PYBIN} -m scripts.peer_collector {ticker} --peers 5 --name {company} --out {output_dir}/peer_analysis.md
+
+# 细分行业公司(电子特气、半导体材料这类)务必**先看一眼自动选出来的同业是谁**:
+# 按 Tushare 行业分类选会挑出零业务重合的对照物(华特气体被归「化工原料」262 家, 估值分位与真同业相反)。
+# 不像同业就用真同业重跑一次 —— 真同业常常挂在别的行业分类里, 这个参数不按行业过滤:
+{PYBIN} -m scripts.peer_collector {ticker} --peer-codes 688716.SH,688106.SH,688061.SH --name {company} --out {output_dir}/peer_analysis.md
 {PYBIN} -m scripts.capital_flow {ticker} --days 60 --out {output_dir}/capital_flow.md
 {PYBIN} -m scripts.technical_analysis {ticker} --name {company} --daily {output_dir}/raw_data/daily.parquet --out {output_dir}/technical_analysis.md
 
@@ -83,6 +88,10 @@ cd 到 skill 根目录(Mac/Linux: ~/.claude/skills/company-analysis;Windows: %US
 - 港股: WebSearch hkex.com.hk 披露易
 
 下载至少 2 份(年报 + 最新季报),用 `{PYBIN} -m scripts.pdf_reader {URL} --all-sections --out {output_dir}/raw_data/pdf_sections_{name}.json`。
+PDF 原件会跟着 `--out` 落到 `{output_dir}/raw_data/pdfs/`(不再落到系统盘根)。
+**科创板(SSE)模板的标题与深市不同**,已补三段专属模式(合并的科目变动分析表 / 研发投入与在研项目 / 募集资金使用进展);
+另外 `found=false` 现在还有一种含义:**标题只在目录页出现、正文没抓到**(desc 里会写明)——
+这是工具没抓到, **不等于公司没披露**, 要在降级标注里如实写。
 
 PDF 失败 → 备用 URL → 仍失败标"已尝试: {urls}",继续。
 

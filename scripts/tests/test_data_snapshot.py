@@ -325,3 +325,79 @@ class TestGrossMarginField(unittest.TestCase):
         amt = [l for l in md.splitlines() if l.startswith("| 毛利额(元)")]
         self.assertEqual(len(amt), 1)
         self.assertIn("2539181351", amt[0])
+
+# ---------------------------------------------------------------- ROE 口径 / FCF 口径(v8.7)
+
+def _mini_bundle(root: Path, *, with_waa: bool = True) -> Path:
+    """最小 raw_data: 只放趋势表与 §2 需要的三张表(数值取自华特气体 2026H1 实测)。"""
+    b = root / "raw_data"
+    b.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame([
+        {"end_date": "20260630", "revenue": 8.51e8, "n_income_attr_p": 1.3535e8},
+        {"end_date": "20250630", "revenue": 6.60e8, "n_income_attr_p": 1.10e8},
+    ]).to_parquet(b / "income.parquet")
+    fi_rows = []
+    for ed, roe, waa, dt_ in (("20260630", 3.9731, 4.34, 3.8495), ("20250630", 5.20, 5.55, 5.01)):
+        row = {"end_date": ed, "roe": roe, "roe_dt": dt_, "grossprofit_margin": 30.09,
+               "netprofit_margin": 9.54, "debt_to_assets": 42.4}
+        if with_waa:
+            row["roe_waa"] = waa
+        fi_rows.append(row)
+    pd.DataFrame(fi_rows).to_parquet(b / "fina_indicator.parquet")
+    pd.DataFrame([
+        {"end_date": "20260630", "n_cashflow_act": 2.61e8, "free_cashflow": 1.2e7,
+         "c_pay_acq_const_fiolta": 1.94e8},
+        {"end_date": "20250630", "n_cashflow_act": 1.90e8, "free_cashflow": 3.0e7,
+         "c_pay_acq_const_fiolta": 1.10e8},
+    ]).to_parquet(b / "cashflow.parquet")
+    return b
+
+
+class TestRoeBasis(unittest.TestCase):
+    """ROE 有两个口径, 机器产的表必须同口径、且写明是哪个。
+
+    Tushare `roe` 是非加权, `roe_waa` 才是年报正文惯用的加权平均(华特 2026H1: 3.97 vs 4.34)。
+    原来的 bug 不是少个字: §3 趋势表印着**非加权的值**, 表头却写「加权 ROE」——
+    读者拿它去和年报里的加权数、或和别家的加权数比, 会比出错误的排名。
+    附录B 的自动同业表用 `roe`, 所以趋势表也用 `roe`, 两张表才横着可比;加权值在 §2.4 单列备查。
+    """
+
+    def _md(self, with_waa: bool = True) -> str:
+        with tempfile.TemporaryDirectory() as td:
+            return data_snapshot.build_snapshot(
+                _mini_bundle(Path(td), with_waa=with_waa), ts_code="688268.SH", company="华特气体"
+            )
+
+    def test_trend_column_is_unweighted_and_says_so(self):
+        md = self._md()
+        self.assertIn("ROE%(非加权)", md)
+        self.assertNotIn("加权 ROE%", md)              # 不许再冒充加权
+        self.assertIn("3.97", md)                       # 取的是 roe
+        self.assertIn("fina_indicator.roe", md)         # 脚注写明字段
+
+    def test_weighted_value_still_printed_in_2_4(self):
+        """加权值不是不要, 是不能混进趋势表 —— §2.4 单列一行, 要引用年报口径去那儿取。"""
+        md = self._md()
+        self.assertIn("加权平均 ROE(%, 年报正文口径)", md)
+        self.assertIn("4.34", md)
+
+    def test_both_roe_rows_are_labelled_by_basis(self):
+        md = self._md()
+        self.assertIn("ROE(%, 非加权 — 与附录B 同业表同口径)", md)
+        self.assertIn("ROE(扣非, %, 非加权)", md)
+
+    def test_missing_roe_waa_does_not_break_the_snapshot(self):
+        md = self._md(with_waa=False)
+        self.assertIn("ROE%(非加权)", md)
+        self.assertIn("3.97", md)
+
+
+class TestFreeCashflowBasis(unittest.TestCase):
+    """两套 FCF 口径并存(数据商字段 vs OCF−资本开支自算), 底稿必须把话说清。"""
+
+    def test_cashflow_table_labels_the_vendor_field_and_warns(self):
+        with tempfile.TemporaryDirectory() as td:
+            md = data_snapshot.build_snapshot(_mini_bundle(Path(td)), ts_code="688268.SH", company="华特气体")
+        self.assertIn("自由现金流(数据商口径)", md)
+        self.assertIn("free_cashflow_latest", md)      # 指出另一套口径在 metrics.json
+        self.assertIn("经营现金流 − 购建固定资产支付的现金", md)

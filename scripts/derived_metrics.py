@@ -211,6 +211,8 @@ def compute_a_share(bundle: dict[str, pd.DataFrame]) -> dict[str, Any]:
         if ocf is not None and capex is not None:
             fcf = ocf - capex
             cashflow["free_cashflow_latest"] = fcf
+            # 口径自述: 与 data_snapshot §2.3 的数据商口径 free_cashflow 字段不是一回事
+            cashflow["free_cashflow_basis"] = "OCF − 购建固定资产支付现金(自算, 非数据商 free_cashflow 字段)"
             mc = val.get("market_cap_wanyuan")
             if mc and mc > 0:
                 # daily_basic total_mv is in 万元; cashflow values are in 元

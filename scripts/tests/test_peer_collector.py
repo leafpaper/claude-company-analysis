@@ -95,3 +95,71 @@ class TestPeriodIsExposed(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+# ---------------------------------------------------------------- 人工指定同业(v8.7)
+
+STOCK_BASIC = pd.DataFrame([
+    {"ts_code": "688268.SH", "symbol": "688268", "name": "华特气体", "industry": "化工原料"},
+    {"ts_code": "600378.SH", "symbol": "600378", "name": "昊华科技", "industry": "化工原料"},
+    {"ts_code": "688087.SH", "symbol": "688087", "name": "英科再生", "industry": "化工原料"},
+    {"ts_code": "688716.SH", "symbol": "688716", "name": "中船特气", "industry": "化学制品"},
+    {"ts_code": "688106.SH", "symbol": "688106", "name": "金宏气体", "industry": "化学制品"},
+])
+
+
+def _peer_df() -> pd.DataFrame:
+    base = {
+        "total_mv_yi": 165.09, "pe_ttm": 109.86, "pb": 6.21, "ps_ttm": 10.22, "dv_ratio": 0.43,
+        "fi_period": "20260630", "roe_latest": 3.97, "grossprofit_margin": 30.09,
+        "netprofit_margin": 10.43, "debt_to_assets": 26.27, "revenue_yoy": 28.95,
+    }
+    return pd.DataFrame([
+        {"ts_code": "688268.SH", "name": "华特气体", "industry": "化工原料", "is_target": True, **base},
+        {"ts_code": "688716.SH", "name": "中船特气", "industry": "化学制品", "is_target": False, **base},
+    ])
+
+
+class TestPeerUniverse(unittest.TestCase):
+    """按行业分类自动选同业是**已知会选错**的一步, 所以要有一条人工指定的正路。
+
+    华特气体被 Tushare 归进「化工原料」(262 家), 自动选出的对照物与本公司零业务重合,
+    估值分位与真实同业正好相反;而真同业(中船特气、金宏气体)挂在「化学制品」——
+    人工指定时必须**不按行业过滤**, 否则真同业会被自己的规则筛掉。
+    """
+
+    def test_auto_mode_filters_by_industry(self):
+        pool, manual, missing = peer_collector._peer_universe(STOCK_BASIC, "688268.SH", "化工原料")
+        self.assertFalse(manual)
+        self.assertEqual(missing, [])
+        self.assertEqual(set(pool["ts_code"]), {"688268.SH", "600378.SH", "688087.SH"})
+
+    def test_manual_mode_crosses_industry_and_keeps_target(self):
+        pool, manual, missing = peer_collector._peer_universe(
+            STOCK_BASIC, "688268.SH", "化工原料", ["688716.SH", "688106"]
+        )
+        self.assertTrue(manual)
+        self.assertEqual(missing, [])
+        # 裸代码补全 + 本公司自动在列
+        self.assertEqual(set(pool["ts_code"]), {"688268.SH", "688716.SH", "688106.SH"})
+
+    def test_unknown_code_is_reported_not_silently_dropped(self):
+        pool, manual, missing = peer_collector._peer_universe(
+            STOCK_BASIC, "688268.SH", "化工原料", ["000001.SZ"]
+        )
+        self.assertEqual(missing, ["000001.SZ"])
+
+
+class TestPeerSourceIsStated(unittest.TestCase):
+    """同业哪来的, 要写在表上 —— 读者据此决定信不信这张表的估值分位。"""
+
+    def test_auto_mode_warns_it_may_have_picked_wrong_peers(self):
+        md = peer_collector._format_markdown(_peer_df(), "688268.SH", "华特气体", "化工原料", "20260910")
+        self.assertIn("零业务重合", md)
+        self.assertIn("--peer-codes", md)
+
+    def test_manual_mode_says_so_and_drops_the_warning(self):
+        md = peer_collector._format_markdown(
+            _peer_df(), "688268.SH", "华特气体", "化工原料", "20260910", None, True
+        )
+        self.assertIn("人工指定", md)
+        self.assertNotIn("零业务重合", md)

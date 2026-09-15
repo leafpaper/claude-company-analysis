@@ -59,13 +59,21 @@ def _latest_n_trade_dates(tc: TushareCollector, n: int = 60) -> list[str]:
         return [(today - dt.timedelta(days=i)).strftime("%Y%m%d") for i in range(n)]
 
 
+# 接口名 → 失败原因。空表有两种含义(真的没有 / 根本没调通), 渲染层必须能分开说 ——
+# 华特实测 block_trade 静默返回 0 行, 而减持公告明写走大宗交易, 报告却印成「近 60 日无大宗交易记录」。
+_CALL_ERRORS: dict[str, str] = {}
+
+
 def _safe_call(fn, **kwargs) -> pd.DataFrame:
-    """接口失败 / 无权限时返回空 df 而非抛异常."""
+    """接口失败 / 无权限时返回空 df 而非抛异常;失败记进 `_CALL_ERRORS` 供渲染层区分。"""
+    name = getattr(fn, "__name__", str(fn))
     try:
         df = fn(**kwargs)
+        _CALL_ERRORS.pop(name, None)
         return df if df is not None else pd.DataFrame()
     except Exception as e:
-        print(f"[WARN] {fn.__name__} 失败: {e}")
+        _CALL_ERRORS[name] = str(e)
+        print(f"[WARN] {name} 失败: {e}")
         return pd.DataFrame()
 
 
@@ -75,6 +83,7 @@ def collect_capital_flow(
 ) -> tuple[dict[str, pd.DataFrame], str]:
     """Returns (raw_data_dict, markdown_report)."""
     target_code = normalize_a_code(target_code)
+    _CALL_ERRORS.clear()
     tc = TushareCollector()
     tc._ensure_pro()
     pro = tc._pro
@@ -713,7 +722,12 @@ def _format_markdown(target_code: str, raw: dict, m: dict) -> str:
             seller = str(row.get("seller", "-"))[:30]
             lines.append(f"| {date_str} | {price} | {vol} | {amount} | {buyer} | {seller} |")
     else:
-        lines.append("*近 60 日无大宗交易记录*")
+        err = _CALL_ERRORS.get("block_trade")
+        if err:
+            lines.append(f"⚠️ **大宗交易接口没调通**({err[:80]})—— 本节没有数据,")
+            lines.append("**不能据此写「无大宗交易」**;减持公告里通常写明交易方式,以公告为准。")
+        else:
+            lines.append("*近 60 日无大宗交易记录(接口调通, 返回 0 笔)*")
 
     # §9 北向资金加权建仓成本 (v5.1.2 新增,合并入北向资金视角)
     lines.extend([
@@ -781,6 +795,17 @@ def _format_markdown(target_code: str, raw: dict, m: dict) -> str:
             lines.append(f"- {w}")
     else:
         lines.append("- ℹ️ 无显著控盘/资金异常信号 (6 维度均在中性区间)")
+
+    if _CALL_ERRORS:
+        lines.extend([
+            "",
+            "## §11 采集降级(接口没调通)",
+            "",
+            "下列接口本次没调通 —— 相关小节写的「无数据」只代表**没取到**, 不代表事实上没有:",
+            "",
+        ])
+        for name, err in sorted(_CALL_ERRORS.items()):
+            lines.append(f"- `{name}`: {err[:120]}")
 
     lines.extend([
         "",

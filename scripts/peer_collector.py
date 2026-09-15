@@ -48,7 +48,7 @@ COMPARE_FIELDS = [
     ("pb",                  "PB"),
     ("ps_ttm",              "PS TTM"),
     ("fi_period",           "财务期别"),
-    ("roe_latest",          "ROE(%)"),
+    ("roe_latest",          "ROE(%, 非加权)"),
     ("grossprofit_margin",  "毛利率(%)"),
     ("netprofit_margin",    "净利率(%)"),
     ("debt_to_assets",      "资产负债率(%)"),
@@ -77,11 +77,43 @@ def _latest_trade_date(tc: TushareCollector, lookback: int = 10) -> str:
 
 # ---------- 核心采集函数 ----------
 
+def _norm_peer_code(code: str, all_stocks: pd.DataFrame) -> str:
+    """把 `600378` 这样的裸代码补成 `600378.SH`(按 stock_basic 的 symbol 反查)。"""
+    code = str(code).strip().upper()
+    if "." in code or all_stocks.empty or "symbol" not in all_stocks.columns:
+        return code
+    hit = all_stocks[all_stocks["symbol"].astype(str) == code]
+    return str(hit.iloc[0]["ts_code"]) if len(hit) else code
+
+
+def _peer_universe(
+    all_stocks: pd.DataFrame,
+    target_code: str,
+    industry: str,
+    peer_codes: list[str] | None = None,
+) -> tuple[pd.DataFrame, bool, list[str]]:
+    """候选同业池 → (池, 是否人工指定, 找不到的代码)。
+
+    默认按 Tushare `industry` 字段筛 —— 这一步**已知会选错**:对细分行业的公司会选出与本公司
+    零业务重合的对照物(华特气体被归进「化工原料」262 家, 据此算出的估值分位与真实同业**正好相反**),
+    当时只能由采集 agent 手打一张「真实同业」表贴在文末。所以这里开一条正路:
+    给了 peer_codes 就只用这几家, 不再按行业猜。
+    """
+    if peer_codes:
+        wanted = {_norm_peer_code(c, all_stocks) for c in peer_codes if str(c).strip()}
+        wanted.add(target_code)
+        pool = all_stocks[all_stocks["ts_code"].isin(wanted)].copy()
+        missing = sorted(wanted - set(pool["ts_code"].astype(str)))
+        return pool, True, missing
+    return all_stocks[all_stocks["industry"] == industry].copy(), False, []
+
+
 def collect_peers(
     target_code: str,
     n: int = 5,
     trade_date: str | None = None,
     name_hint: str | None = None,
+    peer_codes: list[str] | None = None,
 ) -> tuple[pd.DataFrame, str]:
     """Returns (peers_df, markdown_report).
 
@@ -105,9 +137,14 @@ def collect_peers(
         list_status="L",
         fields="ts_code,symbol,name,industry,list_date,market",
     )
-    all_peers = all_stocks[all_stocks["industry"] == industry].copy()
+    all_peers, manual_peers, missing_codes = _peer_universe(
+        all_stocks, target_code, industry, peer_codes
+    )
+    if missing_codes:
+        print(f"[WARN] 指定的同业代码在 stock_basic 里找不到, 已跳过: {missing_codes}")
     if len(all_peers) < 2:
-        raise RuntimeError(f"行业 '{industry}' 上市公司不足 2 家, 无法做 peer 对比")
+        who = "指定的同业" if manual_peers else f"行业 '{industry}'"
+        raise RuntimeError(f"{who} 可用公司不足 2 家, 无法做 peer 对比")
 
     # 3. 拉最新日的 daily_basic 全市场, 得市值/估值
     td = trade_date or _latest_trade_date(tc)
@@ -117,8 +154,9 @@ def collect_peers(
     )
     merged = all_peers.merge(basic_day, on="ts_code", how="left")
     merged = merged.dropna(subset=["total_mv"])
-    # 再次保险: 确保 industry 严格相同
-    merged = merged[merged["industry"] == industry]
+    # 再次保险: 确保 industry 严格相同(人工指定同业时不筛 —— 真同业常常不在同一个行业分类里)
+    if not manual_peers:
+        merged = merged[merged["industry"] == industry]
     # total_mv tushare 单位是万元 → 转亿
     merged["total_mv_yi"] = merged["total_mv"] / 10000
 
@@ -138,6 +176,8 @@ def collect_peers(
         selected_codes.append(code)
         if len(selected_codes) >= n + 1:
             break
+    if manual_peers:
+        selected_codes = list(peers_sorted["ts_code"])      # 人工指定的一家都不能少
     selected = peers_sorted[peers_sorted["ts_code"].isin(selected_codes)].copy()
 
     # 6. 批量拉每家 fina_indicator (最新一期) + income (计算 YoY)
@@ -204,7 +244,7 @@ def collect_peers(
     industry_stats = _industry_full_distribution(merged, target_code, industry)
 
     # 8. 生成 markdown
-    md = _format_markdown(df, target_code, target_name, industry, td, industry_stats)
+    md = _format_markdown(df, target_code, target_name, industry, td, industry_stats, manual_peers)
     return df, md
 
 
@@ -287,17 +327,32 @@ def _format_markdown(
     industry: str,
     trade_date: str,
     industry_stats: dict | None = None,
+    manual_peers: bool = False,
 ) -> str:
+    rule = (
+        "**人工指定**(`--peer-codes`)—— 不按行业分类自动选"
+        if manual_peers
+        else f"同行业 + 市值最接近的 {len(df) - 1} 家 + 目标公司"
+    )
     lines = [
         f"# 可比公司对标: {target_name} ({target_code})",
         "",
         f"**行业分类** (Tushare industry): **{industry}**",
-        f"**Peer 选取规则**: 同行业 + 市值最接近的 {len(df) - 1} 家 + 目标公司",
+        f"**Peer 选取规则**: {rule}",
         f"**财务截至**: 最新披露期 · **行情截至**: {trade_date}",
         "",
         "## §1 对比表",
         "",
     ]
+    if not manual_peers:
+        lines[-1:] = [
+            "> ⚠️ 本表同业是按 Tushare **行业分类字段自动选**的。对细分行业的公司, 这会选出与本公司"
+            "**零业务重合**的对照物 —— 华特气体被归进「化工原料」, 据此算出的估值分位与真实同业**正好相反**。"
+            "选错时用 `--peer-codes 600xxx.SH,300yyy.SZ` 重跑, 本表即按人工指定的同业出。",
+            "",
+            "## §1 对比表",
+            "",
+        ]
 
     # 表头
     headers = ["ts_code"] + [h for _, h in COMPARE_FIELDS]
@@ -484,6 +539,8 @@ def main():
     ap.add_argument("--trade-date", help="指定交易日 YYYYMMDD (默认最近)")
     ap.add_argument("--out", help="输出 md 路径 (默认 stdout)")
     ap.add_argument("--name", default=None, help="公司名 (用于 ticker 解析失败时按名称搜索 fallback)")
+    ap.add_argument("--peer-codes", default=None,
+                    help="人工指定同业, 逗号分隔(如 600378.SH,688268.SH);给了就不按行业分类自动选")
     args = ap.parse_args()
 
     try:
@@ -492,6 +549,7 @@ def main():
             n=args.peers,
             trade_date=args.trade_date,
             name_hint=args.name,
+            peer_codes=[c for c in (args.peer_codes or "").split(",") if c.strip()] or None,
         )
     except RuntimeError as e:
         print(f"❌ 失败: {e}")

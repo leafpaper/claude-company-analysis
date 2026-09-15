@@ -60,3 +60,33 @@ class TestHolderNumberNaN(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+# ---------------------------------------------------------------- 接口没调通 ≠ 没有数据(v8.7)
+
+class TestBlockTradeDegraded(unittest.TestCase):
+    """空表有两种含义:接口没调通 / 真的没有大宗。
+
+    华特实测: `block_trade` 静默返回 0 行, 而减持公告明写走大宗交易 —— 报告却印成
+    「近 60 日无大宗交易记录」, 写手据此写了「近 60 日无大宗」。必须分开说。
+    """
+
+    def setUp(self):
+        cf._CALL_ERRORS.clear()
+        self.addCleanup(cf._CALL_ERRORS.clear)
+
+    def _md(self) -> str:
+        raw = _raw([("20260630", 34429.0), ("20260331", 14758.0)])
+        return cf._format_markdown("002384.SZ", raw, cf._derive_metrics("002384.SZ", raw))
+
+    def test_failed_call_is_not_reported_as_no_block_trade(self):
+        cf._CALL_ERRORS["block_trade"] = "抱歉，您没有访问该接口的权限"
+        md = self._md()
+        self.assertIn("没调通", md)
+        self.assertNotIn("无大宗交易记录", md)
+        self.assertIn("§11 采集降级", md)               # 降级也要写进报告, 不只打在控制台
+
+    def test_empty_but_successful_call_still_says_no_block_trade(self):
+        md = self._md()
+        self.assertIn("无大宗交易记录", md)
+        self.assertNotIn("没调通", md)
+        self.assertNotIn("§11 采集降级", md)

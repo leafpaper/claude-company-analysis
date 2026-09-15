@@ -51,7 +51,7 @@ TREND_FIELDS = [
     ("net_margin", "净利率%"),
     ("n_income_yi", "归母净利(亿)"),
     ("net_income_yoy", "净利 YoY"),
-    ("roe", "加权 ROE"),
+    ("roe", "ROE(非加权)"),
     ("debt_to_assets", "资产负债率%"),
     ("ocf_yi", "OCF(亿)"),
 ]
@@ -112,7 +112,7 @@ CASHFLOW_KEY_FIELDS = [
     ("c_prepay_amt_borr", "偿还债务支付现金", "yi"),
     ("c_pay_dist_dpcp_int_exp", "分配股利偿付利息现金", "yi"),
     ("n_cash_flows_fnc_act", "筹资活动现金流净额", "yi"),
-    ("free_cashflow", "自由现金流", "yi"),
+    ("free_cashflow", "自由现金流(数据商口径)", "yi"),
     ("depr_fa_coga_dpba", "固定资产折旧", "yi"),
     ("amort_intang_assets", "无形资产摊销", "wan"),
 ]
@@ -130,8 +130,13 @@ FINA_KEY_FIELDS = [
     ("netprofit_margin", "净利率(%)"),
     ("netprofit_yoy", "净利 YoY(%)"),
     ("tr_yoy", "营收 YoY(%)"),
-    ("roe", "加权 ROE(%)"),
-    ("roe_dt", "加权 ROE(扣非, %)"),
+    # Tushare 的 `roe` 是净资产收益率(非加权), 年报正文惯用的加权平均是 `roe_waa`,
+    # 两者数值不同(华特 2026H1: 3.97 vs 4.34)。原来这里把 `roe` 标成「加权 ROE」——
+    # 值是非加权的、标签却说加权, 拿去和年报里的加权数比就会得出错误结论。两个都印, 各自标清楚;
+    # 附录B 的自动同业表用的是 `roe`, 所以 §3 趋势表也用 `roe`, 两张表才能横着比。
+    ("roe", "ROE(%, 非加权 — 与附录B 同业表同口径)"),
+    ("roe_waa", "加权平均 ROE(%, 年报正文口径)"),
+    ("roe_dt", "ROE(扣非, %, 非加权)"),
     ("roa", "ROA(%)"),
     ("roic", "投入资本回报率(%)"),
     ("debt_to_assets", "资产负债率(%)"),
@@ -283,6 +288,11 @@ def _render_section_2(bundle_dir: Path, latest_periods: dict, out: StringIO):
             prev_v = prev[col] if (prev is not None and col in prev.index) else None
             yoy = _fmt_yoy(curr_v, prev_v) if (curr_v is not None and prev_v is not None) else "–"
             out.write(f"| {label} | {_fmt_value(curr_v, unit)} | {_fmt_value(prev_v, unit)} | {yoy} |\n")
+        out.write(
+            "\n> 口径提示:「自由现金流(数据商口径)」是 Tushare `cashflow.free_cashflow` 字段;"
+            "`metrics.json` 里的 `free_cashflow_latest` 是**经营现金流 − 购建固定资产支付的现金**自算的。"
+            "两者常差一截(华特 2026H1:0.12 亿 vs 0.67 亿),引用时写明用的是哪一个。\n"
+        )
     out.write("\n")
 
     # 2.2 资产负债表
@@ -363,7 +373,12 @@ def _render_section_3(bundle_dir: Path, out: StringIO):
         out.write("(无可用 end_date)\n\n")
         return
 
-    out.write("| 期末 | 营收(亿) | 营收 YoY | 毛利率% | 净利率% | 归母净利(亿) | 净利 YoY | 加权 ROE% | 资产负债率% | OCF(亿) |\n")
+    # ROE 列口径: 用非加权 `roe`, 与附录B 自动同业表**同一个字段** —— 两张表要能横着比。
+    # (年报正文惯用的加权平均是 roe_waa, 数值不同: 华特 2026H1 roe 3.97 vs roe_waa 4.34;
+    #  加权值在 §2.4 单列一行, 要引用加权口径就去那儿取, 别把两个口径混在一张表里比。)
+    roe_col = "roe"
+    roe_label = "ROE%(非加权)"
+    out.write(f"| 期末 | 营收(亿) | 营收 YoY | 毛利率% | 净利率% | 归母净利(亿) | 净利 YoY | {roe_label} | 资产负债率% | OCF(亿) |\n")
     out.write("|:---:|---:|:---:|---:|---:|---:|:---:|---:|---:|---:|\n")
 
     # 去重: 重复 end_date 取第一个 (通常 ann_date 最新或 report_type 标准的)
@@ -387,7 +402,7 @@ def _render_section_3(bundle_dir: Path, out: StringIO):
         fi_row = fi_idx.loc[period] if period in fi_idx.index else None
         gross = fi_row["grossprofit_margin"] if fi_row is not None and "grossprofit_margin" in fi_row else None
         netm = fi_row["netprofit_margin"] if fi_row is not None and "netprofit_margin" in fi_row else None
-        roe = fi_row["roe"] if fi_row is not None and "roe" in fi_row else None
+        roe = fi_row[roe_col] if fi_row is not None and roe_col in fi_row else None
         d2a = fi_row["debt_to_assets"] if fi_row is not None and "debt_to_assets" in fi_row else None
         # 现金流
         ocf = cf_idx.loc[period, "n_cashflow_act"] if period in cf_idx.index else None
@@ -405,7 +420,7 @@ def _render_section_3(bundle_dir: Path, out: StringIO):
             f"{ocf/1e8:.4f}" if ocf is not None and pd.notna(ocf) else "–",
         ]
         out.write("| " + " | ".join(row) + " |\n")
-    out.write(f"\n*共 {len(periods)} 期, 最新期 {periods[0]}。*\n\n")
+    out.write(f"\n*共 {len(periods)} 期, 最新期 {periods[0]};ROE 列取自 `fina_indicator.{roe_col}`(非加权, 与附录B 自动同业表同口径);年报惯用的加权平均 ROE 见 §2.4。*\n\n")
 
 
 def _render_section_4(bundle_dir: Path, out: StringIO):
