@@ -240,6 +240,26 @@ class TestNumberHome(_Run):
         self.assertIn("④路径", r3.findings[0])
         self.assertIn("home 在 ③赔率", r3.findings[0])
 
+    def test_single_decimal_small_percent_does_not_collide(self):
+        """个位数带一位小数的百分比不进 home 追踪 —— 撞车是常态, 语义毫不相干。
+
+        金山 688111 实测:③的无风险利率 1.8% 与①的「非经常损益只占归母 1.8%~5.4%」撞成一条,
+        照 R3 的要求给③加出处就等于说无风险利率来自①的非经常损益占比 —— 写的是假话。
+        折现率分档、股息率、资本化率天然挤在 0~9.9% 这一小段里。
+        """
+        self.append_body("quality", "历史上非经常损益只占归母 1.8%~5.4%, 扣非口径有效。")
+        self.append_body("odds", "折现率分档:无风险利率 1.8% + 股权风险溢价 5.5%。")
+        r3 = self.rule(self.lint(assemble=False), "R3 ")
+        self.assertTrue(r3.passed, r3.findings)
+
+    def test_two_decimal_percent_is_still_judged(self):
+        """放宽只到一位小数 —— 两位小数(0.40% 股息率这种)信息量够, 照常判。"""
+        self.append_body("quality", "股息率 0.40%, 分红极薄。")
+        self.append_body("odds", "股息率 0.40% 给不了任何缓冲。")
+        r3 = self.rule(self.lint(assemble=False), "R3 ")
+        self.assertFalse(r3.passed)
+        self.assertTrue(any("0.40%" in f for f in r3.findings), r3.findings)
+
     def test_appendix_and_front_page_are_not_judged(self):
         """首页与附录不进 R3——首页是机器装配, 附录本就是全表下沉的家。"""
         run_dir = self.build()

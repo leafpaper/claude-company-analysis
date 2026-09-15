@@ -76,13 +76,20 @@ red_flag_nominations:
     source: nomination
     node: path
     metric_refs: [goodwill]
+# ⚠️ 带中文的字段一律**块式**写(下面这种), 别用 {key: value, key: value} 流式映射:
+#    值里只要出现一个半角逗号(可核销阈值里几乎必然有:「<40 亿, 或毛利率…」「4,825 万」),
+#    YAML 就会把它当成键分隔符, 报「有不是标识符的键」。本节点与③赔率实测各因此丢过一轮。
 falsifications:
-  - {condition: H1 光模块营收 <40 亿或毛利率 <30%, triggered: false}
+  - condition: "H1 光模块营收 <40 亿, 或毛利率 <30%"
+    triggered: false
 left_tail:                      # ★ 票 11: 每条必填 depth_pct(相对现价的跌幅, 负数)
-  - {scenario: 商誉 47.69 亿减值 → 最差 5 元(−98%), note: 刨掉商誉净值约 −2~8 亿,
-     depth_pct: -98, depth_basis: 清算净值约 −2~8 亿 → 每股 5 元 vs 现价 273 元}
-  - {scenario: 关键人物高质押与踩踏共振,       # 量不到价格 → null + magnitude
-     depth_pct: null, magnitude: 质押占其持股 34.6%;是放大器, 无独立价格深度}
+  - scenario: "商誉 47.69 亿减值 → 最差 5 元(−98%)"
+    note: "刨掉商誉净值约 −2~8 亿"
+    depth_pct: -98
+    depth_basis: "清算净值约 −2~8 亿 → 每股 5 元 vs 现价 273 元"
+  - scenario: "关键人物高质押与踩踏共振"      # 量不到价格 → null + magnitude
+    depth_pct: null
+    magnitude: "质押占其持股 34.6%;是放大器, 无独立价格深度"
 ```
 
 **判定:高尾险·扛不住——地板薄、拥挤重,跌起来是波动放大器。**(verdict 先行)

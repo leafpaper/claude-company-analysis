@@ -82,10 +82,20 @@ derivation:                       # ★ 票 11: 推导是数据不是散文, 十
   sotp:
     profit_label: 年化扣非         # 分部利润列表头, 跟着你的口径改
     segments:
-      - {name: 电子电路, profit: 22, multiple: 25, value: 550,
-         basis: 毛利率长期 13~18%,给 peer 中位折让, falsify: 毛利率跌破 13%}
-      - {name: 光模块, profit: 12, multiple: 40, value: 480,
-         basis: 毛利率 36.74% 全集团最高,40x 已含 AI 溢价, falsify: 毛利率跌破 30%}
+      # ⚠️ 带中文长句的字段(basis / falsify)用块式, 别用 {…} 流式映射:
+      #    值里一个半角逗号就会被当成键分隔符, 报「有不是标识符的键」。本节点实测丢过一轮。
+      - name: 电子电路
+        profit: 22
+        multiple: 25
+        value: 550
+        basis: "毛利率长期 13~18%, 给 peer 中位折让"
+        falsify: "毛利率跌破 13%"
+      - name: 光模块
+        profit: 12
+        multiple: 40
+        value: 480
+        basis: "毛利率 36.74% 全集团最高, 40x 已含 AI 溢价"
+        falsify: "毛利率跌破 30%"
     enterprise_value: 1030        # 可省, 缺省 = 分部加总
     net_debt: 120
     equity_value: 910
