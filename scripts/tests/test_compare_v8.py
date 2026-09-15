@@ -472,6 +472,37 @@ class TestReviewLinkage(CompareEnv):
         self.assertEqual([o["company"] for o in st["outdated_members"]], [PEER])
         self.assertTrue(any("成员报告已更新" in r for r in st["reasons"]))
 
+    def test_status_flags_in_place_rebuild_of_a_member(self):
+        """基准日没变、内容变了 —— 只比 report_date 的老写法在这里会说「已是最新」。
+
+        实测就踩到了:东山/旭创连着几轮原地重出片(统一叫法、改红旗 id、附录纳入技术面),
+        `compare status` 一路答「已是最新」, 而线上对比页还印着 09-02 的旧卡片。
+        """
+        self.make_group()
+        self.write_judge(self.good_judge())
+        compare.assemble(SLUG, today=TODAY)
+        self.assertFalse(compare.status(SLUG, today=TODAY)["needs_rebuild"])
+
+        # 同一个 run 原地重出片:日期一个字没动, 卡片上的判定语改了
+        prod_path = next((self.output / PEER).glob("runs/*/assembly/assembly.json"))
+        product = json.loads(prod_path.read_text(encoding="utf-8"))
+        product["metadata"]["verdict_plain"] = "回避:换了个说法, 但基准日没变"
+        prod_path.write_text(json.dumps(product, ensure_ascii=False, indent=2), encoding="utf-8")
+
+        st = compare.status(SLUG, today=TODAY)
+        self.assertTrue(st["needs_rebuild"])
+        self.assertEqual([r["company"] for r in st["rebuilt_members"]], [PEER])
+        self.assertEqual(st["outdated_members"], [])          # 不是「报告更新了」, 是「原地重出片」
+        self.assertTrue(any("原地重出片" in r for r in st["reasons"]))
+
+    def test_digest_ignores_fields_that_drift_by_themselves(self):
+        """指纹不能含随天数漂移的字段, 否则每过一天都说要重装配。"""
+        self.make_group()
+        self.write_judge(self.good_judge())
+        compare.assemble(SLUG, today=TODAY)
+        later = compare.status(SLUG, today="2026-09-05")       # 只是过了几天
+        self.assertEqual(later["rebuilt_members"], [])
+
     def test_status_flags_missing_judge(self):
         self.make_group()
         compare.assemble(SLUG, today=TODAY)

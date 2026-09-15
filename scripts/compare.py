@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as _dt
+import hashlib
 import json
 import re
 import sys
@@ -344,7 +345,20 @@ def member_snapshot(
     if md.exists():
         snapshot["report_md"] = str(md)
     snapshot["report_href"] = f"../../reports/{_site_slug(company, snapshot['ticker'])}/分析报告_dashboard.html"
+    snapshot["source_digest"] = _snapshot_digest(snapshot)
     return snapshot
+
+
+# 内容指纹:同一个基准日**原地重装配**(改措辞、改红旗 id、换附录)不会动 report_date,
+# 于是 status 判「已是最新」而页面还是旧卡片 —— 实测 pcb-optics 就这么停在 09-02 的叫法上。
+# 指纹覆盖的正是并排页消费的那几样(校验范围 = 消费范围), 不含随天数漂移的字段。
+_DIGEST_SKIP = ("source_digest", "age_days", "stale", "report_md", "report_href")
+
+
+def _snapshot_digest(snapshot: dict) -> str:
+    payload = {k: v for k, v in snapshot.items() if k not in _DIGEST_SKIP}
+    blob = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+    return hashlib.md5(blob.encode("utf-8")).hexdigest()[:10]
 
 
 # ---------------------------------------------------------------- 组内裁决:载入 + 四条机检
@@ -710,7 +724,9 @@ def status(slug: str, today: str | None = None, root: Path | None = None) -> dic
         product = None
 
     known = {m["company"]: m["report_date"] for m in (product or {}).get("members", [])}
+    known_digest = {m["company"]: m.get("source_digest") for m in (product or {}).get("members", [])}
     outdated: list[dict] = []
+    rebuilt: list[dict] = []
     unchanged: list[dict] = []
     still_missing: list[dict] = []
     for entry in group["members"]:
@@ -727,6 +743,15 @@ def status(slug: str, today: str | None = None, root: Path | None = None) -> dic
             outdated.append({"company": company, "was": None, "now": snapshot["report_date"]})
         elif known[company] != snapshot["report_date"]:
             outdated.append({"company": company, "was": known[company], "now": snapshot["report_date"]})
+        elif known_digest.get(company) != snapshot.get("source_digest"):
+            # 基准日没变、内容变了 = 原地重装配(改措辞 / 红旗 id / 附录)。
+            # 只比 report_date 的老写法在这里会说「已是最新」, 页面却还印着旧卡片。
+            rebuilt.append({
+                "company": company,
+                "report_date": snapshot["report_date"],
+                "was": known_digest.get(company) or "(旧版产物无指纹)",
+                "now": snapshot.get("source_digest"),
+            })
         else:
             unchanged.append({"company": company, "report_date": snapshot["report_date"]})
 
@@ -736,6 +761,9 @@ def status(slug: str, today: str | None = None, root: Path | None = None) -> dic
     if outdated:
         reasons.append("成员报告已更新: " + "、".join(
             f"{o['company']} {o['was'] or '(新入组)'}→{o['now']}" for o in outdated))
+    if rebuilt:
+        reasons.append("成员报告原地重出片(基准日没变、内容变了): " + "、".join(
+            f"{r['company']} {r['report_date']}" for r in rebuilt))
     if product is not None and "judge" not in product:
         reasons.append("组内裁决尚未产出")
 
@@ -745,6 +773,7 @@ def status(slug: str, today: str | None = None, root: Path | None = None) -> dic
         "needs_rebuild": bool(reasons),
         "reasons": reasons,
         "outdated_members": outdated,
+        "rebuilt_members": rebuilt,
         "unchanged_members": unchanged,
         "missing_members": still_missing,
         "stale_members": [m["company"] for m in (product or {}).get("members", []) if m.get("stale")],
