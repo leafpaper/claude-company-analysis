@@ -89,12 +89,21 @@ def _slug(text: str) -> str:
     return s or "flag"
 
 
-def flag_id(framework: str, signal: str) -> str:
-    """脚本红旗的稳定 id: {framework-slug}-{signal 摘要 6 位}。
+# signal 里带的**数值**不进 id。旧写法把整句 signal 哈希进去, 而 audit 的 signal 常常自带当期值:
+# 「Z=8.767」「F=4/9」「M=-2.726」—— 数据一刷新 signal 就变, id 跟着变, 同一条红旗于是每期都被
+# 算成「解除一条 + 新增一条」, 增量复查的红旗 diff 全是噪音(票 09 验收记录, 当时判「会破坏在途
+# 引用」而单独切票;实测三家的节点引用只指向不含数值的 signal, 所以归一化不动它们)。
+_SIGNAL_VALUE = re.compile(r"[-−+]?\d[\d,]*(?:\.\d+)?(?:\s*/\s*\d+)?")
 
-    只依赖 framework+signal 文本, 不依赖清单顺序——数值变化不改 id, 增量复查可按 id diff。
+
+def flag_id(framework: str, signal: str) -> str:
+    """脚本红旗的稳定 id: {framework-slug}-{signal 文字骨架摘要 6 位}。
+
+    摘要只取 signal 的**文字骨架**(数值剥掉), 所以数值刷新不改 id —— 增量复查按 id diff 才准。
+    只依赖 framework+signal, 不依赖清单顺序。
     """
-    digest = hashlib.md5(f"{framework}|{signal}".encode("utf-8")).hexdigest()[:6]
+    skeleton = _SIGNAL_VALUE.sub("", signal)
+    digest = hashlib.md5(f"{framework}|{skeleton}".encode("utf-8")).hexdigest()[:6]
     return f"{_slug(framework)}-{digest}"
 
 

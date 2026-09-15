@@ -39,7 +39,10 @@ CHAPTERS = (
 APPENDIX_SOURCES = (
     ("A", "财务与经营明细", ("data_snapshot.md",)),
     ("B", "行业与对标明细", ("peer_analysis.md",)),
-    ("C", "舆情与资金底稿", ("capital_flow.md", "sentiment.md")),
+    # technical_analysis.md 此前**没挂到任何附录**(华特④路径报出): 阶段高点、异动启动价、支撑位
+    # 这些价位于是无处可引 —— ④ 只能自己安家, R3 也无从要求出处。并进 C:
+    # 资金面与技术面本就同属「市场怎么定价它」。
+    ("C", "舆情、资金与技术面底稿", ("capital_flow.md", "sentiment.md", "technical_analysis.md")),
     ("D", "红旗总清单", ()),
     ("E", "数据来源与信息缺口", ("data_sources.md",)),
 )

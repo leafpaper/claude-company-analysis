@@ -351,7 +351,7 @@ class TestRenderReport(unittest.TestCase):
                             "## ③ 赔率——贵不贵", "## ④ 路径——扛得住吗",
                             "## ⑤ 怎么办——行动档位与证伪",
                             "## 附录A 财务与经营明细", "## 附录B 行业与对标明细",
-                            "## 附录C 舆情与资金底稿", "## 附录D 红旗总清单",
+                            "## 附录C 舆情、资金与技术面底稿", "## 附录D 红旗总清单",
                             "## 附录E 数据来源与信息缺口"):
                 self.assertIn(heading, text, f"报告缺 {heading}")
 
@@ -510,6 +510,59 @@ def main():
     result = unittest.TextTestRunner(verbosity=2).run(suite)
     sys.exit(0 if result.wasSuccessful() else 1)
 
+
+
+# ---------------------------------------------------------------- 红旗 id 归一化(v8.9)
+
+def _audit_with(z_value: str, f_value: str) -> dict:
+    """audit 产物形态:注意 Z / F 这类框架把**当期值写进了 signal**。"""
+    return {"red_flags": [
+        {"framework": "Altman Z-Score", "signal": f"Z={z_value}", "severity": "🟢 低",
+         "value": None, "threshold": "Z<1.81 破产风险 / Z>2.99 安全",
+         "evidence": f"Z={z_value} 落在安全区", "implication": "短期破产风险低"},
+        {"framework": "Piotroski F-Score", "signal": f"F={f_value}", "severity": "🟡 中",
+         "value": None, "threshold": "F≤3 警示", "evidence": "九项里过了四项", "implication": "中等"},
+        {"framework": "Valuation", "signal": "PB 历史分位", "severity": "🟠 高",
+         "value": None, "threshold": ">80% 分位警示", "evidence": "近 1 年 100% 分位", "implication": "估值偏高"},
+    ]}
+
+
+class TestRedFlagIdIsValueStable(unittest.TestCase):
+    """红旗 id 不能含当期数值 —— 否则每次刷新都把同一条红旗算成「解除一条 + 新增一条」。
+
+    audit 的 signal 自带值(「Z=8.767」「F=4/9」「M=-2.726」), 旧写法把整句哈希进 id,
+    于是增量复查的红旗 diff 全是噪音:数字动一下, 清单就「换了一批红旗」。
+    """
+
+    def test_value_refresh_keeps_the_same_id(self):
+        before = rf.normalize_audit(_audit_with("8.767", "4/9"))
+        after = rf.normalize_audit(_audit_with("7.796", "7/9"))
+        self.assertEqual([f["id"] for f in before], [f["id"] for f in after])
+
+    def test_different_signals_still_get_different_ids(self):
+        self.assertNotEqual(rf.flag_id("Valuation", "PB 历史分位"),
+                            rf.flag_id("Valuation", "PS 历史分位"))
+        self.assertNotEqual(rf.flag_id("Valuation", "PB 历史分位"),
+                            rf.flag_id("DuPont", "PB 历史分位"))
+
+    def test_ids_without_numbers_are_unchanged_by_normalisation(self):
+        """在途引用不能断:节点 YAML 里存着的 red_flag_ref 指的正是这类不含数值的 signal。"""
+        self.assertEqual(rf.flag_id("DuPont", "最新ROE 分解"), "dupont-96a180")
+
+    def test_value_refresh_produces_no_phantom_flag_changes(self):
+        """这才是要害:值刷新之后,「较上版变化」不该报出任何新增 / 解除。"""
+        before = rf.normalize_audit(_audit_with("8.767", "4/9"))
+        after = rf.normalize_audit(_audit_with("7.796", "7/9"))
+        self.assertEqual(assembly._flag_changes(before, after), [])
+
+    def test_real_level_change_is_still_reported(self):
+        """归一化不能把真变化也抹掉:级别变了照报。"""
+        before = rf.normalize_audit(_audit_with("8.767", "4/9"))
+        worse = _audit_with("1.20", "2/9")
+        worse["red_flags"][0]["severity"] = "🔴 致命"
+        changes = assembly._flag_changes(before, rf.normalize_audit(worse))
+        self.assertEqual(len(changes), 1)
+        self.assertEqual(changes[0]["change"], "level_changed")
 
 if __name__ == "__main__":
     main()

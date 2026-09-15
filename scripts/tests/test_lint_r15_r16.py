@@ -108,5 +108,71 @@ class TestR16AnchorCitation(unittest.TestCase):
         self.assertTrue(lint_v8.rule_anchor_citation(n, bodies).passed)
 
 
+
+# ---------------------------------------------------------------- R17 已兑现倍数(v8.9)
+
+def _odds_with(segments: list[dict], scenarios: list[dict]) -> dict:
+    return {"odds": {"node": "odds", "derivation": {"sotp": {"segments": segments},
+                                                    "dcf": {"scenarios": scenarios}}}}
+
+
+HUATE_SCENARIOS = [
+    {"name": "乐观前景(高端放量 + 氦价高位)", "p": 0.2, "exit_multiple": 45},
+    {"name": "基准前景(行业增速 + 氦价回落)", "p": 0.5, "exit_multiple": 35},
+    {"name": "最差那条前景(价格内卷延续)", "p": 0.3, "exit_multiple": 25},
+]
+
+
+class TestR17RealizedMultiple(unittest.TestCase):
+    """按**自身历史倍数**给已兑现利润定价时, 不得高于基准情景的退出倍数。
+
+    华特 R1 实测:低端「只认已兑现」给 40x, 而基准情景五年增长之后才给 35x ——
+    等于给不增长的利润付了比增长还贵的价, F 里含了增长、N 被低估(改 32.8x 后低端 42.2 → 35.3 元)。
+    R5 只查两端不倒置, 这种「同向但内部不自洽」它看不见。
+    """
+
+    def test_self_history_multiple_above_base_exit_fails(self):
+        r = lint_v8.rule_realized_multiple(_odds_with(
+            [{"name": "基本盘(2025 全年扣非)", "multiple": 40,
+              "basis": "行情前滚动市盈率 25 分位"}], HUATE_SCENARIOS))
+        self.assertFalse(r.passed)
+        self.assertIn("40x", r.findings[0])
+        self.assertIn("35x", r.findings[0])
+
+    def test_lowered_multiple_passes(self):
+        """华特修完之后的形态(32.8x < 35x)不该再报。"""
+        r = lint_v8.rule_realized_multiple(_odds_with(
+            [{"name": "基本盘(2025 全年扣非)", "multiple": 32.8,
+              "basis": "行情前滚动市盈率 25 分位, 低于基准前景退出 35x"}], HUATE_SCENARIOS))
+        self.assertTrue(r.passed, r.findings)
+
+    def test_peer_priced_segment_is_not_judged(self):
+        """按**同业倍数**给分部定价是另一回事, 不能拿去和终值倍数比大小。
+
+        东山实测:电子电路 30x、光模块 40x 都高于基准情景退出 20x —— 那是「当期同业倍数」
+        对「五年后的终值倍数」, 两者本就不可比。误判它会把两份已发布的报告判红。
+        """
+        r = lint_v8.rule_realized_multiple(_odds_with(
+            [{"name": "电子电路", "multiple": 30, "basis": "给 5 家 peer 中位"},
+             {"name": "光模块(索尔思)", "multiple": 40, "basis": "H1 收入为 2025 全年的 3.7 倍, 40x 已含 AI 溢价"}],
+            [{"name": "基准(光模块降速)", "p": 0.5, "exit_multiple": 20}]))
+        self.assertTrue(r.passed, r.findings)
+
+    def test_base_scenario_falls_back_to_highest_probability(self):
+        """情景没叫「基准」时取概率最大的那条。"""
+        r = lint_v8.rule_realized_multiple(_odds_with(
+            [{"name": "已兑现", "multiple": 30, "basis": "自身历史倍数中位"}],
+            [{"name": "乐观", "p": 0.2, "exit_multiple": 40},
+             {"name": "中性", "p": 0.5, "exit_multiple": 25},
+             {"name": "悲观", "p": 0.3, "exit_multiple": 15}]))
+        self.assertFalse(r.passed)
+        self.assertIn("中性", r.findings[0])
+
+    def test_missing_scenarios_is_skipped_not_failed(self):
+        r = lint_v8.rule_realized_multiple(_odds_with(
+            [{"name": "已兑现", "multiple": 30, "basis": "自身历史分位"}], []))
+        self.assertTrue(r.skipped)
+
+
 if __name__ == "__main__":
     unittest.main()

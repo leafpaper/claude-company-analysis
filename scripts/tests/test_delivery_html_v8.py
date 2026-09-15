@@ -696,6 +696,28 @@ class TestAppendixBManualPeerAnchor(unittest.TestCase):
         self.assertIn(render._B_CAVEAT_POINTER, render.APPENDIX_B_CAVEAT)
 
 
+class TestTechnicalAnalysisMounted(unittest.TestCase):
+    """technical_analysis.md 要挂进附录C —— 它此前不挂任何附录(华特④路径报出)。
+
+    后果不是少一张表:阶段高点、异动启动价、支撑位这些价位**无处可引**,
+    ④ 只能自己安家, R3 也无从要求出处。资金面与技术面同属「市场怎么定价它」, 并进 C。
+    """
+
+    def test_mounted_into_appendix_c(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / "capital_flow.md").write_text("# 资金流\n\n户数变化。\n", encoding="utf-8")
+            (root / "technical_analysis.md").write_text(
+                "# 技术分析\n\n**收盘价**: 129.30 元\n\n近 60 日低点 120.16 元。\n",
+                encoding="utf-8")
+            sections, records = render.build_appendices([], [root])
+        appendix_c = next(s for s in sections if s.startswith("## 附录C"))
+        self.assertIn("120.16", appendix_c)
+        self.assertIn("技术面", appendix_c)          # 标题改叫「舆情、资金与技术面底稿」
+        c_record = next(r for r in records if r["key"] == "C")
+        self.assertTrue(any("technical_analysis.md" in m for m in c_record["mounted"]))
+
+
 class TestValuationMeterLegend(unittest.TestCase):
     """估值尺图例的「几种前景」按 derivation 实际情景数说。
     schema 只要求 scenarios ≥2 个, 手册写的「三情景」不是契约 —— 图例写死「三种」,
@@ -721,7 +743,8 @@ def main():
     suite = unittest.TestSuite()
     for cls in (TestDashboardFrontPage, TestRedMarkThreeChannels, TestMobileFirstClass,
                 TestDualTheme, TestPageIntegrity, TestIncrementalChangeBlock, TestIndexCardV8,
-                TestContractDrivenFigures, TestAppendixBManualPeerAnchor, TestValuationMeterLegend):
+                TestContractDrivenFigures, TestAppendixBManualPeerAnchor, TestValuationMeterLegend,
+                TestTechnicalAnalysisMounted):
         suite.addTests(loader.loadTestsFromTestCase(cls))
     result = unittest.TextTestRunner(verbosity=2).run(suite)
     sys.exit(0 if result.wasSuccessful() else 1)

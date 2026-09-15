@@ -29,6 +29,7 @@
 | R14 | 机器块无过程注释 | warn | 节点 YAML 里不留「正在/待定稿/暂按」这类会过期的时态词 |
 | R15 | 三元组同源 | fail | ⑤ triad 三格与②③④ 的 verdict 逐字相等(上游改了判定句要重抄) |
 | R16 | ③锚引用过期 | fail | 别的节点抄的「X~Y 元」只有一端对得上③锚, 或「锚低端/高端 N 元」与③不符 |
+| R17 | 已兑现倍数不超增长退出 | fail | 按自身历史倍数给已兑现利润定价时, 不得高于基准情景的退出倍数 |
 
 CLI:
     python -m scripts.lint_v8 --run-dir output/{company}/runs/{date}
@@ -257,8 +258,16 @@ def rule_number_home(bodies: dict[str, str]) -> RuleResult:
     只在五章之间判——首页是机器装配(链手册 §4.5 明文豁免),附录本就是全表下沉的家。
 
     ★ 带出处的引用既不认领 home 也不算违规。判 home 时必须跳过它们,否则章序在前的
-    「借用方」会抢走 home,把真正的主人反判成异地裸引 —— 现价与区间锚归③赔率,但②状态
+    「借用方」会抢走 home,把真正的主人反判成异地裸引 —— 现价与合理价区间归③赔率,但②状态
     按规矩带出处引用了它们,章序②在③前,老写法就会去告③赔率的状。
+
+    ★★ **home 按章序认, 语义归属靠写手标出处**(2026-09-16 定,不改本规则)。
+    写作顺序是依赖图波次(①③ → ②④ → ⑤), 与语义归属天然错位:①质地在第一波就会写到
+    增长拆解的数字, home 于是判给①, 第二波的②状态只能反过来引用它(华特实测:氦气占收入
+    增量 50.8%、同比 +133% 都落在①名下)。**没有把这件事做成机检** —— 机器看见的是数字串,
+    认不出「这是增长拆解还是盈利能力」, 硬猜只会变成又一条高误报规则(票 12 的教训)。
+    改为在链手册 §4.5 给出**语义归属表**、并在①的手册里写明「增长拆解的数字写的时候就标
+    (②状态)」: 写手一标出处, home 自然落到语义主人身上, 本规则一行不用动。
     """
     home_of: dict[str, str] = {}
     findings: list[str] = []
@@ -985,6 +994,59 @@ def rule_anchor_citation(nodes: dict, bodies: dict[str, str]) -> RuleResult:
 
 
 # ============================================================================
+# R17 已兑现利润的倍数不得高于增长情景的退出倍数
+# ============================================================================
+# 华特 R1 逻辑评审:③ 的低端「只认已兑现利润」用了 40x, 而基准增长情景五年后才给 35x ——
+# 等于**给不增长的利润付了比增长还贵的价**, F 里悄悄含了增长、N 被低估, 锚低端偏高 16%
+# (改成 32.8x 后低端 42.2 → 35.3 元)。R5 只查两端不倒置, 这种「同向但内部不自洽」它看不见。
+#
+# ⚠️ 判据只卡**按自身历史倍数定价**的那一段(依据里写着「行情前 / 自身历史 / 分位」)。
+# 按同业倍数给分部定价是另一回事: 东山电子电路 30x、光模块 40x vs 基准退出 20x,
+# 旭创光模块 25x vs 18x —— 那是「当期同业倍数」对「五年后的终值倍数」, 本来就不可直接比大小。
+# 实测:三份现役报告零命中, 华特修复前会命中。
+_SELF_HISTORY_MULTIPLE = re.compile(r"自身历史|历史倍数|行情前|分位")
+
+
+def _base_scenario(scenarios: list[dict]) -> dict | None:
+    """基准情景:名字里带「基准」的那条;没有就取概率最大的一条。"""
+    named = [s for s in scenarios if "基准" in str(s.get("name") or "")]
+    if named:
+        return named[0]
+    with_p = [s for s in scenarios if isinstance(s.get("p"), (int, float))]
+    return max(with_p, key=lambda s: s["p"]) if with_p else None
+
+
+def rule_realized_multiple(nodes: dict) -> RuleResult:
+    """按自身历史倍数给已兑现利润定价时, 该倍数不得高于基准情景的退出倍数。"""
+    deriv = (nodes.get("odds") or {}).get("derivation") or {}
+    segments = (deriv.get("sotp") or {}).get("segments") or []
+    scenarios = (deriv.get("dcf") or {}).get("scenarios") or []
+    base = _base_scenario(scenarios)
+    exit_mult = (base or {}).get("exit_multiple")
+    if not segments or not isinstance(exit_mult, (int, float)):
+        return RuleResult(name="R17 已兑现倍数不超增长退出", skipped=True,
+                          detail="③ 无分部倍数或无基准情景退出倍数")
+    findings = []
+    for seg in segments:
+        mult = seg.get("multiple")
+        basis = str(seg.get("basis") or "")
+        if not isinstance(mult, (int, float)) or not _SELF_HISTORY_MULTIPLE.search(basis):
+            continue
+        if mult > exit_mult:
+            findings.append(
+                f"③ 分部「{seg.get('name', '')}」按自身历史倍数给 {mult:g}x, "
+                f"高于基准情景「{base.get('name', '')}」的退出倍数 {exit_mult:g}x —— "
+                "不增长的那部分利润不该比增长情景还贵(F 里含了增长 / N 被低估), "
+                "把它降到不高于退出倍数, 或写明为什么这段历史倍数仍然成立"
+            )
+    return RuleResult(
+        name="R17 已兑现倍数不超增长退出", passed=not findings,
+        detail=f"按自身历史倍数定价的分部 ≤ 基准情景退出倍数 {exit_mult:g}x",
+        findings=findings,
+    )
+
+
+# ============================================================================
 # 公共 API
 # ============================================================================
 def find_report_md(run_dir: Path) -> Path | None:
@@ -1048,6 +1110,7 @@ def lint_run(run_dir, md_path=None, artifacts_dir=None, audit_json=None) -> Lint
         rule_falsification_source(nodes),
         rule_triad_source(nodes),
         rule_anchor_citation(nodes, bodies),
+        rule_realized_multiple(nodes),
         rule_budget(bodies),
         rule_prose_density(bodies, nodes),
         closure_warn,
