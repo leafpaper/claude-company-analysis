@@ -318,44 +318,71 @@ def rule_budget(bodies: dict[str, str]) -> RuleResult:
 #   ②有一段 185 字塞 7 个数字却完全好读, 因为那是四句**平行、互不比较**的自问自答。
 #   真正读不下去的是「读者必须同时在脑子里持有几个数字才能跟上这一句」, 而那种句子的
 #   外形特征是**列表被焊成了段落**: 逐条 / 逐期 / 逐分部 / 逐情景 / 逐科目。
-#   所以主判据 = 列表形状检测, 长度只作兜底提示。
+#   所以主判据 = 列表形状检测。(长度兜底已在票 12 标定后删除: 41 处里只有 7 处该是表。)
 #
 # ★★ 但这条规则**只是定位器, 不是判官**(第 5 轮评审的结论, 比上面那层更要紧):
 #   真正决定「该不该是表」的不是有没有并列项, 而是**这些并列项之间有没有共同的列**——
 #   分部 / 净利 / 倍数 / 估值 有共同列, 天生是表;
 #   「给光模块 40x 是因为索尔思单体没披露、1.6T 只到小批量试产」没有共同列, 它是**理由**,
 #   而理由的正确形状就是散文。**有没有共同列这件事机器数不出来, LLM 才数得出来。**
-#   所以本规则永远 warn、只报「可疑段落在哪」, 结论交给 reviewer;
-#   阈值也别拿单份报告标定(那会把「中文散文本来就用顿号」学成特征)——待多公司样本单独切票。
-PROSE_MAX_CHARS = 200       # 兜底: 一行散文的字数(中文按字符算), 提示而非定罪
-
-# 列表形状的三种外形: 编号项 / 期间对比(A → B) / 并列项(顿号或分号串)
+#   所以本规则永远 warn、只报「可疑段落在哪」, 结论交给 reviewer。
+#
+# ★★★ 票 12 多样本标定已做完(2026-09-15, 三份 v8 + 景嘉微 v7 负样本共 533 段逐段人工标注):
+#   宽口径并列项(25%)与长度兜底(17%)**已删** —— 中文散文本来就用顿号, 那条判据学到的正是这件事;
+#   编号项掩掉假编号后 33%→60%;新增核销清单与逐项短并列;表下注豁免扩到「注 N」开头。
+#   整体 56 命中/23% → 12 命中/75%。正向断言**维持 warn 不升阻断**: 15 章里唯一不达标的是
+#   ③赔率(每句话都带锚与倍数, 「80 字内数字 ≤2」对它天然苛刻)。标定数据与脚本在
+#   `.scratch/v8-implementation/r11-calibration/`。
+# 列表形状的外形。**票 12 多样本标定(2026-09-15)**:三份 v8 报告 + 景嘉微 v7(人工认可的负样本)
+# 共 533 段, 逐段人工标「该是表 / 该是散文」, 每条判据单独算精确率 ——
+#   期间对比 6/6 = 100% · 编号项(去假编号后) 3/5 = 60% · 核销清单 3/5 = 60% · 逐项短并列 0 误报
+#   **宽口径并列项 6/24 = 25%** —— 试过「带数字的段 ≥4」反而掉到 14%, 按票 12 的规矩:压不下去就删, 不留着凑数
+#   **超长 >200 字 7/41 = 17%** —— 长的多是判断与口径说明, 那是散文该有的样子, 一并删
+# 整体: 56 命中 / 23% 精确率 → 12 命中 / 75% 精确率(细节见 .scratch/v8-implementation/r11-calibration/)
 _ENUM = re.compile(r"[1-9][)）]|[①-⑨](?=[^质状赔路决])")
 _ARROW = re.compile(r"(?:→|->|—>)")
-_PARALLEL = re.compile(r"[、;;]")
+_PARALLEL = re.compile(r"[、;;]")     # 仍用于图标签(一条左尾并列四件事), 正文不再单独用它判
 SHAPE_MIN_HITS = 3          # 同一类标记出现 ≥3 次 = 一张没写成表的表
+
+# 假编号:红旗引用「🟠③④」、节点引用「③赔率」、小节号「(5.4)」「5.4」——
+# 标定前它们占了编号项误报的全部 6 处(精确率 33%), 掩掉之后升到 60%
+_FAKE_ENUM = re.compile(r"[🔴🟠🟡🟢]\s*[①-⑨]|[①-⑨](?=[质状赔路决])|(?<=[0-9.])[1-9][)）]|(?<=[0-9]\.)[1-9]")
+# 核销清单:逐条「门槛 → 兑现 / 证伪」——②的「该等什么」与⑤的自检表就是这个形状
+#   ⚠️ 不收 `×`:它同时是**乘号**, 旭创图例「208.0 亿 ×25x + …×12x」曾因此被判成核销清单
+_TICK = re.compile(r"[✓✔√✗]|兑现|证伪|达标|命中")
+# 逐项短并列:「电子电路 30x、光模块 40x、精密组件 0.5x PS」——每项都短、都带数, 天生是表。
+# 裸数字也算(「流动比率 11.47」没有单位), 但要求**每项都短**, 否则就是带解释的散文。
+_SEG_SPLIT = re.compile(r"[、;;]")
+_HAS_DIGIT = re.compile(r"\d")
+SHORT_ITEM_MAX_CHARS = 18   # 一项超过这个长度就不是「表格单元格」, 是句子
+SHORT_ITEM_MIN = 4          # 标定:真实语料 533 段零命中(零噪音), 仍抓得住焊死的分部表
+# 表下注:链手册认可的形态(把倍数理由、证伪指标从列里下沉成注)。原来只豁免**紧跟表格的一行**,
+# 而实际的注常常隔着空行、或以「> 注 3(DCF 口径):」开头 —— 旭创注 1、华特注 3 都因此被误报。
+_NOTE_HEAD = re.compile(r"^\s*[>＞]?\s*[(（]?注\s*\d*")
+
+
+def _short_parallel_items(line: str) -> int:
+    segs = [s.strip() for s in _SEG_SPLIT.split(line) if s.strip()]
+    return sum(1 for s in segs if len(s) <= SHORT_ITEM_MAX_CHARS and _HAS_DIGIT.search(s))
 
 
 def _list_shape(line: str, after_table: bool = False) -> str | None:
     """这一行是不是「被焊成段落的表」? 返回命中的形状名, 否则 None。
 
-    两处校准(票 08 第 4 轮实测, 都是为了压误报):
-    · **并列项要同时数数字**。中文散文本来就大量用顿号 —— 只数标点会把出处引用行
-      (「贵不贵见③赔率;客户集中见④路径」)和引号串反例判成表。要求 ≥4 个数字短语,
-      才像「逐分部 / 逐科目」那种真正该进表的东西。
-    · **紧跟表格的一行豁免**。那是链手册认可的「表下注」形态 —— reviewer 明确要求把
-      倍数理由、证伪指标从列里下沉成注, 这条规则不能反过来又把它推回表里。
+    判据的目标形状是**并列项之间有共同的列**(分部/倍数、期/值、红旗/级别、问题/答案);
+    「给光模块 40x 是因为索尔思单体没披露」没有共同列, 它是理由, 理由的正确形状就是散文。
+    有没有共同列机器数不出来 —— 所以这里只留**外形足够硬**的四条, 其余交给 reviewer。
     """
-    if after_table:
+    if after_table or _NOTE_HEAD.match(line):
         return None
-    n_nums = len(NUMBER_PHRASE.findall(_squash(line)))
-    for name, pat, need_nums in (
-        ("编号项", _ENUM, 0),
-        ("期间对比(A → B)", _ARROW, 0),
-        ("并列项", _PARALLEL, 4),
-    ):
-        if len(pat.findall(line)) >= SHAPE_MIN_HITS and n_nums >= need_nums:
-            return name
+    if len(_ARROW.findall(line)) >= SHAPE_MIN_HITS:
+        return "期间对比(A → B)"
+    if len(_ENUM.findall(_FAKE_ENUM.sub("", line))) >= SHAPE_MIN_HITS:
+        return "编号项"
+    if len(_TICK.findall(line)) >= SHAPE_MIN_HITS and len(NUMBER_PHRASE.findall(_squash(line))) >= 4:
+        return "核销清单(门槛 / 兑现 / 证伪)"
+    if _short_parallel_items(line) >= SHORT_ITEM_MIN:
+        return "逐项短并列"
     return None
 
 
@@ -451,14 +478,11 @@ def rule_prose_density(bodies: dict[str, str], nodes: dict[str, dict] | None = N
             shape = _list_shape(s, after_table=i in after_table)
             if shape:
                 findings.append(
-                    f"{LABELS[node]} 第 {i + 1} 段命中「{shape}」(≥{SHAPE_MIN_HITS} 处)"
+                    f"{LABELS[node]} 第 {i + 1} 段命中「{shape}」"
                     f"—— 请人判它该不该是表:{s[:42]}…"
                 )
-            elif len(s) > PROSE_MAX_CHARS:
-                findings.append(
-                    f"{LABELS[node]} 第 {i + 1} 段 {len(s)} 字(>{PROSE_MAX_CHARS})"
-                    f"—— 判断/推理可以长, 数据罗列不该长:{s[:42]}…"
-                )
+            # 段落长度不再单独报:标定实测 41 处里只有 7 处该是表(17%), 其余是判断与口径说明 ——
+            # 长本身不是病, 「长而且是罗列」才是, 而那由上面四条形状判据接手。
         # 正向断言: 至少一段有分量的纯判断。只对**写满了的章**判 ——
         # 桩章节 / 刚起头的草稿没必要被念叨(fixture 的四行桩就属这类)。
         body_lines = [l for l in bodies.get(node, "").splitlines() if l.strip()]

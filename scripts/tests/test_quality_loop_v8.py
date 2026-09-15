@@ -606,14 +606,77 @@ class TestProseDensity(_Run):
         }]}}
         self.assertEqual(lint_v8._figure_text_findings(tails), [])
 
-    def test_parallel_items_warns(self):
-        """顿号串起来的并列项(逐分部 / 逐科目)。"""
-        # 四个分部各带一个倍数 = 4 个数字, 越过「并列项还要 ≥4 个数字」的门槛
+    def test_short_parallel_items_warns(self):
+        """逐分部 / 逐科目被焊成一段:每项都短、都带数, 天生是表。
+
+        票 12 标定后这条的门槛是「每项 ≤18 字且带数字, 共 ≥4 项」——
+        实测 533 段真实语料**零命中**(零噪音), 却仍抓得住这种焊死的分部表。
+        """
         self.append_body(
             "odds", "四个分部:电子电路 30x、光模块 40x、精密组件 0.5x PS、光电显示 0.3x PS。")
         r = self.rule(self.lint(assemble=False), "R11 ")
         self.assertFalse(r.passed)
-        self.assertTrue(any("并列项" in f for f in r.findings), r.findings)
+        self.assertTrue(any("逐项短并列" in f for f in r.findings), r.findings)
+
+    def test_verdict_sentence_with_delimiters_is_not_flagged(self):
+        """票 12 标定删掉的那条:宽口径「顿号 ≥3 且数字 ≥4」精确率只有 25%。
+
+        误报的头号形状就是**判定句**——它天生带并列与数字, 却是全章最该是散文的一句
+        (东山③赔率原文, 标定时人工标为「该是散文」)。
+        """
+        self.append_body("odds", (
+            "**判定:买完完美未来(仍无安全垫)——现价 201.08 元是合理价区间 [73, 92] 元"
+            "高端的 2.19 倍、低端的 2.76 倍;半年报把基本面翻了一倍、价格也退了 6%。**"
+        ))
+        r = self.rule(self.lint(assemble=False), "R11 ")
+        self.assertFalse([f for f in r.findings if "③赔率" in f], r.findings)
+
+    def test_citation_markers_are_not_counted_as_enumeration(self):
+        """「🟠③④」「③赔率」是引用标记, 不是编号项 —— 标定前编号项 6 处误报全出自这里。"""
+        self.append_body("path", (
+            "按③ DCF 的三情景与其概率算, 期望收益 −37.2%;红旗闭环见🟠③④, 口径见 (5.4) 一节。"
+        ))
+        r = self.rule(self.lint(assemble=False), "R11 ")
+        self.assertFalse([f for f in r.findings if "编号项" in f], r.findings)
+
+    def test_real_enumeration_still_warns(self):
+        """真编号项照报(⑤的信仰陷阱自检就是这个形状:陷阱 / 判定 / 依据 有共同列)。"""
+        self.append_body("decision", (
+            "五条自检:① 没把好公司当好股票 ✓;② 没把远期故事当当期现金流 ✓;"
+            "③ 没把坏消息当噪音 ✓;④ 没把时间当免费 ✓"
+        ))
+        r = self.rule(self.lint(assemble=False), "R11 ")
+        self.assertTrue(any("编号项" in f for f in r.findings), r.findings)
+
+    def test_table_note_prefixed_paragraph_is_exempt(self):
+        """「注 N」开头的表下注豁免 —— 原来只豁免紧跟表格的一行,
+
+        而真实的注常隔着空行、或写成「> 注 3(DCF 口径):」(旭创注 1、华特注 3 都因此被误报)。
+        """
+        self.append_body("odds", (
+            "> 注 3(DCF 口径):基数 = 近四个季度收入 16.15 亿;退出倍数 45x、35x、25x 分别对齐"
+            "75 分位、中位与最小值;期间自由现金流按 0 计。"
+        ))
+        r = self.rule(self.lint(assemble=False), "R11 ")
+        self.assertFalse([f for f in r.findings if "③赔率" in f], r.findings)
+
+    def test_checklist_shape_warns(self):
+        """核销清单(门槛 / 兑现 / 证伪)——②「该等什么」的核销叙述就是这个形状。"""
+        self.append_body("state", (
+            "半年报三项:归母 29.57 亿落 29~30 亿区间 ✓;光模块 53.51 亿 ≥40 亿 ✓;"
+            "毛利率 39.33% ≥33% ✓;索尔思单体仍不列示 ✗ 证伪。"
+        ))
+        r = self.rule(self.lint(assemble=False), "R11 ")
+        self.assertTrue(any("核销清单" in f for f in r.findings), r.findings)
+
+    def test_long_reasoning_paragraph_is_not_flagged_for_length(self):
+        """票 12 删掉的长度兜底:41 处命中里只有 7 处该是表(17%)。
+
+        长本身不是病 —— 判断、口径说明本来就长; 「长而且是罗列」才是, 那由形状判据接手。
+        """
+        self.append_body("quality", "这一段很长但只是推理与口径说明, 没有任何列表形状。" * 6)
+        r = self.rule(self.lint(assemble=False), "R11 ")
+        self.assertFalse([f for f in r.findings if "①质地" in f and "字(>" in f], r.findings)
 
     def test_long_judgment_sentence_without_numbers_passes(self):
         """reviewer 的反例一:③赔率结尾 140 字几乎没数字, 是全报告最好读的一段, 不该报警。"""
