@@ -62,15 +62,43 @@ def _latest_n_trade_dates(tc: TushareCollector, n: int = 60) -> list[str]:
 # 接口名 → 失败原因。空表有两种含义(真的没有 / 根本没调通), 渲染层必须能分开说 ——
 # 华特实测 block_trade 静默返回 0 行, 而减持公告明写走大宗交易, 报告却印成「近 60 日无大宗交易记录」。
 _CALL_ERRORS: dict[str, str] = {}
+# 接口名 → 调通了但一行没返回。这一类不是错误, 但同样不能读成「事实上没有」——
+# 积分不够 / 该接口对这只票无覆盖时, Tushare 是**静默返回空表**, 不抛异常。
+_CALL_EMPTY: dict[str, str] = {}
 
 
-def _safe_call(fn, **kwargs) -> pd.DataFrame:
-    """接口失败 / 无权限时返回空 df 而非抛异常;失败记进 `_CALL_ERRORS` 供渲染层区分。"""
-    name = getattr(fn, "__name__", str(fn))
+def _call_name(fn) -> str:
+    """取接口名。tushare 的 `pro.block_trade` 是 `functools.partial`, 没有 `__name__` ——
+    直接 `getattr(fn, "__name__", str(fn))` 会把 key 存成一长串 partial repr,
+    于是 `_CALL_ERRORS.get("block_trade")` 永远取不到(v8.7 那版降级提示实际没生效)。"""
+    name = getattr(fn, "__name__", None)
+    if name:
+        return str(name)
+    args = getattr(fn, "args", ())
+    if args and isinstance(args[0], str):
+        return args[0]
+    keywords = getattr(fn, "keywords", None) or {}
+    if isinstance(keywords.get("api_name"), str):
+        return keywords["api_name"]
+    return str(fn)
+
+
+def _safe_call(fn, _track_empty: bool = True, **kwargs) -> pd.DataFrame:
+    """接口失败 / 无权限时返回空 df 而非抛异常。
+
+    失败记进 `_CALL_ERRORS`、调通但空表记进 `_CALL_EMPTY` —— 渲染层据此把
+    「没调通」和「真的没有」分开说。
+    """
+    name = _call_name(fn)
     try:
         df = fn(**kwargs)
         _CALL_ERRORS.pop(name, None)
-        return df if df is not None else pd.DataFrame()
+        df = df if df is not None else pd.DataFrame()
+        if df.empty and _track_empty:
+            _CALL_EMPTY[name] = ", ".join(f"{k}={v}" for k, v in kwargs.items())[:120]
+        else:
+            _CALL_EMPTY.pop(name, None)
+        return df
     except Exception as e:
         _CALL_ERRORS[name] = str(e)
         print(f"[WARN] {name} 失败: {e}")
@@ -84,6 +112,7 @@ def collect_capital_flow(
     """Returns (raw_data_dict, markdown_report)."""
     target_code = normalize_a_code(target_code)
     _CALL_ERRORS.clear()
+    _CALL_EMPTY.clear()
     tc = TushareCollector()
     tc._ensure_pro()
     pro = tc._pro
@@ -130,7 +159,7 @@ def collect_capital_flow(
     top_dates = _latest_n_trade_dates(tc, n=30)
     tl_dfs = []
     for d in top_dates:
-        df = _safe_call(pro.top_list, trade_date=d, ts_code=target_code)
+        df = _safe_call(pro.top_list, _track_empty=False, trade_date=d, ts_code=target_code)
         if not df.empty:
             tl_dfs.append(df)
     raw["top_list"] = pd.concat(tl_dfs, ignore_index=True) if tl_dfs else pd.DataFrame()
@@ -139,7 +168,7 @@ def collect_capital_flow(
     ti_dfs = []
     if not raw["top_list"].empty:
         for d in raw["top_list"]["trade_date"].unique():
-            df = _safe_call(pro.top_inst, trade_date=d, ts_code=target_code)
+            df = _safe_call(pro.top_inst, _track_empty=False, trade_date=d, ts_code=target_code)
             if not df.empty:
                 ti_dfs.append(df)
     raw["top_inst"] = pd.concat(ti_dfs, ignore_index=True) if ti_dfs else pd.DataFrame()
@@ -727,7 +756,8 @@ def _format_markdown(target_code: str, raw: dict, m: dict) -> str:
             lines.append(f"⚠️ **大宗交易接口没调通**({err[:80]})—— 本节没有数据,")
             lines.append("**不能据此写「无大宗交易」**;减持公告里通常写明交易方式,以公告为准。")
         else:
-            lines.append("*近 60 日无大宗交易记录(接口调通, 返回 0 笔)*")
+            lines.append("*近 60 日 `block_trade` 返回 0 笔(接口没报错)—— 见 §11:*")
+            lines.append("*空表也可能是积分/覆盖问题, 要写「没发生过大宗交易」请回减持公告核一眼。*")
 
     # §9 北向资金加权建仓成本 (v5.1.2 新增,合并入北向资金视角)
     lines.extend([
@@ -796,16 +826,28 @@ def _format_markdown(target_code: str, raw: dict, m: dict) -> str:
     else:
         lines.append("- ℹ️ 无显著控盘/资金异常信号 (6 维度均在中性区间)")
 
-    if _CALL_ERRORS:
+    if _CALL_ERRORS or _CALL_EMPTY:
         lines.extend([
             "",
-            "## §11 采集降级(接口没调通)",
-            "",
-            "下列接口本次没调通 —— 相关小节写的「无数据」只代表**没取到**, 不代表事实上没有:",
+            "## §11 采集降级(哪些「无数据」不能当事实读)",
             "",
         ])
-        for name, err in sorted(_CALL_ERRORS.items()):
-            lines.append(f"- `{name}`: {err[:120]}")
+        if _CALL_ERRORS:
+            lines.extend([
+                "**没调通**(报错) —— 相关小节写的「无数据」只代表没取到:",
+                "",
+            ])
+            for name, err in sorted(_CALL_ERRORS.items()):
+                lines.append(f"- `{name}`: {err[:120]}")
+            lines.append("")
+        if _CALL_EMPTY:
+            lines.extend([
+                "**调通了但返回 0 行** —— 可能真的没有, 也可能是积分不够 / 该接口不覆盖这只票;",
+                "Tushare 这两种情况都是静默空表, 脚本分不出来, **要写「没有」得回原始披露核一眼**:",
+                "",
+            ])
+            for name, params in sorted(_CALL_EMPTY.items()):
+                lines.append(f"- `{name}`({params})")
 
     lines.extend([
         "",

@@ -21,6 +21,7 @@ CLI:
 """
 from __future__ import annotations
 
+import hashlib
 import argparse
 import datetime as dt
 import re
@@ -293,18 +294,28 @@ class TushareCollector:
         "lt_eqt_invest,fix_assets,cip,intan_assets,goodwill,"
         "defer_tax_assets,total_nca,total_assets,"
         "st_borr,notes_payable,acct_payable,adv_receipts,"
+        # 合同负债一族: 新准则(2020)之后预收款重分类到 contract_liab, adv_receipts 基本全空 ——
+        # 白名单里只留旧字段, 订阅制 / 预收制公司会被误读成「没有递延收入」。
+        # 金山办公实测: adv_receipts 23 期里 22 期为空, 而 contract_liab 2025 年末 25.99 亿(与年报附注逐笔一致)。
+        "contract_liab,contract_assets,deferred_inc,defer_inc_non_cur_liab,"
         "payroll_payable,taxes_payable,oth_payable,"
         "non_cur_liab_due_1y,total_cur_liab,"
         "lt_borr,bond_payable,lt_payable,defer_tax_liab,total_ncl,"
+        # 「其他(非)流动负债」不是杂项兜底: A 股常把**非流动的合同负债**整笔塞在 oth_ncl 里。
+        # 金山办公 2026H1 实测: 资产负债表「合同负债」27.64 亿, 而 oth_ncl 的 12.38 亿明细全额也是
+        # 合同负债 —— 真实递延收入池 40.02 亿, 只读合同负债行低估 45%(附注七·52)。
+        "oth_cur_liab,oth_ncl,"
         "total_liab,cap_rese,surplus_rese,undistr_porfit,"
         "total_hldr_eqy_exc_min_int,total_hldr_eqy_inc_min_int,minority_int,"
-        "oth_receiv,contract_assets"
+        "oth_receiv"
     )
 
     def balancesheet(self, ts_code: str, start_year: int = 2020, report_type: int = 1,
                      fields: str = "core") -> pd.DataFrame:
         """资产负债表。fields='core' (默认 ~42 列) 或 'full' (全量 152 列)."""
-        key = f"tushare_balance_{ts_code}_rt{report_type}_from{start_year}_{fields}"
+        # 字段列表进缓存键的指纹: 不然改了白名单, 上一版缓存(少几列)还会被当成有效结果直接返回
+        fp = hashlib.md5(str(self._BALANCE_CORE_FIELDS).encode("utf-8")).hexdigest()[:6]
+        key = f"tushare_balance_{ts_code}_rt{report_type}_from{start_year}_{fields}_{fp}"
         cached = data_cache.get(key)
         if cached is not None:
             return cached

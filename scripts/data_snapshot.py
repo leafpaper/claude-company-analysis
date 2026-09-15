@@ -94,6 +94,16 @@ BALANCE_KEY_FIELDS = [
     ("st_borr", "短期借款", "yi"),
     ("notes_payable", "应付票据", "yi"),
     ("acct_payable", "应付账款", "yi"),
+    # 订阅制 / 预收制公司的先行指标:钱已收、服务还没交付。新准则后预收款走 contract_liab,
+    # 老字段 adv_receipts 基本全空 —— 只看老字段会得出「这家公司没有递延收入」的错误结论。
+    ("contract_liab", "合同负债(预收/递延收入)", "yi"),
+    ("contract_assets", "合同资产", "yi"),
+    ("deferred_inc", "递延收益(流动)", "yi"),
+    ("defer_inc_non_cur_liab", "递延收益(非流动)", "yi"),
+    # 非流动的合同负债常被整笔塞进「其他非流动负债」——不是杂项, 要回附注看明细构成。
+    # 金山 2026H1: 合同负债 27.64 亿 + oth_ncl 12.38 亿(明细全额为合同负债) = 真实递延收入池 40.02 亿。
+    ("oth_cur_liab", "其他流动负债(可能含合同负债, 回附注核)", "yi"),
+    ("oth_ncl", "其他非流动负债(可能含多年期合同负债, 回附注核)", "yi"),
     ("lt_borr", "长期借款", "yi"),
     ("total_share", "总股本(万股)", "wanshares"),
 ]

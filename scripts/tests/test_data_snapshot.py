@@ -401,3 +401,86 @@ class TestFreeCashflowBasis(unittest.TestCase):
         self.assertIn("自由现金流(数据商口径)", md)
         self.assertIn("free_cashflow_latest", md)      # 指出另一套口径在 metrics.json
         self.assertIn("经营现金流 − 购建固定资产支付的现金", md)
+
+
+class TestContractLiabilityRows(unittest.TestCase):
+    """新准则(2020)之后预收款重分类到 `contract_liab`, 老字段 `adv_receipts` 基本全空。
+
+    白名单里只留旧字段, 订阅制 / 预收制公司就会被读成「没有递延收入」——
+    金山办公 688111 实测: `adv_receipts` 23 期里 22 期为空, 而 `contract_liab`
+    2025 年末 25.99 亿(与年报附注逐笔一致)。这是**先行指标**: 钱已收、服务还没交付。
+    """
+
+    def _md(self) -> str:
+        with tempfile.TemporaryDirectory() as td:
+            b = Path(td) / "raw_data"
+            b.mkdir(parents=True, exist_ok=True)
+            pd.DataFrame([{
+                "end_date": "20251231", "total_assets": 2.0e10,
+                "adv_receipts": None,                 # 老字段: 空
+                "contract_liab": 2.599e9,             # 合同负债 25.99 亿
+                "contract_assets": 1.2e7,
+                "deferred_inc": 3.0e7,
+                "defer_inc_non_cur_liab": 5.0e7,
+            }]).to_parquet(b / "balancesheet.parquet")
+            return data_snapshot.build_snapshot(b, ts_code="688111.SH", company="金山办公")
+
+    def test_contract_liability_is_printed(self):
+        md = self._md()
+        self.assertIn("合同负债(预收/递延收入)", md)
+        self.assertIn("25.99", md)
+
+    def test_the_whole_family_is_whitelisted(self):
+        keys = [k for k, _label, _unit in data_snapshot.BALANCE_KEY_FIELDS]
+        for k in ("contract_liab", "contract_assets", "deferred_inc", "defer_inc_non_cur_liab"):
+            self.assertIn(k, keys, f"{k} 不在 §2 资产负债白名单里")
+
+    def test_collector_requests_the_fields(self):
+        """白名单印得出来, 前提是采集时就把列取回来了。"""
+        from scripts.tushare_collector import TushareCollector
+
+        fields = TushareCollector._BALANCE_CORE_FIELDS
+        for k in ("contract_liab", "contract_assets", "deferred_inc", "defer_inc_non_cur_liab"):
+            self.assertIn(k, fields)
+
+    def test_cache_key_changes_with_the_field_list(self):
+        """改了字段白名单, 上一版缓存(少几列)不能还被当成有效结果返回。"""
+        import hashlib
+
+        from scripts.tushare_collector import TushareCollector
+
+        fp = hashlib.md5(str(TushareCollector._BALANCE_CORE_FIELDS).encode("utf-8")).hexdigest()[:6]
+        stale = hashlib.md5(b"old field list").hexdigest()[:6]
+        self.assertNotEqual(fp, stale)
+        self.assertEqual(len(fp), 6)
+
+
+class TestOtherNonCurrentLiabilities(unittest.TestCase):
+    """非流动的合同负债常被整笔塞进「其他非流动负债」,不是杂项兜底。
+
+    金山办公 2026H1 实测:资产负债表「合同负债」27.64 亿,而 `oth_ncl` 的 12.38 亿
+    明细全额也是合同负债(半年报附注七·52)—— 真实递延收入池 40.02 亿,
+    只读「合同负债」一行低估 45%。订阅制公司的多年期大单就藏在这里。
+    """
+
+    def test_fields_are_collected_and_printed(self):
+        from scripts.tushare_collector import TushareCollector
+
+        keys = [k for k, _l, _u in data_snapshot.BALANCE_KEY_FIELDS]
+        for k in ("oth_cur_liab", "oth_ncl"):
+            self.assertIn(k, TushareCollector._BALANCE_CORE_FIELDS, f"{k} 没进采集白名单")
+            self.assertIn(k, keys, f"{k} 没进 §2 资产负债快照")
+
+    def test_label_tells_the_reader_to_check_the_note(self):
+        """标签必须说「可能含合同负债, 回附注核」—— 否则读者按字面当杂项跳过。"""
+        labels = {k: label for k, label, _u in data_snapshot.BALANCE_KEY_FIELDS}
+        self.assertIn("合同负债", labels["oth_ncl"])
+        self.assertIn("附注", labels["oth_ncl"])
+
+    def test_field_list_has_no_duplicates(self):
+        """重复字段会让 parquet 落盘直接 ValueError(加 contract_assets 时踩过)。"""
+        from scripts.tushare_collector import TushareCollector
+
+        fields = TushareCollector._BALANCE_CORE_FIELDS.split(",")
+        dupes = sorted({f for f in fields if fields.count(f) > 1})
+        self.assertEqual(dupes, [], f"字段重复: {dupes}")

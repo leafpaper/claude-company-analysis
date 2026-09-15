@@ -62,6 +62,7 @@ SIGNAL_MAP = {
     "存货增速远高于营收": ("quality", ["inventory"]),
     "商誉占净资产过高": ("path", ["goodwill"]),          # 商誉减值=左尾地板(research/02 §4)
     "非经常性损益占比过高": ("quality", ["non_operating"]),
+    "投资收益占营业利润过高": ("quality", ["non_operating"]),
     "高应计比例": ("quality", ["accrual"]),
     "ROE 急剧恶化": ("quality", ["roe"]),
     "高比例质押股东": ("path", ["pledge"]),

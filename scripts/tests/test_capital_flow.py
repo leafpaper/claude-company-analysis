@@ -72,7 +72,9 @@ class TestBlockTradeDegraded(unittest.TestCase):
 
     def setUp(self):
         cf._CALL_ERRORS.clear()
+        cf._CALL_EMPTY.clear()
         self.addCleanup(cf._CALL_ERRORS.clear)
+        self.addCleanup(cf._CALL_EMPTY.clear)
 
     def _md(self) -> str:
         raw = _raw([("20260630", 34429.0), ("20260331", 14758.0)])
@@ -85,8 +87,54 @@ class TestBlockTradeDegraded(unittest.TestCase):
         self.assertNotIn("无大宗交易记录", md)
         self.assertIn("§11 采集降级", md)               # 降级也要写进报告, 不只打在控制台
 
-    def test_empty_but_successful_call_still_says_no_block_trade(self):
+    def test_empty_but_successful_call_is_marked_as_zero_rows(self):
+        """没报错的空表照样不能写成「没发生过」—— 只说接口返回 0 笔, 并指回 §11。"""
         md = self._md()
-        self.assertIn("无大宗交易记录", md)
+        self.assertIn("返回 0 笔", md)
         self.assertNotIn("没调通", md)
-        self.assertNotIn("§11 采集降级", md)
+
+    def test_silent_empty_tables_are_listed_in_section_11(self):
+        """静默空表(积分不够 / 不覆盖这只票)也要进 §11, 和报错分两栏写。
+
+        金山 688111 实测: 多个接口调通、0 行, 报告里读起来却像「这些事实上没有」。
+        """
+        cf._CALL_EMPTY["block_trade"] = "ts_code=688111.SH, start_date=20260101"
+        md = self._md()
+        self.assertIn("§11 采集降级", md)
+        self.assertIn("返回 0 行", md)
+        self.assertIn("block_trade", md)
+        self.assertNotIn("**没调通**", md)              # 这次没有报错的接口
+
+
+class TestCallNameResolution(unittest.TestCase):
+    """`pro.block_trade` 是 functools.partial, 没有 `__name__`。
+
+    v8.7 那版用 `getattr(fn, "__name__", str(fn))` 取名, key 存成一长串 partial repr,
+    于是 `_CALL_ERRORS.get("block_trade")` 永远取不到 —— 降级提示写了但从不触发。
+    """
+
+    def test_partial_resolves_to_api_name(self):
+        import functools
+
+        def query(api_name, **kw):
+            return None
+
+        self.assertEqual(cf._call_name(functools.partial(query, "block_trade")), "block_trade")
+        self.assertEqual(cf._call_name(functools.partial(query, api_name="hk_hold")), "hk_hold")
+
+    def test_plain_function_keeps_its_name(self):
+        def margin_detail(**kw):
+            return None
+
+        self.assertEqual(cf._call_name(margin_detail), "margin_detail")
+
+    def test_empty_result_lands_under_the_api_name(self):
+        import functools
+
+        cf._CALL_EMPTY.clear()
+        self.addCleanup(cf._CALL_EMPTY.clear)
+        df = cf._safe_call(functools.partial(lambda n, **kw: pd.DataFrame(), "block_trade"),
+                           ts_code="688111.SH")
+        self.assertTrue(df.empty)
+        self.assertIn("block_trade", cf._CALL_EMPTY)
+        self.assertIn("688111.SH", cf._CALL_EMPTY["block_trade"])

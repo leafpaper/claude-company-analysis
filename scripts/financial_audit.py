@@ -516,6 +516,61 @@ def _buffett_quality(bundle: dict) -> list[RedFlag]:
                     implication="利润质量低，依赖投资收益/公允价值变动等非主业来源",
                 ))
 
+    flags.extend(_invest_income_in_operating_profit(bundle))
+    return flags
+
+
+def _invest_income_in_operating_profit(bundle: dict) -> list[RedFlag]:
+    """投资收益 + 公允价值变动占营业利润的比重(按最新一期, 含半年报)。
+
+    上面第 5 条用 `利润总额 − 营业利润` 估非经常性 —— 那只抓得到**营业外**收支。
+    可投资收益与公允价值变动是**计在营业利润里面**的, 整块从这个缝里漏过去:
+    金山办公 688111 2026H1 投资收益 19.14 亿 / 营业利润 27.45 亿 = 70%(上年同期 17%),
+    净利润同比 +237%, 而营业外收支只有 0.21 亿 —— 第 5 条一声不吭。
+    后果是 ROE、净利率、同行分位全被一次性收益顶高, 判质地的人看不到这层。
+    """
+    flags: list[RedFlag] = []
+    inc = bundle.get("income", pd.DataFrame())
+    if inc is None or inc.empty or "end_date" not in inc.columns:
+        return flags
+    inc = inc.drop_duplicates("end_date").sort_values("end_date")
+    now = inc.iloc[-1]
+
+    def f(row, key):
+        return _safe_float(row.get(key)) or 0
+
+    op_profit = f(now, "operate_profit")
+    if not op_profit or op_profit <= 0:
+        return flags
+    invest = f(now, "invest_income") + f(now, "fv_value_chg_gain")
+    ratio = invest / op_profit
+    if ratio <= 0.30:
+        return flags
+
+    # 同比:上年同期(end_date 减 10000)有则一起写进证据 —— 「一直这样」和「今年突然」不是一回事
+    period = str(now.get("end_date", ""))
+    prev_txt = ""
+    try:
+        prev = inc[inc["end_date"].astype(str) == str(int(period) - 10000)]
+        if not prev.empty:
+            p = prev.iloc[-1]
+            p_op = f(p, "operate_profit")
+            if p_op > 0:
+                p_ratio = (f(p, "invest_income") + f(p, "fv_value_chg_gain")) / p_op
+                prev_txt = f", 上年同期 {p_ratio*100:.0f}%"
+    except (TypeError, ValueError):
+        pass
+
+    flags.append(RedFlag(
+        framework="Buffett Quality",
+        signal="投资收益占营业利润过高",
+        severity="🟠 高" if ratio > 0.5 else "🟡 中",
+        value=round(ratio, 3),
+        threshold="(投资收益+公允价值变动)/营业利润 > 30% 警示",
+        evidence=f"{period}: 投资收益类 {invest/1e8:.2f}亿 / 营业利润 {op_profit/1e8:.2f}亿{prev_txt}",
+        implication="这块不是主营赚的(理财、处置、联营重估都在里面)，"
+                    "ROE / 净利率 / 同行分位会被一次性顶高——判质地要用扣除后的口径",
+    ))
     return flags
 
 

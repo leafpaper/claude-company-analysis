@@ -40,20 +40,53 @@ import requests
 
 # ---- A-share report section heading patterns ----
 # 每个 section 对应 (regex 开始标识, 候选结束标识列表, 含义描述)
+#
 # 标题在**目录页**同样会命中, 抓到的却只是一行目录条目 —— 华特(科创板)实测 mda 判 found=true,
-# 而 text 只有 595 / 181 字、start_page=2。所以每个候选起点都算一遍长度, 取第一个够长的;
-# 全都太短 = 这份 PDF 里它只在目录里出现过, 判未找到。
-MIN_SECTION_CHARS = 500
+# 而 text 只有 595 / 181 字、start_page=2。第一版守卫拿「长度 <500 就算目录」来挡, **挡过头了**:
+# 金山办公的「主要控股参股公司分析」正文只有 287 字(两家子公司的表本来就这么短、结束模式也切得对),
+# 却被判成「只命中疑似目录页」, 抓到的表格反而被丢掉。
+#
+# 改判据:**目录行有点号引导**(`管理层讨论与分析 ......... 13`), 正文没有 —— 两份年报实测,
+# 全文 4 个候选里只有目录页那一个带点号。所以按点号认目录, 长度只用来提示「这段很短」。
+_TOC_LEADER = re.compile(r"[.．·…]{3,}\s*\d+")
+_QUOTES = "“”「」『』‘’\"'"
+MIN_SECTION_CHARS = 200     # 够长就直接采用; 短的照样采用, 只是在 desc 里提示回原文核
+
+
+def _candidate_kind(full: str, start: int, end: int) -> str:
+    """一个标题命中是「目录条目 / 交叉引用 / 正文标题」中的哪一种。
+
+    实测判据(金山 688111、华特 688268 年报都成立):
+      目录  「第三节 管理层讨论与分析 ......... 10」  → 标题后跟点号引导 + 页码
+      引用  「查阅“第三节管理层讨论与分析”的相关内容」 → 紧挨着引号
+      正文  「第三节 管理层讨论与分析 \\n 一、报告期内...」  → 独占一行, 前缀只有章节序号
+    不按长度认 —— 正文短不等于没正文(子公司表、勾了「不适用」的段本来就短)。
+    """
+    line_end = full.find("\n", end)
+    if line_end == -1:
+        line_end = len(full)
+    if _TOC_LEADER.search(full[end:line_end]):   # 点号引导只可能跟在标题**后面**、同一行内
+        return "toc"
+    line_start = full.rfind("\n", 0, start) + 1
+    prefix = full[line_start:start]
+    suffix = full[end:end + 2]
+    if any(q in prefix for q in _QUOTES) or (suffix[:1] and suffix[0] in _QUOTES):
+        return "ref"
+    if len(prefix.strip()) > 10:      # 前面压着一整句话, 是行文提到, 不是标题
+        return "ref"
+    return "body"
 
 SECTION_PATTERNS: dict[str, dict] = {
     "main_financial_data": {
         # SSE(科创板)标题带章节序号与「近三年」前缀:「六、近三年主要会计数据和财务指标 → (一) 主要会计数据」,
-        # 深市模板的 `一、` 锚点直接失配(华特实测 9 段只命中 5 段, 缺的都是「披露了、只是标题不同」)
+        # 深市模板的 `一、` 锚点直接失配(华特实测 9 段只命中 5 段, 缺的都是「披露了、只是标题不同」)。
+        # **半年报**再换一套:「六、 公司主要会计数据和财务指标」(多个「公司」)、括号还用半角
+        # (金山 688111 / 华特 688268 2026 半年报实测) —— 序号与「主要」之间放开, 括号两种宽度都认。
         "start": (
             r"一、?\s*主要财务数据"
-            r"|[一二三四五六七八九十]+、?\s*(?:近三年)?主要会计数据和财务指标"
+            r"|[一二三四五六七八九十]+、?\s*(?:近三年|公司)?\s*主要会计数据和财务指标"
             r"|(?:近三年)?主要会计数据及财务指标"
-            r"|（一）\s*主要会计数据"
+            r"|[（(]\s*一\s*[）)]\s*主要会计数据"
         ),
         "end": [
             r"二、?\s*股东信息", r"非经常性损益项目和金额",
@@ -236,8 +269,10 @@ class PDFReader:
                 out[sec_id] = {"desc": conf["desc"], "found": False, "start_page": None, "end_page": None, "text": ""}
                 continue
 
-            payload = None      # 第一个够长的候选
-            longest = None      # 兜底:全都太短时留最长的那段供人工核
+            payload = None        # 第一个够长的正文候选
+            longest_body = None   # 正文候选里最长的那个(可能很短, 但它是正文)
+            longest_noise = None  # 全是目录/交叉引用时, 留一个当线索
+            noise_kind = ""
             for m_start in candidates:
                 start_pos = m_start.start()
                 # find end (first of candidates after start)
@@ -264,19 +299,34 @@ class PDFReader:
                     "end_page": end_page,
                     "text": snippet_clean,
                 }
+                kind = _candidate_kind(full, start_pos, m_start.end())
+                if kind != "body":
+                    if longest_noise is None or len(snippet_clean) > len(longest_noise["text"]):
+                        longest_noise = cand
+                        noise_kind = kind
+                    continue
+
                 if len(snippet_clean) >= MIN_SECTION_CHARS:
                     payload = cand
                     break
-                if longest is None or len(snippet_clean) > len(longest["text"]):
-                    longest = cand
+                if longest_body is None or len(snippet_clean) > len(longest_body["text"]):
+                    longest_body = cand
 
-            if payload is None:
-                # 所有候选都短得不像正文 —— 多半只在目录页命中。判未找到, 但把最长的那段留着,
-                # 并在 desc 里说明, 免得下游把「没抓到」读成「公司没披露」(华特实测踩到的正是这一条)。
+            if payload is None and longest_body is not None:
+                # 正文找到了, 只是很短 —— 照样算找到, 但提示回原文核一眼
+                # (金山办公实测:「主要控股参股公司分析」正文 287 字, 两家子公司的表完整在内)
                 payload = dict(
-                    longest,
+                    longest_body,
+                    desc=f"{conf['desc']}(正文很短, 可能是短表或勾了「不适用」, 建议回原文核)",
+                )
+            elif payload is None:
+                # 只在目录 / 别处的交叉引用里出现过。判未找到, 但把那段留着当线索 ——
+                # 免得下游把「没抓到」读成「公司没披露」(华特 mda 实测踩到的正是这一条)。
+                where = "目录页" if noise_kind == "toc" else "正文里的交叉引用"
+                payload = dict(
+                    longest_noise,
                     found=False,
-                    desc=f"{conf['desc']}(只命中疑似目录页, 正文未抓到)",
+                    desc=f"{conf['desc']}(只命中{where}, 正文未抓到)",
                 )
 
             out[sec_id] = payload
