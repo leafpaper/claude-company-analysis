@@ -1047,6 +1047,53 @@ def rule_realized_multiple(nodes: dict) -> RuleResult:
 
 
 # ============================================================================
+# R18 写手看到的红旗清单不落后于审计
+# ============================================================================
+def rule_flags_in_sync(script_flags: list[dict], search_dirs: list[Path]) -> RuleResult:
+    """`red_flags.json`(写手读的那份)必须覆盖 `audit_report.json` 现有的每一条脚本红旗。
+
+    装配层是直接从 audit JSON 重算红旗的, 所以**成品不会漏** —— 漏的是写手作判断时看到的那份。
+    金山 688111 实测:audit 06:06 重跑(多出 🟠「投资收益占营业利润过高」),
+    而 `red_flags.json` 停在 05:37, ①质地想在面板上引这条红旗时取不到 id, 那一格只能填 null。
+    面板哑了不影响装配、不影响任何既有规则 —— 没有这条规则就没人会发现。
+    """
+    path = None
+    for d in search_dirs:
+        for cand in (d / "red_flags.json", d / "raw_data" / "red_flags.json"):
+            if cand.exists():
+                path = cand
+                break
+        if path:
+            break
+    if not script_flags:
+        return RuleResult(name="R18 红旗清单与审计同步", skipped=True, detail="没有脚本红旗可比")
+    if path is None:
+        return RuleResult(name="R18 红旗清单与审计同步", skipped=True,
+                          detail="没找到 red_flags.json(写手未消费该文件)")
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        return RuleResult(name="R18 红旗清单与审计同步", passed=False,
+                          detail="red_flags.json 读不了", findings=[f"{path}: {exc}"])
+    listed = {f.get("id") for f in (doc.get("red_flags") or []) if f.get("source") != "nomination"}
+    missing = [f for f in script_flags if f["id"] not in listed]
+    findings = []
+    if missing:
+        names = "、".join(f"{f['level']}「{f['title']}」({f['id']})" for f in missing[:4])
+        findings.append(
+            f"red_flags.json 少了 {len(missing)} 条 audit 已报的红旗:{names} —— "
+            "audit 重跑后没重出 red_flags.json, 写手面板引不到这些 id。"
+            "补跑:python -m scripts.red_flags --audit-json {audit} --out {out}".format(
+                audit=path.parent / "audit_report.json", out=path)
+        )
+    return RuleResult(
+        name="R18 红旗清单与审计同步", passed=not findings,
+        detail=f"audit {len(script_flags)} 条脚本红旗全部在 red_flags.json 里",
+        findings=findings,
+    )
+
+
+# ============================================================================
 # 公共 API
 # ============================================================================
 def find_report_md(run_dir: Path) -> Path | None:
@@ -1111,6 +1158,7 @@ def lint_run(run_dir, md_path=None, artifacts_dir=None, audit_json=None) -> Lint
         rule_triad_source(nodes),
         rule_anchor_citation(nodes, bodies),
         rule_realized_multiple(nodes),
+        rule_flags_in_sync(script_flags, search_dirs),
         rule_budget(bodies),
         rule_prose_density(bodies, nodes),
         closure_warn,

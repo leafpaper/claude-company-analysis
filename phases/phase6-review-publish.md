@@ -70,6 +70,7 @@
 | R15 | 三元组同源 | fail | ⑤ triad 三格与②③④ verdict 逐字相等 |
 | R16 | ③锚引用过期 | fail | 别的节点抄的「X~Y 元」只有一端对得上③锚,或「合理价低端/高端 N 元」与③不符 |
 | R17 | 已兑现倍数不超增长退出 | fail | 按**自身历史倍数**给已兑现利润定价时,不得高于基准情景的退出倍数(按同业倍数定价的分部不判——当期同业倍数与五年后的终值倍数不可比) |
+| R18 | 红旗清单与审计同步 | fail | 写手读的 `red_flags.json` 必须覆盖 `audit_report.json` 现有的每条脚本红旗(audit 重跑后忘了重出 → 写手面板引不到 id,而装配从 audit 重算所以成品不漏、没人会发现) |
 
 **修复指引**:
 
@@ -80,6 +81,7 @@
 | R3 / R6 / R8 / R9 | 多半是措辞 → 主 agent 用 Edit 改**节点 md 正文**,改完重跑装配 |
 | R4 warn | 看能不能把表格/时序下沉附录;下沉不了就留着,不阻断 |
 | R13 / R15 / R16 | 上游节点改了、下游抄本没跟上 → SendMessage 让下游写手**照节点文件**重抄(YAML 也归写手改),然后重装配 |
+| R18 | 重出红旗清单后让引不到 id 的写手补面板:`python -m scripts.red_flags --audit-json {artifacts_dir}/audit_report.json --out {artifacts_dir}/red_flags.json`(重跑过 `financial_audit` 就要跟着跑这一条) |
 
 ### Step 1: 两个 reviewer 并行
 
