@@ -3,6 +3,10 @@
 无法在 CI 模拟"Pro 积分不足", 因此用 monkeypatch 直接让 Pro 接口返回空,
 验证下游 fallback 分支命中并产生 Pro 风格 schema 的 DataFrame。
 
+⚠️ **本文件是全套里唯一一组真集成测试**: 要 `TUSHARE_TOKEN`(构造 collector),
+第一条还会真的去调 legacy 行情接口取数。没有 token 就整组跳过 —— 让 CI 能在无凭据下跑绿,
+而不是把凭据塞进 CI。其余 5xx 条单测全部跑在夹具与临时目录上, 不碰网络、不要 token。
+
 运行:
     cd skills/company-analysis
     python3 -m scripts.tests.test_daily_fallback
@@ -15,10 +19,17 @@ from unittest.mock import MagicMock, patch
 
 import pandas as pd
 
+from scripts import config
 from scripts.tushare_collector import TushareCollector
 from scripts.legacy_quote import get_daily_history_legacy
 
 
+# 判据用 `config.TUSHARE_TOKEN` 而不是直接读环境变量 —— 它才是采集器实际用的那个口径
+# (本机 token 可能来自 config 的本地兜底而不在环境里, 直接读 env 会把本机也误跳过)。
+@unittest.skipUnless(
+    config.TUSHARE_TOKEN,
+    "集成测试: 需要 Tushare token 且会访问网络(CI 无凭据时跳过)",
+)
 class TestDailyFallback(unittest.TestCase):
     def setUp(self):
         self.tc = TushareCollector()

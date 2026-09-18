@@ -8,12 +8,22 @@
 支持 A 股 / 美股 / 港股。报告全程说人话，每个关键数字都能回到出处。
 
 <p align="center">
+  <a href="https://github.com/leafpaper/claude-company-analysis/actions/workflows/tests.yml"><img src="https://github.com/leafpaper/claude-company-analysis/actions/workflows/tests.yml/badge.svg" alt="tests"></a>
   <img src="https://img.shields.io/badge/version-v8.10-blue" alt="version">
   <img src="https://img.shields.io/badge/markets-A%E8%82%A1%20%7C%20%E7%BE%8E%E8%82%A1%20%7C%20%E6%B8%AF%E8%82%A1-green" alt="markets">
   <img src="https://img.shields.io/badge/audit-11%20frameworks-orange" alt="frameworks">
   <img src="https://img.shields.io/badge/gate-lint%2018%20%2B%202%20reviewer-red" alt="gate">
   <img src="https://img.shields.io/badge/license-MIT-lightgrey" alt="license">
 </p>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./assets/readme/hero-dark.svg">
+    <img src="./assets/readme/hero-light.svg" alt="报告首页:决断卡五行 + 赚不赚钱面板" width="920">
+  </picture>
+</p>
+
+<p align="center"><sub>报告首页(示意图,数据取自 <a href="https://leafpaper.github.io/Inves-Report/reports/688111_金山办公/分析报告_dashboard.html">金山办公 688111</a> 的真实分析)</sub></p>
 
 ---
 
@@ -124,6 +134,16 @@
 
 ## 快速开始
 
+### 开始之前
+
+| 要求 | 说明 |
+|---|---|
+| **Claude Code** | 这是一个 Claude Code 的 skill，不是网页版 Claude 或独立命令行程序。装好后在 Claude Code 对话里用 |
+| **Python 3.11+** | 数据层跑在本地 Python，不占用模型上下文 |
+| **Tushare token** | 分析 A 股 / 港股必需；只分析美股可以不配 |
+| **一次全量要多久** | 本机实测约 2 小时（采集 5 分钟 → 精读 20 分钟 → 判断链三波 25 分钟 → 质量环每轮约 10 分钟，最多三轮）。`--review` 约三分之一 |
+| **要花多少 token** | 主要成本在 10 个 sub-agent 的并行写作与三轮评审，量级在百万 token。想省就少跑几轮质量环——但那正是这套东西值钱的地方 |
+
 ### 1. 装 skill
 
 ```bash
@@ -231,6 +251,7 @@ Phase 6  质量环    lint_v8 18 条 → reviewer-logic ∥ reviewer-delivery �
 | [`scripts/`](./scripts/) | 33 个 Python 脚本：数据采集 / 审计 / 装配 / 15 份 JSON Schema / lint / 出片 |
 | [`scripts/tests/`](./scripts/tests/) | 524 个单元测试 |
 | [`assets/html/`](./assets/html/) | 报告与对比页的 HTML / CSS 模板 |
+| [`.scratch/`](./.scratch/) | v8 重构期的设计留档与实现票（为什么这么改，都记在里面）——不参与运行 |
 
 ---
 
@@ -249,9 +270,32 @@ Phase 6  质量环    lint_v8 18 条 → reviewer-logic ∥ reviewer-delivery �
 
 ---
 
+## 免责声明
+
+**本项目是研究工具，不是投资建议。**
+
+它输出的判定、行动档位与仓位，是一套公开方法在公开数据上的推演结果，**不构成任何证券的买卖建议**。
+报告里的数字来自 Tushare / yfinance 与上市公司公开披露，可能存在采集口径差异、数据滞后或抽取错误；
+由大模型生成的判断同样可能出错——报告里所有「信息缺口」与「降级标注」就是为了让你看见它哪里没把握。
+
+**据此做出的任何投资决策，风险由你自己承担。** 真要下注之前，请自己回原始公告核对一遍。
+
+数据来源：[Tushare Pro](https://tushare.pro)（A 股 / 港股，需自备 token 并遵守其服务条款）、
+[yfinance](https://github.com/ranaroussi/yfinance)（美股）、交易所公开披露的定期报告 PDF。
+
+---
+
 ## 贡献
 
 欢迎 issue / PR。重点方向：更多审计框架、更多市场（日股 / 欧股）、机构持仓数据源。
+
+改代码前先跑一遍测试：
+
+```bash
+python -m unittest discover -s scripts/tests -t .
+```
+
+> 每个被真实报告打出来的缺陷都应该留下一条回归测试——这个仓库里绝大多数测试都是这么来的。
 
 **License**: [MIT](./LICENSE) · **作者**: [@leafpaper](https://github.com/leafpaper) ·
 **思路借鉴**: [terancejiang/Turtle_investment_framework](https://github.com/terancejiang/Turtle_investment_framework)

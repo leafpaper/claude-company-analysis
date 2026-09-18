@@ -1,0 +1,65 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  unittest:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: 装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r scripts/requirements.txt
+
+      # 不需要 TUSHARE_TOKEN:单测全部跑在夹具与临时目录上,不碰网络。
+      # 依赖真实采集产物的少数几条会自行 skip。
+      - name: 跑单测
+        env:
+          PYTHONUTF8: "1"
+        run: python -m unittest discover -s scripts/tests -t . -v
+
+  schemas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # 契约层是这套流水线的地基:schema 自己不合法, 所有节点门控都是空转。
+      - name: 校验 JSON Schema 本身合法
+        run: |
+          pip install jsonschema
+          python - <<'PY'
+          import json, pathlib, sys
+          from jsonschema import Draft202012Validator
+
+          bad = []
+          for p in sorted(pathlib.Path("scripts/schemas").glob("*.json")):
+              try:
+                  Draft202012Validator.check_schema(json.loads(p.read_text(encoding="utf-8")))
+                  print(f"  ok  {p.name}")
+              except Exception as exc:
+                  bad.append(f"{p.name}: {exc}")
+          if bad:
+              print("\n不合法的 schema:")
+              for b in bad:
+                  print(" -", b)
+              sys.exit(1)
+          PY

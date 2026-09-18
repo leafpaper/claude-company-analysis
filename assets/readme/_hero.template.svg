@@ -1,0 +1,129 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 470" width="920" height="470" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif">
+  <title>报告首页示意图：决断卡五行 + 赚不赚钱面板</title>
+  <desc>金山办公 688111 的真实分析结论：部分好 / 变好但仅注意力 / 已被价格计入 / 高尾险 / 先观察等证据临界</desc>
+  <rect width="920" height="470" rx="10" fill="{PAGE}"/>
+
+  <!-- 页眉 -->
+  <text x="28" y="40" font-size="19" font-weight="700" fill="{INK}">金山办公 688111.SH</text>
+  <text x="212" y="40" font-size="13" fill="{MUTED}">2026-09-16 · 一眼结论</text>
+  <rect x="762" y="24" width="130" height="22" rx="11" fill="{WASHA}"/>
+  <text x="827" y="39" font-size="12" fill="{ACCENT}" text-anchor="middle">lint 18 条全过</text>
+
+  <!-- 事实条 -->
+  <rect x="28" y="56" width="864" height="40" rx="6" fill="{SURFACE2}"/>
+  <text x="44" y="73" font-size="11" fill="{MUTED}">行动档位</text>
+  <text x="44" y="89" font-size="14" font-weight="650" fill="{INK}">等证据临界</text>
+  <text x="190" y="73" font-size="11" fill="{MUTED}">质地</text>
+  <text x="190" y="89" font-size="14" font-weight="650" fill="{INK}">部分好</text>
+  <text x="310" y="73" font-size="11" fill="{MUTED}">现价</text>
+  <text x="310" y="89" font-size="14" font-weight="650" fill="{INK}">225.52 元</text>
+  <text x="450" y="73" font-size="11" fill="{MUTED}">合理价区间</text>
+  <text x="450" y="89" font-size="14" font-weight="650" fill="{INK}">133.3–193.8 元</text>
+  <text x="650" y="73" font-size="11" fill="{MUTED}">下次预约披露</text>
+  <text x="650" y="89" font-size="14" font-weight="650" fill="{INK}">2026-10-28</text>
+
+  <!-- 决断卡五瓦片 -->
+  <text x="28" y="126" font-size="13" font-weight="650" fill="{INK2}">投资决断卡</text>
+
+  <g>
+    <rect x="28" y="136" width="168" height="126" rx="6" fill="{SURFACE}" stroke="{HAIR}"/>
+    <rect x="28" y="136" width="4" height="126" fill="{CRIT}"/>
+    <text x="45" y="156" font-size="11.5" fill="{MUTED}">① 是不是好公司</text>
+    <text x="45" y="178" font-size="16" font-weight="750" fill="{INK}">部分好</text>
+    <text x="45" y="200" font-size="11.5" fill="{INK2}">真护城河真主营,但本</text>
+    <text x="45" y="216" font-size="11.5" fill="{INK2}">期利润被 17.56 亿基金</text>
+    <text x="45" y="232" font-size="11.5" fill="{INK2}">账面重估冲花</text>
+    <rect x="45" y="240" width="62" height="16" rx="8" fill="{WASHR}"/>
+    <text x="76" y="252" font-size="10.5" fill="{CRIT}" text-anchor="middle">🟠 2 条</text>
+  </g>
+
+  <g>
+    <rect x="204" y="136" width="168" height="126" rx="6" fill="{SURFACE}" stroke="{HAIR}"/>
+    <rect x="204" y="136" width="4" height="126" fill="{WARN}"/>
+    <text x="221" y="156" font-size="11.5" fill="{MUTED}">② 在变好吗</text>
+    <text x="221" y="178" font-size="14" font-weight="750" fill="{INK}">↑变好但仅注意力</text>
+    <text x="221" y="196" font-size="14" font-weight="750" fill="{INK}">·未确认</text>
+    <text x="221" y="216" font-size="11.5" fill="{INK2}">主营三条线一起提速是</text>
+    <text x="221" y="232" font-size="11.5" fill="{INK2}">实锤,AI 收入仍为零</text>
+    <rect x="221" y="240" width="62" height="16" rx="8" fill="{WASHY}"/>
+    <text x="252" y="252" font-size="10.5" fill="{WARN}" text-anchor="middle">🟡 2 条</text>
+  </g>
+
+  <g>
+    <rect x="380" y="136" width="168" height="126" rx="6" fill="{SURFACE}" stroke="{HAIR}"/>
+    <rect x="380" y="136" width="4" height="126" fill="{CRIT}"/>
+    <text x="397" y="156" font-size="11.5" fill="{MUTED}">③ 贵不贵</text>
+    <text x="397" y="178" font-size="16" font-weight="750" fill="{INK}">已被价格计入</text>
+    <text x="397" y="200" font-size="11.5" fill="{INK2}">合理价区间 133.3–</text>
+    <text x="397" y="216" font-size="11.5" fill="{INK2}">193.8 元 vs 现价</text>
+    <text x="397" y="232" font-size="11.5" fill="{INK2}">225.52 元</text>
+    <rect x="397" y="240" width="62" height="16" rx="8" fill="{WASHR}"/>
+    <text x="428" y="252" font-size="10.5" fill="{CRIT}" text-anchor="middle">🟠 3 条</text>
+  </g>
+
+  <g>
+    <rect x="556" y="136" width="168" height="126" rx="6" fill="{SURFACE}" stroke="{HAIR}"/>
+    <rect x="556" y="136" width="4" height="126" fill="{CRIT}"/>
+    <text x="573" y="156" font-size="11.5" fill="{MUTED}">④ 扛得住吗</text>
+    <text x="573" y="178" font-size="16" font-weight="750" fill="{INK}">高尾险·不可承受</text>
+    <text x="573" y="200" font-size="11.5" fill="{INK2}">公司本身不会死,但持</text>
+    <text x="573" y="216" font-size="11.5" fill="{INK2}">有人一路上没有护栏;</text>
+    <text x="573" y="232" font-size="11.5" fill="{INK2}">高信仰 5/7</text>
+    <rect x="573" y="240" width="62" height="16" rx="8" fill="{WASHR}"/>
+    <text x="604" y="252" font-size="10.5" fill="{CRIT}" text-anchor="middle">🟠 2 条</text>
+  </g>
+
+  <g>
+    <rect x="732" y="136" width="160" height="126" rx="6" fill="{SURFACE}" stroke="{HAIR}"/>
+    <rect x="732" y="136" width="4" height="126" fill="{WARN}"/>
+    <text x="749" y="156" font-size="11.5" fill="{MUTED}">⑤ 怎么办</text>
+    <text x="749" y="178" font-size="15" font-weight="750" fill="{INK}">先观察等证据临界</text>
+    <text x="749" y="200" font-size="11.5" fill="{INK2}">现价 0 仓位,等三季报</text>
+    <text x="749" y="216" font-size="11.5" fill="{INK2}">的两条硬数据 + 价格回</text>
+    <text x="749" y="232" font-size="11.5" fill="{INK2}">到合理价区间以内</text>
+  </g>
+
+  <!-- 赚钱面板 -->
+  <text x="28" y="294" font-size="13" font-weight="650" fill="{INK2}">赚不赚钱面板</text>
+  <text x="130" y="294" font-size="11.5" fill="{MUTED}">指标由①质地挑选,红标由脚本按红旗清单反查,不是人工涂色</text>
+
+  <g>
+    <rect x="28" y="304" width="280" height="104" rx="6" fill="{SURFACE}" stroke="{HAIR}"/>
+    <text x="44" y="326" font-size="12.5" fill="{MUTED}">毛利率</text>
+    <text x="44" y="352" font-size="21" font-weight="650" fill="{INK}">84.90%</text>
+    <text x="126" y="352" font-size="12" fill="{MUTED}">(2026H1)</text>
+    <text x="44" y="374" font-size="11.5" fill="{INK2}">四个半年度稳定在 84.9~86.1%,</text>
+    <text x="44" y="390" font-size="11.5" fill="{INK2}">规模扩大未被摊薄</text>
+    <polyline points="196,344 218,341 240,346 262,340 284,338" fill="none" stroke="{VIZ1}" stroke-width="2"/>
+    <circle cx="284" cy="338" r="2.6" fill="{VIZ1}"/>
+    <text x="240" y="326" font-size="10.5" fill="{MUTED}" text-anchor="end">20% 分位</text>
+  </g>
+
+  <g>
+    <rect x="320" y="304" width="280" height="104" rx="6" fill="{SURFACE}" stroke="{HAIR}"/>
+    <rect x="320" y="304" width="280" height="3" fill="{CRIT}"/>
+    <text x="336" y="326" font-size="12.5" fill="{MUTED}">净利率(报表口径)</text>
+    <text x="336" y="352" font-size="21" font-weight="650" fill="{INK}">75.99%</text>
+    <text x="336" y="374" font-size="11.5" fill="{INK2}">这个数不是主营赚出来的,直接</text>
+    <text x="336" y="390" font-size="11.5" fill="{INK2}">拿去和同行比会看反</text>
+    <polyline points="488,352 510,350 532,348 554,346 576,318" fill="none" stroke="{VIZNEG}" stroke-width="2"/>
+    <circle cx="576" cy="318" r="2.6" fill="{VIZNEG}"/>
+    <rect x="500" y="315" width="76" height="16" rx="8" fill="{WASHR}"/>
+    <text x="538" y="327" font-size="10.5" fill="{CRIT}" text-anchor="middle">🟠 高级红旗</text>
+  </g>
+
+  <g>
+    <rect x="612" y="304" width="280" height="104" rx="6" fill="{SURFACE}" stroke="{HAIR}"/>
+    <text x="628" y="326" font-size="12.5" fill="{MUTED}">现金含量(OCF÷归母净利)</text>
+    <text x="628" y="352" font-size="21" font-weight="650" fill="{INK}">0.26x</text>
+    <text x="690" y="352" font-size="12" fill="{MUTED}">(2026H1)</text>
+    <text x="628" y="374" font-size="11.5" fill="{INK2}">三个上半年稳在 0.87~0.99x,</text>
+    <text x="628" y="390" font-size="11.5" fill="{INK2}">本期断崖</text>
+    <polyline points="780,340 802,338 824,342 846,339 868,376" fill="none" stroke="{VIZNEG}" stroke-width="2"/>
+    <circle cx="868" cy="376" r="2.6" fill="{VIZNEG}"/>
+  </g>
+
+  <!-- 页脚 -->
+  <line x1="28" y1="428" x2="892" y2="428" stroke="{HAIR}"/>
+  <text x="28" y="450" font-size="11.5" fill="{MUTED}">决断卡 / 面板 / Top3 风险全部由脚本从五个节点的机器块装配 —— 人工只写导读那 3-5 句</text>
+</svg>
