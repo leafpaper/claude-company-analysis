@@ -14,6 +14,7 @@
 """
 from __future__ import annotations
 
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -162,9 +163,15 @@ class TestDownloadDir(unittest.TestCase):
         self.assertEqual(pdf_reader._download_dir("D:/somewhere", "a/b.json"), Path("D:/somewhere"))
 
     def test_falls_back_to_system_temp_not_slash_tmp(self):
+        """要的是「用系统临时目录」, 不是「写死 /tmp」。
+
+        Linux 上系统临时目录本来就是 /tmp, 所以「不等于 /tmp」这条只在非 POSIX 上才有区分度。
+        无条件断言会让 CI 在 ubuntu 上必红 —— 本机 Windows 一直绿, 换个平台才现形。
+        """
         got = pdf_reader._download_dir(None, None)
         self.assertEqual(got, Path(tempfile.gettempdir()))
-        self.assertNotEqual(got, Path("/tmp"))      # Windows 上 /tmp 会变成 C:\tmp
+        if os.name == "nt":
+            self.assertNotEqual(got, Path("/tmp"))  # Windows 上 /tmp 会变成 C:\tmp
 
 
 if __name__ == "__main__":

@@ -29,10 +29,33 @@ jobs:
 
       # 不需要 TUSHARE_TOKEN:单测全部跑在夹具与临时目录上,不碰网络。
       # 依赖真实采集产物的少数几条会自行 skip。
+      # 结果写进 job summary —— 它在 run 页面上公开可见,
+      # 而 Actions 的日志下载接口要 admin 权限, 外部贡献者拿不到。
       - name: 跑单测
         env:
           PYTHONUTF8: "1"
-        run: python -m unittest discover -s scripts/tests -t . -v
+        run: |
+          set -o pipefail
+          code=0
+          python -m unittest discover -s scripts/tests -t . -v 2>&1 | tee test-output.txt || code=$?
+          {
+            echo "### 单测 · Python ${{ matrix.python-version }}"
+            echo ''
+            echo '```'
+            tail -n 3 test-output.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$code" -ne 0 ]; then
+            {
+              echo '<details><summary>失败明细</summary>'
+              echo ''
+              echo '```'
+              grep -E "^(FAIL|ERROR):" -A 14 test-output.txt | head -150
+              echo '```'
+              echo '</details>'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit "$code"
 
   schemas:
     runs-on: ubuntu-latest
