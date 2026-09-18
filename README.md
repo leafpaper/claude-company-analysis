@@ -1,366 +1,257 @@
-# YEZHI Company Analysis (v8.5)
+# YEZHI Company Analysis
 
-> **像一个谨慎的投资人那样，把一家公司从头到尾看一遍** —— 结构化财报数据 + 年报/季报 PDF 原文 + 11 大师框架自动审计 + 一张看得懂的「投资决断卡」，**全程说人话**。
->
-> 支持 A 股 / 美股 / 港股 · 跑在 Anthropic Claude Code 里的 `/company-analysis` 命令 · 帮你**一眼筛好公司**，并把"是不是好公司"和"现在该不该买"分开回答
+**在 Claude Code 里输入一个公司名，得到一份能直接读的投资分析报告。**
+
+它会自己去拉财报数据、下载并精读年报原文、跑完会计审计框架，然后把结论收敛成一张五行决断卡：
+**是不是好公司 / 在变好吗 / 贵不贵 / 扛得住吗 / 现在该怎么办**。
+
+支持 A 股 / 美股 / 港股。报告全程说人话，每个关键数字都能回到出处。
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v8.5-blue" alt="version">
+  <img src="https://img.shields.io/badge/version-v8.10-blue" alt="version">
   <img src="https://img.shields.io/badge/markets-A%E8%82%A1%20%7C%20%E7%BE%8E%E8%82%A1%20%7C%20%E6%B8%AF%E8%82%A1-green" alt="markets">
   <img src="https://img.shields.io/badge/audit-11%20frameworks-orange" alt="frameworks">
-  <img src="https://img.shields.io/badge/report-%E9%A6%96%E9%A1%B5%2B%E4%BA%94%E7%AB%A0%2B%E9%99%84%E5%BD%95A--E-purple" alt="chapters">
+  <img src="https://img.shields.io/badge/gate-lint%2018%20%2B%202%20reviewer-red" alt="gate">
   <img src="https://img.shields.io/badge/license-MIT-lightgrey" alt="license">
 </p>
 
-**在线报告示例**: [leafpaper.github.io/Inves-Report](https://leafpaper.github.io/Inves-Report)
+---
 
-看实物比看说明快 —— 两份 v8 报告与一份产业链对比页：
+## 先看成品
 
-| | 结论 | 看什么 |
+说明书不如实物。四份真实报告，点开就能读：
+
+| 公司 | 结论 | 这份报告在讲什么 |
 |---|---|---|
-| [东山精密 002384](https://leafpaper.github.io/Inves-Report/reports/002384_东山精密/分析报告_dashboard.html) | 等证据临界 · 0 仓位 | 卡位是真的,但股价早已付完账 |
-| [中际旭创 300308](https://leafpaper.github.io/Inves-Report/reports/300308_中际旭创/分析报告_dashboard.html) | 回避 | 利润率顶格,护城河却建在外采芯片上 |
-| [PCB↔光模块产业链对比](https://leafpaper.github.io/Inves-Report/compare/pcb-optics/) | 钱两家都不放 | 同一条链的两端,分散不了同一个风险 |
+| [金山办公 688111](https://leafpaper.github.io/Inves-Report/reports/688111_金山办公/分析报告_dashboard.html) | 先观察等证据临界 · 0 仓位 | 净利润同比 +237%，但其中 17.56 亿是两只关联方基金的账面重估，连扣非口径都挡不住 |
+| [华特气体 688268](https://leafpaper.github.io/Inves-Report/reports/688268_华特气体/分析报告_dashboard.html) | 回避 | 增长是真的，但要先分清有多少来自涨价、多少来自放量 |
+| [中际旭创 300308](https://leafpaper.github.io/Inves-Report/reports/300308_中际旭创/分析报告_dashboard.html) | 回避 | 利润率顶格，护城河却建在外采芯片上 |
+| [东山精密 002384](https://leafpaper.github.io/Inves-Report/reports/002384_东山精密/分析报告_dashboard.html) | 先观察等证据临界 · 0 仓位 | 卡位是真的，但股价早已付完账 |
+| [PCB ↔ 光模块 产业链对比](https://leafpaper.github.io/Inves-Report/compare/pcb-optics/) | 钱两家都不放 | 同一条链的两端，分散不了同一个风险 |
+
+全部报告：[leafpaper.github.io/Inves-Report](https://leafpaper.github.io/Inves-Report)
 
 ---
 
-## 这是什么
+## 它能做什么
 
-一个跑在 Claude Code 里的 slash command（`/company-analysis`）。给它一个公司名（可选股票代码），它会自动采集结构化财报数据、强制精读年报/季报 PDF 原文、跑 11 个大师级会计审计框架，然后用**判断链五个节点写手**（质地 / 状态 / 赔率 / 路径 / 怎么办，依赖图两波调度）各写一章，首页决断卡与附录全部机器装配，再经质量环评审 + 修正循环，最后渲染 HTML 并发布到 GitHub Pages。
+**一、把一家公司从头看到尾**（`/company-analysis 金山办公`）
 
-核心定位：**用确定性数据 + 数学推导对抗"伪量化"和"AI 编故事"，再用大白话讲给你听**。所有关键数字带来源标签（`[Tushare:income.revenue]` / `[PDF:q3_2025, P.4]`），估值走 P=F+N 分解 + 反向DCF + 叙事SOTP（DCF 概率加权作交叉验证），决策走"状态后验×赔率×路径"三分（好公司/好下注/好价格），所有红旗由脚本机械扫出。最后落到一张 **5 行的「投资决断卡」**——把"是不是好公司"和"现在该不该买"分开回答。
+- 拉齐结构化数据：三表、财务指标、股东、限售解禁、资金流、同业对标
+- **下载年报/季报 PDF 并精读原文**，不依赖第三方摘要；关键结论带 `[PDF:2025年报, P.45]` 这样的出处
+- 跑 11 个会计审计框架（Piotroski / Beneish / Altman / 杜邦 / Sloan 应计 / 治理 / 关联方…）机械扫雷
+- 估值做三件套：股价拆成「已赚到的 + 为想象多付的」、反向 DCF 推出现价在赌什么、分业务各算各的
+- 产出一份 HTML 报告：首页决断卡 + 五章正文 + 附录 A-E（完整表格全部下沉附录）
 
----
+**二、财报季只重评变化的部分**（`--review`）
 
-## 我们的投资理念（大白话）
+质地默认复用，只有四条机检触发才重评；状态/赔率/路径/决策每次必重评。成本约全量的三分之一，
+首页多一块「较上版变化」，第一句直接回答「结论变了没」。
 
-> 一句话：**先弄清"是不是一家好公司"，再决定"现在这个价格该不该买"——这是两件事，绝不能混。**
+**三、同行之间只选一家**（`--compare`）
 
-判断一家公司值不值得投，我们就问六个问题，全用人话回答：
+上半部分把各家的决断卡并排搬过来（零新判断），下半部分回答「这组里钱该放哪家」——
+只引用各家报告里已有的证据，不现场编新的。
 
-1. **它在变好吗？变好被证据坐实了没？**（状态）
-   不听故事、看实锤——财报有没有改善、订单 / 客户 / 产能是不是真的，还是只是"小作文 + 喊单"。**分清「实锤」和「传闻」**，传闻一律打折。
+### 它不做什么
 
-2. **现在的价格，是不是已经把未来所有好事都提前买走了？**（赔率）
-   把股价拆成两块：**已经赚到的** + **对未来的想象**。想象占比越大，越要它后面真兑现，否则就是"故事变成了必须完成的任务，做不到就杀估值"。看现在还有没有**安全垫**。
-
-3. **就算方向对，兑现之前你扛得住中途大跌吗？**（路径）
-   方向对、但中途腰斩你拿不住，照样亏。所以先看**最坏会怎样**（左尾风险），再决定下不下注、下多重。
-
-   > 这三关——**变好了吗 × 贵不贵 × 扛得住吗**——有任何一个"差"，现在就不是好下注。
-
-4. **四个维度都要懂：懂财报、懂叙事、懂估值、懂热点。**（借鉴"喊单"四关）
-   只懂财报会错过成长，只追热点会接盘。四个都过关，才敢说看懂了这家公司。
-
-5. **机器扫雷，不靠感觉。**
-   11 个会计审计框架（Piotroski 健康度 / Beneish 造假 / Altman 破产 / 应计粉饰 / 关联方…）自动扫财务地雷，扫出的红旗必须在报告里闭环出现、不许藏着掖着。
-
-6. **最后给你一张「投资决断卡」。**
-   5 行看懂结论：① 是不是好公司 ② 故事真不真 ③ 贵不贵 ④ 该不该买 ⑤ 该怎么办（具体动作 + 该等什么事件）。**好公司 ≠ 现在能买**，卡片把这两件事分开告诉你。
-
-> 这套方法的内核来自「贝叶斯之美」五篇（《投资是泊松过程》《喊线时代》《三大数学模型之美》《信仰投资最大陷阱》《十年十倍股》）。框架只是**内部思考引擎**，报告**输出**永远是大白话 + 具体证据 + 一句结论。完整机制见 [`references/judgment-chain.md`](./references/judgment-chain.md) 与四份节点手册。
+- **不打分**。没有综合评分、权重、修正系数——v8 已经把评分机制整个删掉了，因为一个分数会把所有分歧抹平。
+- **不替你下单**，也不做量化回测。它给的是判断和该等什么事件，不是交易信号。
+- **不保证结论正确**。它保证的是：每个数字有出处、每个结论有证据、机器能查出来的自相矛盾一条都不放过。
 
 ---
 
-## 设计原则
+## 投资理念
 
-| 原则 | 含义 |
-|------|------|
-| **强制 PDF 精读** | 不依赖第三方摘要。年报/季报 PDF 必须下载并提取关键段落（利润表变动原因 / 子公司业绩 / MD&A / 风险因素 / 非经常损益 等），关键结论带 `[PDF:报告期, P.x]` 引用。 |
-| **数学推导优先** | 估值赔率走 **P=F+N 分解 + 反向DCF 隐含预期 + 叙事分部SOTP**（v7.0），DCF 概率加权作 F 的交叉验证；逻辑猜测不得替代算术，每块须出数字。 |
-| **决策内核（v7.0）** | 投资价值 = **状态后验 × 赔率 × 路径可承受性**，把"是不是好公司"拆成 **好公司 / 好下注 / 好价格** 三分 + 行动档位（六档）。源自"贝叶斯之美"五篇，定义见 `references/judgment-chain.md`（v8 手册层）。 |
-| **全说人话** | 框架是内部思考引擎，**报告正文不出现裸术语**（λ / P=F+N / embedded obligation 等只在小括号里标注）。每段结论先行；同一个数字只有一个权威出处（异地出现必须带出处引用，`lint_v8` R3 机械拦截），来源与缺口统一落附录E。首页是一张 **5 行决断卡**：是不是好公司 / 在变好吗 / 贵不贵 / 扛得住吗 / 怎么办。 |
-| **11 框架防盲点** | `scripts/financial_audit.py` 自动跑 Piotroski F / Beneish M / Altman Z / DuPont / Sloan 应计 / 治理 / 关联方等 11 个框架，机械扫出红旗；每条红旗在归属节点叙述一次，总清单进附录D，Top3 由脚本带上首页。 |
-| **黑白分割不骑墙** | 子判定只有 ✓ / ⚠️ / ✗ 三态，verdict 只能取本节点的取值域；**禁止任何隐性打分**（分数、权重、修正系数、综合评级）——v8.0 已删除全部评分机制。 |
-| **缺口必闭环** | 附录E 信息缺口强制 ≥ 3 条，每条记录已尝试的查询路径；补查成功必须反写到所有相关章节。 |
-| **一处权威（v8.0）** | 同一个问题全报告只答一次："贵不贵"只在③、"该等什么"只在②、仓位与行动档位只在⑤、每条红旗只在其归属节点叙述一次（总清单在附录D，Top3 机器带出）。10 维评分 / 定性综合方向 / 快筛章节等"结论假面"已删除。 |
-| **首页零人工抄写（v8.0）** | 决断卡五行 / 赚钱面板 / Top3 风险 / 主页 metadata 全部由 `assemble_report_v8` 从五个节点的 YAML verdict 块装配，人工只写 3-5 句导读。 |
+**先弄清「是不是一家好公司」，再决定「现在这个价格该不该买」——这是两件事，绝不能混。**
 
----
+判断一家公司值不值得投，只问五个问题，按固定顺序：
 
-## 流水线（判断链两波 + 装配）
+| | 问题 | 怎么答 |
+|---|---|---|
+| ① 质地 | 是不是好公司 | 生意模式赚不赚钱、赚的钱是真的吗、护城河在不在、管理层可信吗、财务底子稳吗 |
+| ② 状态 | 在变好吗 | 只认实锤（财报、订单、官方披露），传闻一律打折；并给出**该等什么**——具体到哪份报告、哪个数字过哪条线 |
+| ③ 赔率 | 贵不贵 | 把股价拆成「已经赚到的」+「为未来想象多付的」。想象占比越大，越是"必须做到"，做不到就杀估值 |
+| ④ 路径 | 扛得住吗 | 方向对、中途腰斩你拿不住，照样亏。先量最坏能跌到哪，再决定下不下注 |
+| ⑤ 决策 | 现在该怎么办 | 把②③④的判定相乘取档位，给仓位、给该等什么、给什么情况下认错 |
 
-```
-Step 0-2：环境自检 + 输入确认 + 建 run 目录（runs/{date}/ + manifest.json）
-   ↓
-Phase 1 数据采集   （data-collector：Tushare + yfinance + 港股 + PDF 下载解析 + 11 框架 audit
-                    → red_flags.json（带 id 的红旗清单）+ peer / capital_flow / technical 快照）
-   ↓
-Phase 2 文档精析   （doc-analyst：精读 PDF 关键段落，提取原文引用 + 自跑 check_phase2 门控）
-   ↓
-Phase 3 判断链写作 （依赖图两波，波次由 scripts/node_graph.py 算）
-     第一波（并行）  node-quality ∥ node-odds ∥ node-path
-     第二波          node-state（四层验证第④关引用③赔率 verdict）
-     第三波          decision-writer（三元组 → 行动档位 + 封顶检查 + 首页导读）
-     装配            assemble_report_v8：首页（决断卡/面板/Top3）+ 五章 + 附录A-E
-   ↓
-Phase 6 质量环与发布
-     机器门控        lint_v8：10 条规则（schema/红旗闭环/数字唯一home/区间锚/封顶/越权/同步…）
-     LLM 评审        reviewer-logic ∥ reviewer-delivery（并行，FIX 分诊回节点写手 / 主 agent）
-     出片发布        build_html（B 仪表盘）+ update_index + GitHub Pages
-```
+三件事里有任何一件是"差"，现在就不是好下注。**好公司 ≠ 现在能买**，决断卡把这两件事分开告诉你。
 
-> 每波结束由主 agent 复核 `verdict_block` schema 门控，过了才进下一波；写手只读「链手册 + 自己那份节点手册」，跨节点只引用对方 verdict。完整调度协议 / 质量门控 / 异常处理见 [SKILL.md](./SKILL.md) + [references/phase-orchestration.md](./references/phase-orchestration.md) + [phases/phase3-node-writing.md](./phases/phase3-node-writing.md)。
-
-**sub-agent（10 个）**：`data-collector`（1）+ `doc-analyst`（1）+ **判断链四节点写手** `node-{quality,state,odds,path}`（4）+ `decision-writer`（1）+ 质量环 `reviewer-{logic,delivery}`（2）+ `compare-judge`（1，只在 `--compare` 产业链对比页上场）。全量与增量复查共用同一套「按依赖图跑任意节点子集」的调度。
+方法内核来自「贝叶斯之美」五篇（《投资是泊松过程》《喊线时代》《三大数学模型之美》《信仰投资最大陷阱》《十年十倍股》）。
+框架只是内部的思考引擎，报告正文不出现裸术语。完整定义见 [`references/judgment-chain.md`](./references/judgment-chain.md)。
 
 ---
 
-## 报告结构（判断链本身）
+## 报告长什么样
 
-章节 = 判断链：结论先行、每章 verdict 块 + 最硬证据、完整表格全部下沉附录。规则真理源：[`references/judgment-chain.md`](./references/judgment-chain.md)。
+| 部分 | 内容 |
+|---|---|
+| **首页** | 决断卡五行 + 赚不赚钱面板（3-5 个指标带走势图与红标）+ Top3 风险 + 3-5 句导读 |
+| **① 质地** | 五个子判定 ✓ / ⚠️ / ✗，每个给最硬的一两条证据 |
+| **② 状态** | 实锤 vs 传闻分级、故事四关、**临界点（该等什么，全报告唯一出处）** |
+| **③ 赔率** | 合理价区间 [低端, 高端] + 三种估值方法的完整推导（十条算术闭合机检） |
+| **④ 路径** | 左尾清单（每条量到价格）、高信仰体检、**证伪 / 退出清单** |
+| **⑤ 怎么办** | 行动档位 + 仓位（全报告唯一出处）+ 该等什么 + 什么情况下我错了 |
+| **附录 A-E** | A 财务明细 / B 同业对标 / C 舆情资金与技术面 / D 红旗总清单 / E 数据来源与信息缺口 |
 
-| 章节 | 内容 | 谁产 |
-|------|------|------|
-| **首页 一眼结论** | 决断卡五行（是不是好公司 / 在变好吗 / 贵不贵 / 扛得住吗 / 怎么办）+ 赚不赚钱面板（3-5 指标 + 红标）+ Top3 风险 + 3-5 句导读 | 机器装配（导读来自 decision-writer） |
-| **① 质地 是不是好公司** | 五个子判定（生意模式赚钱吗 / 赚钱质量真吗 / 护城河存在吗 / 管理层可信吗 / 财务底子稳吗）✓⚠️✗ + 面板自选指标 | node-quality |
-| **② 状态 在变好吗** | λ 载体与分部稀释 / 实锤 vs 传闻分级 / 身份切换 P1→P4 / 四层验证 / **临界点（该等什么，全链唯一）** | node-state |
-| **③ 赔率 贵不贵** | P=F+N 分解 + 反向 DCF 隐含预期 + 叙事分部 SOTP + **区间锚 [SOTP, DCF] 与两端同向标记**；估值类红旗归家 | node-odds |
-| **④ 路径 扛得住吗** | 左尾清单（含剩余资产清单）+ 高信仰股体检 + 回报路径成本 + **证伪/退出清单（全链权威）** | node-path |
-| **⑤ 怎么办** | 三元组[状态\|赔率\|路径] → 六档行动档位 + **封顶规则**（致命红旗 → 强制回避）+ 仓位（唯一出处）+ 三分结论 + 该等什么/证伪退出（引用②④） | decision-writer |
-| **附录 A-E** | A 财务与经营明细 / B 行业与对标明细 / C 舆情与资金底稿 / **D 红旗总清单（脚本 audit ⊕ 写手提名机器合并）** / E 数据来源与信息缺口 | 零写手，全脚本装配 |
-
----
-
-## 单次分析产出
-
-```
-output/{公司名}/
-├── manifest.json                  # ⭐ 公司级状态唯一源（runs 列表 / 增量计数 / 上次全量 / 预约披露日 / 对比组）
-├── raw_data/
-│   ├── *.parquet                  # Tushare / yfinance 结构化数据
-│   ├── pdfs/*.pdf                 # 下载的财报 PDF
-│   └── pdf_sections_*.json        # PDF 关键段落抽取
-├── data_snapshot.md               # 9 节确定性数据（含限售解禁日历）
-├── audit_report.md / .json        # ⭐ 11 框架红旗清单（json 供机器读）
-├── red_flags.json                 # ⭐ 红旗清单（稳定 id；写手引用 + 附录D 脚本源）
-├── peer_analysis.md               # 同行业对标
-├── capital_flow.md                # 资金流 / 筹码 / 北向 / 大宗
-├── technical_analysis.md          # 技术面位置
-├── phase1-data.md                 # 数据采集总结
-├── sentiment.md / data_sources.md # 附录C / 附录E 底稿
-├── phase2-documents.md            # 文档精析
-└── runs/{date}/                   # ⭐ 每次 run 一个目录（旧 run 整目录即留档）
-    ├── nodes/node-{quality,state,odds,path,decision}.md   # 五个判断节点（顶部 YAML verdict 块）
-    ├── assembly/assembly.json     # 装配产物（决断卡/面板/Top3/metadata/变化区块）
-    ├── reviewer_responses/        # 质量环往返
-    ├── baseline/ + triage.json    # 仅增量 run：刷新前证据快照 + R2 分诊单
-    ├── {公司}-analysis-{date}.md  # ⭐ 主报告（首页 + 五章 + 附录A-E）
-    └── {date}.html                # ⭐ HTML 可视化
-```
+首页、附录、Top3 全部由脚本从五个节点的机器块装配，**人工只写导读那 3-5 句**。
 
 ---
 
-## 仓库结构
+## 怎么保证它不糊弄你
 
-```
-claude-company-analysis/
-├── README.md                   # 本文件
-├── CHANGELOG.md                # 版本演进
-├── LICENSE                     # MIT
-├── .env.sample                 # 环境变量模板
-├── SKILL.md                    # ⭐ 协调器主智能体（判断链调度）
-├── install.sh / uninstall.sh   # 一键安装 / 卸载
-│
-├── agents/                     # sub-agent 定义
-│   ├── data-collector.md           # Phase 1 数据采集
-│   ├── doc-analyst.md              # Phase 2 文档精析（PDF 精读 + check_phase2 自门控）
-│   ├── node-quality.md             # 写手：①质地 是不是好公司（+ 赚钱面板选指标）
-│   ├── node-odds.md                # 写手：③赔率 贵不贵（+ 区间锚两端同向）
-│   ├── node-path.md                # 写手：④路径 扛得住吗（+ 左尾/证伪清单）
-│   ├── node-state.md               # 写手：②状态 在变好吗（+ 临界点=该等什么，第二波）
-│   ├── decision-writer.md          # 写手：⑤怎么办（三元组→档位+封顶+仓位）+ 首页导读
-│   ├── reviewer-logic.md           # 质量环评审：判断链逻辑（引用不重推/影子结论/证据真硬）
-│   ├── reviewer-delivery.md        # 质量环评审：可读性与交付（结论先行/人话/390px 走查）
-│   └── compare-judge.md            # 组内裁决：同行组里钱该放哪家（只引用各家决断卡，不自产证据）
-│
-├── phases/                     # 阶段执行指令
-│   ├── phase1-data-collection.md   # data-collector 内部读
-│   ├── phase2-document-analysis.md # doc-analyst 内部读
-│   ├── phase3-node-writing.md      # ⭐ 主 agent 读：波次 / prompt 模板 / 逐波验收 / 装配
-│   ├── phase6-review-publish.md    # ⭐ 主 agent 读：机器门控 + 两 reviewer + 出片发布
-│   ├── review-pipeline.md          # ⭐ 主 agent 读：增量复查 `--review` 四段链 R0-R4
-│   └── compare-pipeline.md         # ⭐ 主 agent 读：产业链对比 `--compare` 五段链 C0-C4
-│
-├── references/                 # 参考文档
-│   ├── agent-protocol.md           # ⭐ Agent 调度协议 + Fresh-Restart
-│   ├── phase-orchestration.md      # ⭐ 每 Phase 详细 checklist
-│   ├── judgment-chain.md           # ⭐ v8 判断链手册（四问定义/决策层/装配规则/写作规范）
-│   ├── node-quality.md             # ①质地证据手册（五子判定 + 赚钱面板菜单）
-│   ├── node-state.md               # ②状态证据手册（λ/实锤分级/身份切换/临界点）
-│   ├── node-odds.md                # ③赔率证据手册（P=F+N/反向DCF/叙事SOTP/区间锚）
-│   ├── node-path.md                # ④路径证据手册（左尾清单/高信仰体检/证伪清单）
-│   ├── search-strategy.md          # WebSearch 辅助规范
-│   └── html-template-guide.md      # HTML 可视化规范
-│
-├── assets/
-│   └── html/                       # report-v8.html/css（v8 仪表盘）+ compare-v8.html（对比页）+ base/styles/components（v7 兼容）
-│
-└── scripts/                    # ⭐ Python 数据层
-    ├── config.py               # Token / 缓存 / 速率
-    ├── check_env.py            # 环境自检
-    ├── data_cache.py           # Parquet 缓存
-    ├── tushare_collector.py    # A 股 Tushare Pro
-    ├── us_collector.py         # 美股 yfinance
-    ├── hk_collector.py         # 港股混合
-    ├── legacy_quote.py         # 行情兜底
-    ├── pdf_reader.py           # 财报 PDF 段落精析
-    ├── data_snapshot.py        # ⭐ 9 节确定性数据
-    ├── derived_metrics.py      # CAGR / FCF / ROIC / Owner Earnings
-    ├── peer_collector.py       # 同行业对标采集
-    ├── capital_flow.py         # 资金流 / 筹码 / 北向 / 大宗
-    ├── technical_analysis.py   # 技术面位置
-    ├── financial_audit.py      # ⭐ 11 大师框架红旗审计
-    ├── init_run.py             # 建 run 目录 + manifest 登记
-    ├── manifest.py             # 公司级状态（runs / 增量计数 / 披露日 / 对比组）
-    ├── verdict_block.py        # ⭐ 节点 YAML 块抽取 + schema 校验（波次门控）
-    ├── node_graph.py           # ⭐ 判断链依赖图：任意节点子集 → 执行波次
-    ├── triage.py               # ⭐ 增量复查 R2 纯脚本分诊（标脏机检/波次/指标diff/复用盖戳）
-    ├── red_flags.py            # ⭐ 红旗两源合并 / Top3 / 红标反查
-    ├── assembly.py             # ⭐ 摘要层装配（决断卡/面板/Top3/变化区块）
-    ├── assemble_report_v8.py   # ⭐ 报告总装（首页 + 五章 + 附录A-E）
-    ├── compare.py              # ⭐ 产业链对比：成组 / 并排装配（零新判断）/ 组内裁决四条机检
-    ├── derivation.py           # ⭐ ③估值推导：十条算术闭合 + 三张表机器渲染
-    ├── schemas/                # 契约层 JSON Schema（节点×5 + assembly/manifest/triage + 对比×3 + common）
-    ├── lint_v8.py              # ⭐ 质量环机器门控（10 条：schema/红旗闭环/数字home/封顶/越权…）
-    ├── review_loop.py          # ⭐ 两 reviewer 判定合并 + FIX 分诊 + 对抗检测
-    ├── build_html.py           # HTML 渲染
-    ├── update_index.py         # 主页索引联动
-    ├── lessons_manager.py      # 全局经验库
-    ├── report_parser.py        # 解析历史报告（v7 monitor 用）
-    ├── monitor.py              # v7 量化监控（--review 的重定向别名，一个版本周期后删）
-    ├── requirements.txt
-    ├── README.md
-    └── tests/                  # pytest 单测
-```
+这是这个项目花力气最多的地方。三道关，一道比一道贵：
+
+**1. 机器门控 `lint_v8`（18 条规则，不过就不许出片）**
+
+举几条实际拦下来过的：
+
+- **R3 数字唯一出处**——同一个数字只能有一个家，异地出现必须带出处
+- **R7 封顶**——有致命红旗时，行动档位强制回避，写手改不了
+- **R8 越权发声**——仓位和买卖建议只能出现在⑤，其余章节提一句都会被拦
+- **R13 / R15 / R16 跨节点同源**——⑤抄的退出线必须在④里找得到，三元组必须与②③④逐字相同，抄的价格区间必须与③当前的一致
+- **R18 红旗清单同步**——审计重跑后忘了刷新红旗清单，写手就会引不到 id；成品看不出来，但这条规则看得出来
+
+**2. 两个 LLM reviewer 并行评审 + 修正循环（最多三轮）**
+
+一个只查判断链逻辑（引用有没有变成重推、最硬证据是不是真硬），一个只查可读性与交付（结论先不先行、术语有没有说人话、390px 手机上读不读得下去）。它们开的每条 FIX 会被分诊回对应的写手或主 agent。
+
+**3. 524 个单元测试**
+
+每个被真实报告打出来的缺陷，都会变成一条回归测试。
 
 ---
 
 ## 快速开始
 
-> **跨平台**：Mac/Linux 与 Windows 都可用。Windows 上 Python 解释器用 `py -3`(`python` 可能是 Microsoft Store 占位符), skill 内部会自动探测 `{PYBIN}`。
+### 1. 装 skill
 
-### 1. 安装 skill
-
-**Mac / Linux:**
 ```bash
+# Mac / Linux
 curl -fsSL https://raw.githubusercontent.com/leafpaper/claude-company-analysis/main/install.sh | bash
 ```
-**Windows (PowerShell, 在克隆的仓库根目录里):**
 ```powershell
+# Windows(在克隆下来的仓库根目录里跑)
 powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
-装到 `~/.claude/skills/company-analysis/` + sub-agent 到 `~/.claude/agents/company-analysis/`。
 
-### 2. 安装 Python 依赖
+装到 `~/.claude/skills/company-analysis/`，10 个 sub-agent 装到 `~/.claude/agents/company-analysis/`。
+**装完要重启 Claude Code**，sub-agent 名册才会生效。
+
+### 2. 装 Python 依赖
+
+```bash
+pip3 install --user -r ~/.claude/skills/company-analysis/scripts/requirements.txt
+```
 
 依赖：`tushare yfinance pypdf pandas pyarrow requests markdown pyyaml jsonschema`
-- **Mac / Linux:** `pip3 install --user -r ~/.claude/skills/company-analysis/scripts/requirements.txt`
-- **Windows:** `py -3 -m pip install --user tushare yfinance pypdf pandas pyarrow requests markdown pyyaml jsonschema`
 
-### 3. 配置 Tushare Token（A 股 / 港股必需）
+### 3. 配 Tushare token（分析 A 股 / 港股必需）
 
-注册 [tushare.pro](https://tushare.pro/register)，获取 token（建议申请学生权限获 5000+ 免费积分；或购买 2000 积分约 ¥200 解锁所有核心财报接口）。
+去 [tushare.pro](https://tushare.pro/register) 注册拿 token。学生认证可拿 5000+ 免费积分；
+或充 2000 积分（约 ¥200）解锁全部核心财报接口。
 
-- **Mac / Linux:** `echo 'export TUSHARE_TOKEN="your_token_here"' >> ~/.zshrc && source ~/.zshrc`
-- **Windows (PowerShell):** `[Environment]::SetEnvironmentVariable('TUSHARE_TOKEN','your_token_here','User')`(重开终端生效)
-
-> ⚠️ **千万别把 token 提交到 git**。[`.env.sample`](./.env.sample) 是模板；token 走环境变量(不在仓库内)。
-
-### 4. 环境自检
-
-cd 到 skill 根目录(`~/.claude/skills/company-analysis`)后:
-- **Mac / Linux:** `python3 -m scripts.check_env`
-- **Windows:** `py -3 -m scripts.check_env`
-
-全部 `[OK]` + `TUSHARE_TOKEN set` → 可用。
-
-### 5. 启动分析
-
-在 Claude Code 对话里：
-
+```bash
+# Mac / Linux
+echo 'export TUSHARE_TOKEN="your_token"' >> ~/.zshrc && source ~/.zshrc
 ```
-/company-analysis 实丰文化 002862
+```powershell
+# Windows,重开终端生效
+[Environment]::SetEnvironmentVariable('TUSHARE_TOKEN','your_token','User')
 ```
 
-或只给公司名（让它自动定位代码）：
+> token 走环境变量，别提交进 git。[`.env.sample`](./.env.sample) 是模板。
 
-```
-/company-analysis 贵州茅台
-```
+### 4. 自检并开跑
 
-财报季对已有 v8 报告做增量复查（分层重评，成本约全量 1/3，首页「较上版变化」首句答「阿尔法变了没」）：
-
-```
-/company-analysis 贵州茅台 --review
+```bash
+cd ~/.claude/skills/company-analysis && python3 -m scripts.check_env
 ```
 
-> 自然语言「复查 / 更新 / 看看有什么变化」同触发；`--monitor` 已改名 `--review`（保留重定向一个版本周期）。
-> 质地默认复用，仅四条标脏机检（年报披露 / 分部占比跨档 / 新质地红旗 / 关键指标变号）触发才重评；
-> 状态/赔率/路径/决策每次必重评，lint + 双 reviewer 不打折。
-
-产业链同行对比（答「同行组里钱该放哪家」）：
+全部 `[OK]` 就可以在 Claude Code 对话里跑了：
 
 ```
-/company-analysis 东山精密 --compare
+/company-analysis 贵州茅台              # 全量分析，不给代码也行
+/company-analysis 贵州茅台 --review     # 财报季增量复查
+/company-analysis 东山精密 --compare    # 同行对比
 ```
 
-> 自然语言「和同行比比 / 同行里买哪个 / 对比」同触发。流程：查候选（Longbridge 产业链 → 库内 peer →
-> 模型兜底）→ **用户确认成组并命名** → 上半各家决断卡并排（机器装配，**零新判断**，超 90 天标「陈旧」）
-> → 下半 `compare-judge` 组内裁决（排序 + 每家一句原因，**只引用不自产证据**）→ 发布独立对比页。
-> **全报告制**：只在有完整报告的成员间对比，缺报告的列出来由你决定分批补跑。
+自然语言同样触发：「复查一下茅台」「和同行比比」。
 
 ---
 
-## 与 Inves-Report 仓库的关系
+## 一次分析产出什么
 
-本仓库（`claude-company-analysis`）是 **skill 代码**。
+```
+output/{公司名}/
+├── manifest.json              # 公司级状态（历次 run / 增量计数 / 预约披露日）
+├── raw_data/                  # parquet 结构化数据 + 下载的 PDF + 段落抽取结果
+├── data_snapshot.md           # 9 节确定性数据
+├── audit_report.md / .json    # 11 框架审计
+├── red_flags.json             # 红旗清单（稳定 id，写手引用 + 附录D 的源）
+├── peer_analysis.md / capital_flow.md / technical_analysis.md
+├── phase1-data.md / phase2-documents.md
+└── runs/{日期}/
+    ├── nodes/node-*.md        # 五个判断节点
+    ├── assembly/assembly.json # 装配产物
+    ├── reviewer_responses/    # 三轮评审往返记录
+    ├── {公司}-analysis-{日期}.md
+    └── {公司}-analysis-{日期}.html   # 最终成品
+```
 
-生成的 **分析报告 HTML** 发布在姊妹仓库 [leafpaper/Inves-Report](https://github.com/leafpaper/Inves-Report)，经 GitHub Pages 在线浏览：
-
-👉 **在线报告**: [leafpaper.github.io/Inves-Report](https://leafpaper.github.io/Inves-Report)
-
-Phase 6 自动把 HTML 推到 Inves-Report 仓库。
+报告 HTML 发布到姊妹仓库 [leafpaper/Inves-Report](https://github.com/leafpaper/Inves-Report)，由 GitHub Pages 托管。
 
 ---
 
-## 版本演进（详见 [CHANGELOG.md](./CHANGELOG.md)）
+## 流水线
 
-| 版本 | 发布 | 关键变化 |
-|------|------|---------|
-| **v8.5** | 2026-09-11 | 第三份报告(华特气体,首个结构不同的样本)修 6 处展示层缺陷 + 1 处回归: **首页判断卡 a 套 a,被浏览器拆成九张**(线上东山/旭创各中 4 张,改 DOM 级回归) / Top3 证据尾「同组另有」与卡脚重复 → 撤 / Top3 公式串证据换人话(改在 `financial_audit` 源头) / 估值尺图例术语进人话 / 附录B 提示改为「同业可能被脚本选错」,人工补采真同业挂锚、提示直链 / 契约层:YAML 流式映射被半角逗号切断时拒收(此前 schema 全绿、成品印半截) / lint 新增 R15 三元组同源 · R16 ③锚引用过期(跨节点抄本过期,此前全靠人工追) / **「较上版变化」契约迁移后丢失** → 新增 `change-baseline` schema,上版只按变化区块消费的字段校验 |
-| **v8.4** | 2026-09-02 | 首次双报告实战修 11 处缺陷: 决断卡切在左括号上 / 左尾阶梯图脚 380 字墙与半截数字标签 / ③占比尺图例塞算式与窄屏挤压 / Top3 裸拼碎片 / 面板空列占宽 / 附录B 无就地口径提示 / **首页卡片印了不存在的估值锚**(v7 散文正则扫进附录D,千分位逗号截出 245.6)→ 改读③结构化锚 / `derivation.cagr` 口径未约束(填利润口径全绿但表头错标) / GBK 假失败 ×3(`verdict_block` 那个每个写手都中) / phase3 波次漂移 + 链手册范例误导 |
-| **v8.3** | 2026-09-01 | 产业链同行对比 `--compare`: 上半各家决断卡并排（机器搬运，零新判断，基准日超 90 天标陈旧）+ 下半 `compare-judge` 组内裁决（第 10 个 sub-agent，只引用不自产，四条机检: 具名成员/排名连号/全组覆盖/数字回得了源）; 全报告制（缺报告成员列出+分批补跑）; 站点独立对比页 `compare/{slug}/` + `data/compare.json` 语义合并; `--review` 收尾问过用户才重装配 |
-| **v8.2** | 2026-08-25 | ③估值推导进契约: `derivation.py` 十条算术闭合（lint R12）+ 三张表机器渲染 + 三张契约图（P=F+N 占比尺 / 左尾深度阶梯 / 面板 sparkline） |
-| **v8.1** | 2026-08-24 | 增量复查 `--review` 四段链（证据刷新 → 纯脚本分诊 → 标脏子集重评 + 复用盖戳 → 决策层与首页必重装配）取代 `--monitor`; 首页「较上版变化」区块 |
-| **v8.0** | 2026-08-19 | 判断链收敛: 9 章节 → 首页一眼结论 + 五章（①质地/②状态/③赔率/④路径/⑤怎么办）+ 附录A-E; 一处权威（删 10 维评分/定性综合方向/快筛章节/§七 7.1-7.3/§一人工抄本）; 5 个 part 写手 → 四节点写手 + decision-writer，依赖图两波调度; 首页与附录机器装配（YAML verdict 块为唯一数据源）; 框架文档 4 份 → 链手册 1 + 节点手册 4; runs/{date}/ + manifest 状态制; 质量环重写（anti_lazy_lint → lint_v8 十条机器规则，reviewer 3→2 并行 + FIX 判断/表述分诊）; 交付形态换 B 仪表盘 HTML（红标三通道 + 390px 手机一等场景）; 创业公司口径移除 |
-| **v7.1** | 2026-06-23 | 可读性重写（全说人话）: 框架退为内部思考引擎，正文大白话 + 证据 + **5 行投资决断卡**（分开"是不是好公司"与"现在该不该买"）+ §四 四维体检（懂财报/叙事/估值/热点）+ 实锤/传闻表; §七 短合成（7.1-7.3 一句话+详见，重心压到 7.4 决策）; "谁在买"统一归 §八; anti_lazy_lint Rule5 = §一/§五/§七 正文无来源标签; 项目更名 **YEZHI Company Analysis** |
-| **v7.0** | 2026-06-22 | 投资决策内核（贝叶斯之美五篇）: 8→9 章新增 §七 投资决策内核（状态后验×赔率×路径 → 好公司/好下注/好价格三分 + 行动档位）; §五 估值重做（P=F+N/反向DCF/叙事SOTP，DCF 降为交叉验证）; §四 加 4.11 状态评估; §六 加 6.4 左尾防护; anti_lazy_lint +Rule6/7; phase3 写手 4→5 |
-| **v6.0** | 2026-06-20 | 13→8 章节精简: 合并"评分总览+详细维度"/"行业+对标"/"估值+回报", 风险红旗集中; phase3 写手 5→4; 清理 Phase4/5 残留 + 删 LEGACY 模板 |
-| **v5.1.3** | 2026-05-04 | 删除不存在的 `Agent(resume=...)` API，改 Fresh-Restart with Context Injection + `review_loop.py` |
-| **v5.1.1** | 2026-04-30 | SKILL.md 调度规范化 + lessons-learned + reviewer 拆 3 并行 |
-| **v4.1** | 2026-04-24 | 激进精简：4→3 定性框架 / 独立文件职责分离 |
-| **v4.0** | 2026-04-23 | Python 数据层 + 11 框架审计 + 量化监控 (Phase 7) |
-| **v3.2** | 2026-04-19 | 协调器质量门控 + HTML 完整性 |
-| **v3.0** | 2026-04-16 | 5 阶段流水线 + 上市公司支持 |
+```
+Phase 1  采集      data-collector：结构化数据 + PDF 下载解析 + 11 框架审计 + 红旗清单
+Phase 2  精读      doc-analyst：读 PDF 原文，产出带页码引用的文档精析
+Phase 3  判断链    第一波  ①质地 ∥ ③赔率
+                   第二波  ④路径 ∥ ②状态     （④的左尾深度要用③的价格区间当分母）
+                   第三波  ⑤决策             （吃前四个节点的机器块）
+                   装配    首页 + 五章 + 附录A-E
+Phase 6  质量环    lint_v8 18 条 → reviewer-logic ∥ reviewer-delivery → 修正循环 → 出片发布
+```
+
+波次由 `scripts/node_graph.py` 按依赖图算出来，不是写死的；增量复查用同一套调度跑任意节点子集。
+写手只读「判断链手册 + 自己那一份节点手册」，跨节点只允许引用对方的判定，不许重新推导。
+
+---
+
+## 仓库结构
+
+| 目录 | 放什么 |
+|---|---|
+| [`SKILL.md`](./SKILL.md) | 主 agent 的调度说明书 |
+| [`agents/`](./agents/) | 10 个 sub-agent 定义：采集 / 精读 / 四个节点写手 / 决策 / 两个 reviewer / 对比裁决 |
+| [`references/`](./references/) | [判断链手册](./references/judgment-chain.md) + 四份节点手册 + HTML 规范 |
+| [`phases/`](./phases/) | 各阶段执行细则（判断链写作、质量环发布、增量复查、产业链对比） |
+| [`scripts/`](./scripts/) | 33 个 Python 脚本：数据采集 / 审计 / 装配 / 15 份 JSON Schema / lint / 出片 |
+| [`scripts/tests/`](./scripts/tests/) | 524 个单元测试 |
+| [`assets/html/`](./assets/html/) | 报告与对比页的 HTML / CSS 模板 |
+
+---
+
+## 版本
+
+完整记录见 [CHANGELOG.md](./CHANGELOG.md)。
+
+| 版本 | 关键变化 |
+|---|---|
+| **v8.10** | 首个轻资产订阅制样本（金山办公）打出 5 个采集缺陷 + 6 条流水线修补：PDF 把交叉引用当正文、新红旗「投资收益占营业利润过高」、合同负债藏在其他非流动负债里、lint 新增 R18、附录C 不再替⑤发号施令 |
+| **v8.9** | R17 已兑现倍数不超增长退出；技术面并入附录C；红旗 id 归一化（数据刷新不再制造假变化） |
+| **v8.5** | 首页判断卡嵌套链接被浏览器拆成九张（线上报告实测）；R15 三元组同源 / R16 价格区间引用过期 |
+| **v8.3** | 产业链对比 `--compare`：并排决断卡 + 组内裁决 |
+| **v8.1** | 增量复查 `--review`：分层重评，成本约全量三分之一 |
+| **v8.0** | 判断链收敛：9 章 → 首页 + 五章 + 附录；删除全部评分机制；首页与附录改为机器装配 |
 
 ---
 
 ## 贡献
 
-欢迎 issue / PR。重点方向：
-- 更多大师框架（Graham Net-Net / Lynch PEG / Piotroski G-Score）
-- 更多市场（新三板 / 日股 / 欧股）
-- 分析师 / 机构持仓数据源
-- 量化监控升级（因子模型 + IC 检验）
+欢迎 issue / PR。重点方向：更多审计框架、更多市场（日股 / 欧股）、机构持仓数据源。
 
----
-
-## License
-
-[MIT](./LICENSE)
-
----
-
-**作者**: [@leafpaper](https://github.com/leafpaper)
+**License**: [MIT](./LICENSE) · **作者**: [@leafpaper](https://github.com/leafpaper) ·
 **思路借鉴**: [terancejiang/Turtle_investment_framework](https://github.com/terancejiang/Turtle_investment_framework)
